@@ -1,10 +1,15 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-ca049729852a";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-1354e3e8a318";
 const CORE = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   // 65 Ko : la typographie fait partie de la coquille, contrairement aux
   // 12 Mo de zik/ qui restent hors precache.
   "./assets/fonts/inter-var.woff2", "./assets/fonts/anton-400.woff2",
   "./icons/icon-192.png", "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png", "./icons/icon-maskable-512.png",
+  "./icons/apple-touch-icon.png",
+  // ⚠️ Les captures du manifeste ne sont PAS precachees : le navigateur ne les
+  // demande qu'a l'ouverture de la fiche d'installation, et jamais ensuite.
+  // 271 Ko payes a l'installation pour une image vue une fois, non merci.
   "./src/main.js",
   "./src/core/math.js", "./src/core/rng.js", "./src/core/quality.js",
   "./src/core/settings.js", "./src/core/telemetry.js", "./src/core/spatial-hash.js",

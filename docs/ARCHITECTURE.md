@@ -158,6 +158,33 @@ Les trames sans changement ne sont pas répétées. Le player reconstruit l’en
 
 Le build modulaire est la version de travail. Le script `tools/build_single_file.py` retire les imports, ordonne les modules et produit une page autonome hors Three.js. Le service worker est contrôlé statiquement afin que tout module runtime figure dans le cache. Three.js 0.185.1 est livré dans `vendor/` (cache strict à l'install, offline réel après la première visite) et le monofichier sécurise son chargement CDN par une importmap avec empreintes SRI sha384.
 
+### Icônes : deux jeux, deux rôles
+
+`any` et `maskable` **ne peuvent pas être la même image**. Une icône `maskable`
+est recadrée par le lanceur Android dans la forme de son choix — cercle,
+squircle, goutte — et seul un cercle de 80 % du côté est garanti visible. Les
+deux icônes du jeu déclaraient `"purpose": "any maskable"` alors qu'elles ont
+des coins arrondis transparents et 48,6 % de leur dessin hors de cette zone.
+
+`tools/icones_pwa.py` produit donc la variante manquante : le dessin entier
+réduit à 78 %, posé sur son propre dégradé prolongé jusqu'aux quatre coins,
+bords estompés pour que les vagues se fondent au lieu de s'arrêter au couteau.
+Le dessin hors zone garantie tombe à 16,4 %, et ce qui reste est du fond.
+
+Le même script produit `apple-touch-icon.png` : iOS ignore `maskable`, applique
+son arrondi et compose l'alpha **sur du noir** — servir l'icône à coins
+transparents y donnait quatre coins noirs.
+
+### Ce que `tools/check_pwa.py` vérifie, et pourquoi
+
+Aucun de ces défauts n'apparaît en console : Chrome refuse ou dégrade en
+silence. Le harnais contrôle donc contre les fichiers réellement servis — chaque
+icône et capture décodée par le navigateur aux dimensions qu'elle déclare,
+l'opacité des coins des maskables, le service worker actif — puis **coupe le
+réseau et recharge** : la seule preuve du hors-ligne est une partie qui démarre
+sans serveur. `--autotest` rejoue l'état d'avant cette passe et exige que le
+harnais le refuse ; il tourne dans `npm run verify`.
+
 
 ## Delta Tropical Mayhem V3.2
 

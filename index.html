@@ -10,7 +10,11 @@
   <title>YOLE: BWA BRAWL — Tropical Mayhem V3.2</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" href="./icons/icon-192.png" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <!-- ⚠️ ICONE iOS OPAQUE, EN 180. iOS ne connait pas `maskable` : il applique
+       son propre arrondi et compose l'alpha SUR DU NOIR. Servir icon-192.png,
+       dont les coins sont transparents, y donnait quatre coins noirs sous
+       l'arrondi systeme. Celle-ci est la meme image aplatie sur son degrade. -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
   <!-- Preload : sans ca la police n'est decouverte qu'apres l'analyse du CSS,
        soit un aller-retour de retard sur le premier ecran. -->
   <link rel="preload" href="./assets/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />

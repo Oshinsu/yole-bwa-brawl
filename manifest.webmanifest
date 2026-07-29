@@ -1,24 +1,70 @@
 {
   "name": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
   "short_name": "BWA MAYHEM",
+  "lang": "fr",
+  "dir": "ltr",
   "start_url": "./",
   "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
-  "background_color": "#062847",
-  "theme_color": "#00b8c9",
+  "background_color": "#041722",
+  "theme_color": "#061a29",
+  "categories": ["games", "entertainment"],
   "description": "Combat racer tropical de yoles : Turbo, Bwa Dash, Canon Coco, Spider-Harpon, Mine Tsunami et vagues explosives.",
   "icons": [
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./assets/screenshots/large-course.webp",
+      "sizes": "1280x720",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "Quatre yoles au largue, la brume de sable derrière"
+    },
+    {
+      "src": "./assets/screenshots/large-combat.webp",
+      "sizes": "1280x720",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "Canon coco et harpon en pleine bagarre"
+    },
+    {
+      "src": "./assets/screenshots/etroit-concept.webp",
+      "sizes": "720x1280",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Quatre yoles, une seule règle : ne pas chavirer"
+    },
+    {
+      "src": "./assets/screenshots/etroit-touches.webp",
+      "sizes": "720x1280",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Les commandes, au doigt comme au clavier"
     }
   ],
   "id": "yole-bwa-brawl-tropical-mayhem-v3-2",

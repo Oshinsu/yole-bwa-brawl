@@ -28,7 +28,7 @@
     "test:crew": "node test/crew-seating.test.mjs",
     "test:framerate": "node test/framerate.test.mjs",
     "benchmark": "node test/benchmark.mjs",
-    "verify": "npm run syntax && npm run stamp && npm run build:single && npm run verify:static && npm run test:sim && npm run test:handling && npm run test:handling-feedback && npm run test:handling-render && npm run test:wake && npm run test:advanced && npm run test:combat && npm run test:juice && npm run test:services && npm run test:replay && npm run test:input && npm run test:ui && npm run test:versus && npm run test:ai && npm run test:quality && npm run test:pwason && npm run test:lanbi && npm run test:game && npm run test:crew && npm run test:framerate && npm run test:shader && npm run test:browser && npm run benchmark",
+    "verify": "npm run syntax && npm run stamp && npm run build:single && npm run verify:static && npm run test:sim && npm run test:handling && npm run test:handling-feedback && npm run test:handling-render && npm run test:wake && npm run test:advanced && npm run test:combat && npm run test:juice && npm run test:services && npm run test:replay && npm run test:input && npm run test:ui && npm run test:versus && npm run test:ai && npm run test:quality && npm run test:pwason && npm run test:lanbi && npm run test:pwa && npm run test:game && npm run test:crew && npm run test:framerate && npm run test:shader && npm run test:browser && npm run benchmark",
     "test": "npm run verify",
     "test:advanced": "node test/advanced-systems.test.mjs",
     "test:combat": "node test/combat-feedback.test.mjs",
@@ -61,7 +61,10 @@
     "deploy:railway": "npm run stamp && npm run verify && railway up",
     "test:lanbi": "node test/lanbi-controle.test.mjs",
     "domaine": "python3 tools/brancher_domaine.py",
-    "stories": "python3 tools/stories.py"
+    "stories": "python3 tools/stories.py",
+    "icones:pwa": "python3 tools/icones_pwa.py",
+    "check:pwa": "python3 tools/check_pwa.py",
+    "test:pwa": "python3 tools/check_pwa.py --autotest"
   },
   "dependencies": {
     "three": "0.185.1"
