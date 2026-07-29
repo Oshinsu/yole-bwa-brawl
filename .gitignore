@@ -1,0 +1,20 @@
+# ⚠️ 356 Mo qui n'ont RIEN à faire dans un dépôt public.
+#
+# art-source/ : les PNG SOURCES (jusqu'à 7 Mo pièce) d'où sont tirés les atlas
+#   de assets/textures/. Le jeu ne les charge jamais.
+# previews/   : les captures produites par les harnais de mesure.
+art-source/
+previews/
+
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# Sorties reproductibles
+docs/ZIK_ANALYSE.json
+*.zip
+*.tar.gz
+
+# Raccourci Windows : chemin ABSOLU, il ne veut rien dire chez quelqu'un d'autre.
+*.lnk

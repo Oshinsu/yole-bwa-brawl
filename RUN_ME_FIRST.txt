@@ -1,0 +1,18 @@
+YOLE: BWA BRAWL — TROPICAL MAYHEM V3.2
+=========================================
+
+WINDOWS
+1. Décompresser tout le ZIP.
+2. Double-cliquer sur PLAY_WINDOWS.bat.
+3. Autoriser Python si le pare-feu local le demande.
+4. Le jeu s'ouvre sur http://127.0.0.1:8765/
+
+MAC / LINUX
+chmod +x play.sh
+./play.sh
+
+VERSION MONOFICHIER
+Ouvrir YOLE_BWA_BRAWL_TROPICAL_MAYHEM_V3_2_SINGLE_FILE_ONLINE.html
+avec une connexion Internet.
+
+Le lanceur télécharge Three.js 0.185.1 dans vendor/ si nécessaire.

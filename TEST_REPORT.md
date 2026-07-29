@@ -1,0 +1,466 @@
+# Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
+
+## Passe 40 — visée corrigée, turbo à 10 s, harpon renforcé
+
+`npm run verify` : **OK**. Benchmark 145 251 pas/s.
+
+### Visée — le test verrouillait le bug
+
+Mesuré par projection écran (`camera.project`), qui ne suppose rien sur la base
+de la caméra :
+
+| `aim` | Viseur | Tir (NDC) | Accord |
+|---:|---:|---:|---|
+| +1 | 74 % (droite) | −0,187 (gauche) | **avant : non** |
+| +1 | 74 % (droite) | **+0,187 (droite)** | **après : oui** |
+
+`input-pause.test.mjs` assertait le signe **inversé** : il encodait la convention
+interne au lieu de l'écran, passait au vert, et validait le défaut.
+
+### Turbo à 10 s — effet mesuré
+
+3 graines × 35 s, pilote compétent, TOUR :
+
+| Mesure | Avant (3,1 s) | Après (10 s) |
+|---|---:|---:|
+| Vitesse moyenne | 76,2 km/h | **58,9 km/h** |
+| Gîte moyenne | 0,23 rad | 0,214 rad |
+| Hors contrôle | 17,1 % | 18,4 % |
+| Chavirages | 0 | **0** |
+| Éliminations | 0 | **0** |
+
+### Limite transparente
+
+Le −23 % de vitesse est la conséquence directe de la demande, pas un effet de
+bord. Je n'ai **pas** compensé ailleurs (poussée vélique, seuils du Grain) :
+si la course paraît molle en jeu, c'est ce couple-là qu'il faudra rééquilibrer,
+et ça demande un ressenti humain, pas une mesure.
+
+## Passe 39 — contrat tactile testé, abordages enfin mesurables
+
+`npm run verify` : **OK**. Le smoke navigateur couvre désormais le contrat 44 px.
+
+### Cibles tactiles — les deux contextes
+
+| Contexte | `pointer:coarse` | Cible minimale | Seuil applicable |
+|---|---|---:|---|
+| Souris, 640×360 | `false` | 31 px | WCAG 2.5.8 : **24 px** |
+| Tactile, 640×360 | `true` | **46 px** | contrat projet : **44 px** |
+
+Le smoke ouvre un contexte tactile dédié (`has_touch`, `is_mobile`) sur le même
+monofichier instrumenté : **8 contrôles, minimum 46 px, aucun sous 44**. Jusqu'ici
+la promesse du README n'était vérifiée par aucun test — le seul contrôle existant
+mesurait le contexte souris, où le seuil de 44 px ne s'applique pas.
+
+### Playtest multi-graines (`YOLE_GRAINES=a,b,c,d,e`)
+
+Cinq graines × 35 s, pilote compétent, niveau TOUR :
+
+| Mesure | Médiane | Étendue |
+|---|---:|---|
+| Gîte moyenne | 0,23 rad | 0,21 – 0,266 |
+| Hors contrôle | 17,1 % | 14,6 – 26,7 |
+| Vitesse | 76,2 km/h | 64,9 – 78 |
+| Chavirages | **0** | 0 – 0 |
+| Éliminations | **0** | 0 – 1 |
+| Tirs IA | 27,9 / min | 21,7 – 36,3 |
+| Roulis d'armes subi | 3,67 rad/min | 2,13 – 8,25 |
+| Roulis d'abordage subi | 4,71 rad/min | 0 – 10,56 |
+
+### Limite transparente, maintenue
+
+La fréquence d'abordage va de 0 à 30,4 par minute selon la graine. Cette
+dispersion n'est pas un défaut de calage : elle dit si la trajectoire croise
+celle d'un adversaire. **Aucun réglage n'a été fait dessus** — fixer une
+fréquence cible relève du design, pas de la mesure.
+
+## Passe 38 — correctif d'équilibrage, trouvé par un harnais qui joue
+
+`npm run verify` : **OK** — et il l'était déjà pendant que le jeu était
+injouable. C'est le point important de cette passe.
+
+### Nouveau contrôle : `npm run playtest`
+
+Il joue une vraie partie et rapporte ce qu'un pilote subit. Deux modes :
+`YOLE_PILOTE=manuel` (pilotage grossier) et `YOLE_PILOTE=competent`.
+
+| Mesure | Avant correctif | Après |
+|---|---:|---:|
+| Tirs des trois IA | 63,2 / min | **25 à 32 / min** |
+| Roulis par coup encaissé | 0,889 rad | **0,336 rad** |
+| Gîte moyenne, pilote compétent | — | **0,209 à 0,281 rad** |
+| Chavirages, pilote compétent | — | **0** |
+| Éliminations, pilote compétent | — | **0 à 1** |
+
+### A/B contre les constantes d'origine (`npm run playtest:ab`)
+
+Avec le harnais au pilotage grossier, les constantes d'AVANT donnaient
+0,925 rad de gîte moyenne contre 0,898 après. **Le désastre observé n'était donc
+pas une régression** : c'était le pilote du harnais. Le vrai défaut, lui, était
+ailleurs — dans le produit munition illimitée × roulis doublé.
+
+### Limite transparente
+
+Le taux d'abordage mesuré varie de 3,5 à 37,6 par minute d'un niveau à l'autre
+sur un échantillon unique de 45 s. Ce n'est pas exploitable ; aucun réglage n'a
+été fait dessus. Il faudrait plusieurs graines et des manches complètes.
+
+## Passe 37 — pose d'équipage : lacet, assise, accroche
+
+`npm run verify` : **OK**. Le contrôle dédié `npm run test:crew` est étendu.
+
+### Rendu pur, déterminisme intact
+
+Checksum simulation `a9818132` **inchangé**. La pose d'équipage ne touche que le
+rendu : c'est `crewPositions[i]`, calculé par la simulation, qui décide seul du
+déport.
+
+### Mesuré sur 33 768 échantillons (`npm run test:crew`)
+
+| Contrôle | Avant | Après |
+|---|---:|---:|
+| Lacet des équipiers sortis | **0°** | 78° au bout du bois |
+| Lacet du bon bord | — | **100 %** |
+| Lacet franc (> 0,9 rad) au bout | — | **100 %** |
+| Écart bassin / bois | **0,41 m** | **0,086 m** |
+| Marge au bout de la perche | 0,50 m | **0,50 m** |
+| Portée sur le bois | 20 à 49 % | **52 à 89 %** |
+| Équipage hors coque | 91,8 % | 91,8 % |
+| Équipage du côté haut | 81,4 % | 81,4 % |
+
+### Deux défauts que seule la capture a révélés
+
+- La pose se calculait sur la position **visée** au lieu de la position dessinée
+  (amortie à 10,5) : écart d'assise mesuré **0,36 m** pendant les rappels.
+- L'assise était liée à la distance de sortie et non au franchissement du
+  plat-bord : un homme à 1,6 m restait à moitié debout.
+
+### Limite transparente
+
+Le renversement du buste (1,30 rad) et le lacet (1,36 rad) sont **retenus après
+capture**, pas calculés. Une première valeur à 1,62 rad faisait lire les hommes
+comme des plongeurs en vol. Ce sont des choix d'image, jugés sur
+`previews/equipage/` — ils n'ont pas de valeur « correcte » démontrable.
+
+Le rig GLB importé emprunte les mêmes rotations via ses proxys ; il n'a pas été
+vérifié en capture dans cette passe, faute d'asset d'équipage sur cet hôte.
+
+## Passe 36 — jouabilité : équilibre, turbo, arsenal, IA, accélérateur
+
+`npm run verify` : **OK**. Nouveau maillon dans la chaîne : `npm run test:ai`.
+
+⚠️ **Checksums volontairement changés.** `SIMULATION_VERSION` passe à **3.7.0** et
+`GAMEPLAY_VERSION` à `tropical-mayhem-v3-7-equilibre`. Le gameplay a changé —
+cooldowns, coût d'équilibre du turbo, munitions de base, comportement d'IA — donc
+les replays antérieurs sont refusés par construction. Les relectures **de cette
+version** restent bit-exactes : `replayOk: true`.
+
+### Mesuré en navigateur réel (`npm run check:gameplay`)
+
+Zéro erreur console, zéro exception de page.
+
+| Contrôle | Mesure |
+|---|---|
+| Cooldown turbo | **3,10 s**, second appel immédiat refusé |
+| Couple de roulis du turbo | **+0,55 rad/s**, cohésion **−0,045** |
+| Gain de vitesse du turbo | +3,65 m/s |
+| Fenêtre de contre-gîte | 0 à 0,10 rad · 0,443 à 0,45 · **0,931 à 0,64** · 0,169 à 0,95 |
+| HUD de contre-gîte | classes `shift-open shift-perfect`, libellé « MAINTENANT ! » |
+| Armes de base | wave/harpoon/mine/rhum en munition infinie, **10 tirs sur 10** |
+| Armes de caisse | barik/chadron/lanbi/pwason à 0 au départ |
+| Écoute clavier | 0,82 → **0,58** (choquée) → **1,00** (bordée) → 0,82 (retour) |
+| IA en course | 5 turbos, **5 hors zone de survie**, écart médian au Grain 108 m |
+
+### Niveaux d'IA (`npm run test:ai`, 100 s, même graine)
+
+| Niveau | Turbos | Dashs | Total boosts |
+|---|---:|---:|---:|
+| PEYI | 6 | 0 | **6** |
+| TOUR | 45 | 8 | **53** |
+| CHANNPYON | 36 | 14 | **50** |
+
+PEYI sert de témoin : `boostRace: 0` reproduit exactement l'ancien comportement.
+
+### Invariant de vitesse
+
+Les impulsions hors `fixedStep` franchissaient le plafond dès que les IA se sont
+mises à courir : **37,85 m/s** mesurés. `clampImpulseSpeed()` est maintenant
+appelée par le turbo, le dash et le slingshot, et le test l'exerce à charge
+maximale.
+
+### Limite transparente de cette passe
+
+Le harnais `test:ai` pilote un joueur qui barre sur une sinusoïde et tient le
+turbo enfoncé. Il chavire beaucoup et finit 380 à 410 m derrière **à tous les
+niveaux** ; l'écart entre niveaux (12 m sur 400) est du bruit. Ces tests prouvent
+que le curseur de difficulté agit, et dans quel sens — **pas qu'il est bien
+calé**. Le calage demande un playtest humain, qui reste ouvert.
+
+## Passe 35 — pipeline colorimétrique, bloom séparable, allocations
+
+`npm run verify` : **OK** — 59 modules JavaScript, 20 fichiers Python, zéro
+erreur console, zéro exception de page.
+
+### Déterminisme préservé
+
+Le rendu n'a aucune autorité sur la simulation, et c'est vérifié plutôt
+qu'affirmé : les trois checksums sont **identiques** à ceux d'avant la passe.
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Simulation, 18 000 ticks | `a9818132` | `a9818132` |
+| Scénario Combat Box, 30 000 ticks | `f8a22c50` | `f8a22c50` |
+| Cadence 30/60/144 Hz | `dd2eaf6a` | `dd2eaf6a` |
+| Replay live/relecture | `36f707b0` | `36f707b0` |
+
+C'est le contrôle qui compte pour l'optimisation de `nearestIslands` : elle
+alimente `coastPenalty`, donc la physique. Sa réécriture sans allocation
+conserve exactement le même ensemble d'îles retenu, dans le même ordre.
+
+Benchmark CPU : **149 370 pas de yole par seconde** sur 480 000 pas (seuil
+anti-régression : 60 000).
+
+### Correction du pipeline colorimétrique
+
+Défaut mesuré en WebGL réel (Chromium/ANGLE, r185), pas déduit : un
+`ShaderMaterial` écrivant `0.5` rendait **128** à l'écran là où l'encodage sRGB
+donne **188**, aussi bien en rendu direct qu'à travers une `WebGLRenderTarget`.
+Avec `THREE.ColorManagement` actif, toutes les couleurs authorées en hexadécimal
+sont converties en linéaire ; rien ne les ré-encodait à la sortie.
+
+La passe de composition fait désormais exposition → ACES → sRGB → grade →
+tramage. Résultat mesuré sur une frame gelée (`npm run render:tiers`) :
+
+| Palier | Luma médiane | p05 | p95 | Écrêtage | Saturation |
+|---|---:|---:|---:|---:|---:|
+| LQ | 0,413 | 0,249 | 0,781 | 0 % | 0,623 |
+| MQ | 0,331 | 0,238 | 0,785 | 0 % | 0,662 |
+| HQ | 0,331 | 0,239 | 0,791 | 0 % | 0,661 |
+
+MQ et HQ se superposent à 0,0003 de luma médiane près. L'écart LQ subsistant
+s'explique entièrement par l'absence d'ombres portées à ce palier.
+
+Exposition retenue à **0,90**, choisie par balayage 0,55 → 1,25 sur frame gelée
+(`npm run render:exposure`) et non à l'œil.
+
+### Shaders
+
+**9/9 programmes liés** dans un vrai contexte WebGL Chromium — les sept
+précédents plus `bloom-prefilter` et `bloom-blur`. La compilation EGL locale
+reste ignorée faute de bibliothèques sur cet hôte.
+
+### Coût du bloom
+
+Mesuré avec synchronisation GPU forcée (`readPixels` 1×1 après chaque image,
+alternance A/B/A/B) : **+5 ms sur ~93 ms** sous SwiftShader, rasteriseur
+purement logiciel, à 1 280 × 760 en HQ.
+
+⚠️ Une première mesure sans synchronisation annonçait +96,8 ms — elle ne
+chronométrait que la soumission des commandes, la file GPU se vidant pendant la
+seconde boucle. Le protocole corrigé est dans `tools/check_render_tiers.py`.
+
+### Limites de cette passe
+
+- Les mesures colorimétriques et de coût sont prises sous **SwiftShader**. Les
+  couleurs sont exactes (ce sont des calculs), les **temps** ne transposent pas
+  à un GPU réel.
+- La cible de rendu reste en **8 bits par canal**. Le tone mapping travaille
+  donc sur une image déjà écrêtée à 1,0 : le bloom n'a pas de vraie réserve de
+  hautes lumières. Passer la cible en `HalfFloatType` est le prochain gain
+  visuel identifié, et il demandera de re-étalonner l'exposition.
+- `minTouchTarget` mesuré à **31 px** en paysage compact 640 × 360, alors que le
+  README annonce 44 px. Le seuil du test est à 24. Écart non corrigé dans cette
+  passe.
+
+## Passe 34 — maniabilité, Combat Juice et micro-interactions
+
+Validation ciblée exécutée pendant la passe documentaire :
+
+- `npm run test:handling` : **OK** — réponse progressive de propulsion, freinage
+  par relâchement, barre à basse vitesse, contre-braquage, drift borné, dash
+  correctif et contre-gîte parfaite déterministes ;
+- `npm run test:handling-feedback` : **OK** — états HUD stable/surf/dérive/
+  rattrapage/danger et mix d’eau continu, croissant et borné ;
+- `npm run test:handling-render` : **OK** — dérive caméra à 2,25 m, surf à
+  +2,35° de FOV, mouvement ajouté strictement nul avec mouvement réduit, V de
+  mousse directionnel et lobe solaire à 12° réduit de 78 % ;
+- `npm run test:combat` : **OK** — Coco à 9,5 m, harpon cible-ancre avec ratio de
+  traction tireur/cible 12,5, durée 6,2 s et dégâts de tension cadencés ;
+- `npm run test:juice` : **OK** — paliers d’impact harpon/Coco/mine, couches
+  audio, motifs haptiques TOTAL/DOUX et atlas V7 1024×1024, 2×2, un draw call ;
+- `npm run test:ui` : **OK** — contrats accessibilité, tactile, mouvement réduit,
+  focus et feedback transitoire.
+
+État produit confirmé :
+
+- `SIMULATION_VERSION` : `3.6.0` ;
+- `GAMEPLAY_VERSION` : `tropical-mayhem-v3-6-gamefeel` ;
+- réglage HAPTIQUE à trois niveaux `[1, 0.5, 0]`, avec repli silencieux lorsque
+  l’API de vibration n’est pas disponible ;
+- micro-interactions sans boucle infinie : action acceptée, cooldown, ressource
+  basse, visée/cible, score, statut critique et avantage Duel local ;
+- quatre signatures V7 intégrées par `assets/textures/v7/juice/juice_vfx_atlas.png` ;
+- inventaire cumulé : **74 signatures artistiques** et **75 fichiers** lorsque
+  l’atlas d’agrégation est compté.
+
+La chaîne complète `npm run verify` a été relancée après intégration finale :
+
+- **59 modules JavaScript** et **17 fichiers Python** valides ;
+- build monofichier, graphe runtime, cache PWA et importmap SRI : **OK** ;
+- simulation : checksum `a9818132` ; scénario 30 000 ticks : `f8a22c50` ;
+- replay : checksum `04e99ddb` ; cadence 30/60/144 Hz : `dd2eaf6a` identique ;
+- Chromium : **7/7 shaders liés**, mini-carte et visée validées, aucune erreur
+  console/page ;
+- UI réelle : 1440×900 sans chevauchement ; 844×390 tactile avec 11/11
+  contrôles visibles ≥44 px et zoom 46×46 ;
+- benchmark : **147 622 boat-steps/s** sur 480 000 pas.
+
+La compilation EGL locale est ignorée faute de bibliothèques sur cet hôte ; la
+compilation WebGL Chromium réelle passe. La validation haptique sur matériel
+mobile réel reste explicitement ouverte dans la section « Limite transparente ».
+
+Références : [Asset Pack V7](docs/ASSET_PACK_V7.md) et
+[planche-contact V7](previews/v7_juice_contact.png).
+
+## Passe 33 — combat, visée, menus et Duel local
+
+- `npm run verify` : **OK** sur les 52 modules JavaScript et 17 fichiers Python.
+- Coco : rayon AOE 9,5 m et feedback d'explosion renforcé.
+- Harpon : cible-ancre, traction élastique, dégâts d'impact/tension et slingshot directionnel.
+- Visée : clic droit desktop et second doigt mobile, enregistrée dans le replay solo.
+- Raccourcis AZERTY : `& é " '` pour Coco, Harpon, Mine et Rhum.
+- Duel local : J1 + J2 + deux IA, caméra partagée, HUD dédié et replay volontairement désactivé.
+- Pack d'entrée V6 : 8 nouveaux rasters ; total V5 + V6 : **70 assets**.
+- Simulation : checksum `cdf86f66` ; replay gameplay : `0156d406`.
+- Navigateur : 7 programmes WebGL liés, aucune erreur console/page, visée +9° et tir au relâchement validés.
+- Benchmark : **155 958 boat-steps/s**.
+
+Cette passe correspond à l'entrée **Passe 33** du [journal](CHANGELOG.md).
+
+## Armes ramassables — Passe 20
+
+- physique pure **`3ebe9ca8` inchangée** : les caisses ne touchent pas la coque ;
+- gameplay : scénario `1a9df2a3`, Combat Box `1857be84`, replay `35c439b1` ;
+- **`replayOk: true`** — live et relecture identiques au bit près, le nouveau système reste déterministe ;
+- 15 ramassages observés sur le scénario, IA armée en cours de manche ;
+- deux tests dédiés : l'IA ne tire jamais à vide, et cherche une caisse quand elle est à sec ;
+- `simulationVersion` `3.3.0`, `gameplayVersion` `tropical-mayhem-v3-3-pickups` — replays antérieurs incompatibles.
+
+## Résultat
+
+La commande complète suivante passe, nativement sous Windows :
+
+```bash
+npm run verify
+```
+
+Elle reconstruit le monofichier, valide le graphe de modules, la PWA et l'importmap SRI, exécute les simulations, les replays, la Combat Box, **le Tour des Yoles complet**, la compilation GLSL (skip EGL faute de bibliothèques sur cet hôte, mais **compilation WebGL réelle dans Chromium**), le smoke navigateur réel et le benchmark CPU à seuil.
+
+## Coque générée — Passe 14
+
+- coque conforme à la documentation réelle (fond rond, sans quille) en place : `[-1.08, -0.58, -5.55] → [1.08, 0.04, 5.55]`, 3 061 triangles ;
+- `fit_hull_glb.py` validé par **aller-retour sur la coque procédurale connue** : ressort à 11,100 / 1,080 / −0,620 / +0,040 à l'identique ;
+- détection automatique de l'axe long et de la proue (extrémité la plus effilée) ;
+- 219 DC / 122 260 triangles, zéro erreur console ;
+- checksums `3ebe9ca8`, `149bc2cf`, `f9a07291` inchangés.
+
+## Rig d'équipage — Passe 12
+
+- `AssetLibrary` accepte les pièces articulées : scène complète conservée, clone par `SkeletonUtils`, résolution d'articulation par alias ;
+- navigateur réel, gabarit servi sous le nom de production : **24/24 équipiers liés**, **24 squelettes distincts**, articulations pilotées par la simulation (6/6 bassins répondent à un Bwa Shift) ;
+- repli inchangé : rig absent → équipage procédural, aucune levée (`assetRigsDeclared: 1`, `crewJoints: 7`) ;
+- test dédié du piège `GLTFLoader` qui assainit `arm.L` en `armL` ;
+- checksums `3ebe9ca8`, `149bc2cf`, `f9a07291` inchangés ; zéro erreur console ;
+- capture : `previews/tropical_mayhem_v3_2_crew_rig.jpeg`.
+
+## Passe rendu — Passe 10
+
+- **caméra retournée corrigée** (bug pré-existant) : `up.y` passe de `−0,967` à `+0,966`, le haut de l'image regarde enfin vers le haut. Attribué par A/B : identique avec `impact` à 0 et à 1, donc antérieur à la passe impact ;
+- **MSAA** activé sur la cible de rendu (LQ 0 / MQ 2 / HQ 4) — la chaîne post-FX était rendue sans aucun antialiasing ;
+- **océan** : atténuation du détail spéculaire (45→260 m) et du déplacement géométrique (120→600 m) avec la distance — moiré et bandes supprimés ;
+- **couleur d'horizon unifiée** : brouillard, brume océan et ciel partagent `#d1f3f7`, mesuré identique sur les trois ;
+- 349 DC / 54 876 tris, **inchangés** ; checksums `3ebe9ca8`, `149bc2cf`, `f9a07291` inchangés ; zéro erreur console ;
+- captures : `previews/tropical_mayhem_v3_2_polish_after.jpeg`, `_after_wide.jpeg`.
+
+## Modèles GLB — Passe 09
+
+- **chargement GLB opérationnel** : GLTFLoader vendoré, `AssetLibrary`, coque de référence cuite depuis les mêmes sections que le procédural ;
+- navigateur réel : `status: ready`, 4 yoles en `fromAsset: true`, **géométrie partagée** (uuid unique) et 4 couleurs distinctes ; 353 DC / 54 812 tris, inchangés ;
+- **repli vérifié** : modèles forcés en 404 → `status: fallback`, retour procédural, partie qui tourne, zéro exception de page ;
+- test node du repli (`assetFallbackStatus: fallback`) : absence d'addon ou de fichier ne lève jamais ;
+- checksums simulation `3ebe9ca8`, scénario `149bc2cf` et replay `f9a07291` **inchangés** — le rendu n'a aucune autorité ;
+- capture : `previews/tropical_mayhem_v3_2_glb_hull.jpeg`.
+
+## Directeur d'impact — Passe 04
+
+- **Directeur d'impact** : 4 paliers, hitstop 42→125 ms plafonné à 160 ms, recul caméra directionnel, flash sous le HUD, réglage `TOTAL / DOUX / SANS` ;
+- **hitstop sans effet sur la simulation** : checksum simulation `3ebe9ca8` et checksum replay `f9a07291` **inchangés**, test unitaire `hitstopLeak: 0` et gel cumulé borné ;
+- `scenarioChecksum` `149bc2cf` ajouté au smoke : mesuré sur la simulation pure, identique avec IMPACT à TOTAL et à SANS (le checksum mesuré après les frames temps réel, lui, bouge légitimement : `fd6e55ca` sans gel, `3b364474` avec) ;
+- **bug caméra corrigé** : recul et secousse étaient réinjectés dans la pose amortie et s'intégraient au lieu de rester transitoires (horizon basculé). Roulis de pointe 5,2° sur 8 takedowns enchaînés, retour à 0,1° ;
+- **banque sonore 22 voix** synthétisée, 3 lits continus, zéro asset externe ; rendu par tranches après avoir mesuré un hoquet de 162 ms au coup d'envoi — `startMatch` retombé à ~15 ms, banque complète en < 1,5 s, zéro erreur console ;
+- capture : `previews/tropical_mayhem_v3_2_impact_flash.jpeg`.
+
+## Tour des Yoles et navigateur réel — Passe 03
+
+- **Mode Tour des Yoles 2026** : 8 étapes point-à-point, points 4/3/2/1, classement général cumulé, écrans d'étape et podium ;
+- **browser-smoke réel** : Playwright + Chromium embarqué — le harnais shader WebGL et la boucle UI s'exécutent pour de vrai, plus en skip ;
+- bug de harnais intercepté par cette première exécution réelle : uniform déclaré avant tout qualifieur de précision dans le préambule fragment (rejeté par ANGLE, toléré par Mesa) ;
+- lanceur Windows réparé (imbrication de quotes), détection de Python ;
+- favicon, `PCFShadowMap` (r185), compteurs `renderer.info` fiables (336 DC / ~55k tris mesurés en HQ sur GPU logiciel, 294 DC en MQ) ;
+- validation du jeu servi localement en conditions réelles : zéro erreur console, captures dans `previews/`.
+
+## Simulation déterministe
+
+- deux exécutions de **18 000 ticks** ;
+- checksum identique : `3ebe9ca8` (inchangé) ;
+- 30 checkpoints identiques ;
+- vitesse maximale observée : `28,6673` ;
+- récupération passive : 89 ticks ;
+- récupération avec Bwa Shift : 67 ticks.
+
+## Combat Box intégrée
+
+- **30 000 ticks**, quatre yoles ;
+- vitesse maximale : `30,9692` ;
+- checksum final du scénario : `fd6e55ca` (inchangé après ajout du Tour) ;
+- événements de la dernière manche observée : 57 tirs Coco, 56 impacts · 11 slingshots · 54 Bwa Dash · 79 Bwa Slams · 2 Turbo · 3 Takedowns.
+
+## Tour des Yoles intégré
+
+- **8 étapes enchaînées** en 37 865 ticks ;
+- points cumulés `[0, 13, 11, 26]`, champion : **LANMÈ ROUGE** (meilleur total, vérifié par assertion) ;
+- chaque étape classe les 4 yoles exactement une fois (finishers à la ligne, non-finisseurs par z) ;
+- seeds déterministes par étape, replay d'étape sauvegardé ;
+- parcours utilisateur validé en navigateur réel : clic menu → ÉTAPE 1/8, HUD distance/place, aucune erreur.
+
+## Replay
+
+- replay intégré : 1 800 ticks, 1 743 trames compressées ;
+- checksum live/relecture : `f9a07291` (inchangé).
+
+## Shaders
+
+Les six programmes (océan, ciel, Mur du Grain, pluie, particules, post-traitement) sont **compilés et liés dans un vrai contexte WebGL Chromium** (`linked: true` ×6) — première exécution effective de ce harnais, qui a intercepté le bug de précision du préambule. La validation EGL 1.5 / GLES 3.2 Mesa de la Passe 01 reste la référence hors navigateur (skip gracieux sur cette machine).
+
+## Browser smoke
+
+Chromium embarqué Playwright, monofichier avec mock Three déterministe :
+
+- chargement, match, boucle d'animation (tick 126 et plus), direction, armes, boosts, zoom, réglages, HUD, télémétrie ;
+- **zéro erreur console, zéro exception de page** ;
+- captures : `previews/tropical_mayhem_v3_2_browser_mock.png` (UI, Three simulé), `previews/tropical_mayhem_v3_2_real_render.jpeg` (rendu WebGL réel Combat Box), `previews/tropical_mayhem_v3_2_tour_mode.jpeg` (rendu réel mode Tour), `previews/tropical_mayhem_v3_2_beauty_menu.jpeg`, `_beauty_pass.jpeg` et `_beauty_calm.jpeg` (passe beauté shaders : micro-normales, traînée de soleil, crêtes translucides, mousse dentelle, perspective aérienne, grade split-tone).
+
+## Performance CPU
+
+- 120 000 ticks × 4 yoles, 480 000 étapes ;
+- 3 115,59 ms ;
+- **154 064 étapes de yole par seconde** (seuil anti-régression : 60 000).
+
+## Limite transparente
+
+Le rendu est désormais validé sous WebGL logiciel (SwiftShader) — compilation, boucle, HUD, qualité auto qui rétrograde HQ→MQ comme prévu. Reste à valider sur matériel réel :
+
+- GPU réel (frame pacing 15 minutes, chauffe, mémoire GPU) ;
+- Safari iOS et Chrome Android ;
+- haptique et manette ;
+- 336 draw calls en HQ à réduire pour le mobile (instancing/fusion).

@@ -1,0 +1,43 @@
+YOLE: BWA BRAWL — Tropical Mayhem V3.2
+FINAL VALIDATION — 2026-07-26
+
+Command: npm run verify
+Result: PASS
+
+Syntax
+- 48 JavaScript modules: OK
+- 17 Python files: OK
+
+Build and static verification
+- Single-file online build regenerated: OK
+- Static verification: OK
+
+Simulation and systems
+- Determinism: 18,000 ticks, checksum d11659b4
+- Wake grid: OK
+- Advanced crew/flood/rope/AI/hitstop systems: OK
+- Runtime services and procedural asset fallbacks: OK
+- Replay compression/vault: OK
+- Pause/input regression suite: OK
+- Integrated combat: 30,000 ticks, scenario 1e95cb08, final adedae88
+- Replay: 1,800 ticks, checksum 9b9ba8e4
+- Tour: 8 stages, 35,402 ticks
+- Crew seating: OK
+- Frame-rate determinism: 30/60/144 Hz, checksum f3cf0b31
+
+Rendering and browser
+- Browser WebGL renderer: WebKit WebGL
+- Shader programs linked: 6/6
+- EGL/GLES2 smoke: skipped because the host libraries are unavailable
+- UI/game browser smoke: OK, no page or console errors
+- Functional minimap: visible, status live, luminance range 170
+- Compact HUD at 640×360: no minimap/feed overlap, minimum top-rail target 31 px
+- Fresh real-Three visual captures: 1280×720 and 844×390
+
+Benchmark
+- 480,000 boat steps
+- 3,299.17 ms
+- 145,491 boat steps/s
+- Minimum accepted: 60,000 boat steps/s
+
+Full command completed successfully in 83 seconds on this Windows host.

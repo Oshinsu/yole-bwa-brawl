@@ -1,0 +1,57 @@
+# Publication du jeu sur GitHub Pages.
+#
+# ⚠️ AUCUNE ÉTAPE DE CONSTRUCTION. Le jeu est 100 % statique : trois.js est
+# vendoré dans vendor/, il n'y a ni bundler ni transpilation. On publie la
+# racine telle quelle.
+#
+# ⚠️ `npm run stamp` EST OBLIGATOIRE avant publication. Le service worker ouvre
+# son cache sous un nom constant et l'activation ne purge que les caches dont le
+# nom diffère : publier sans ré-estampiller laisserait chaque joueur déjà venu
+# sur l'ANCIENNE version, définitivement, sans que rien ne le signale.
+name: Publier sur GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Estampiller le service worker
+        run: python3 tools/stamp_version.py
+
+      - name: Vérifier que le précache est complet
+        run: python3 tools/verify_static.py
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - id: deploiement
+        uses: actions/deploy-pages@v4

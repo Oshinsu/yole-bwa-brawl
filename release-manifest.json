@@ -1,0 +1,15 @@
+{
+  "title": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
+  "version": "1.2.0",
+  "builtAtUtc": "2026-07-29T00:07:03.566592+00:00",
+  "verifiedCommand": "npm run verify",
+  "fileCountBeforeManifest": 284,
+  "uncompressedBytesBeforeManifest": 23499813,
+  "archive": "YOLE_BWA_BRAWL_THREEJS_TROPICAL_MAYHEM_V3_2.zip",
+  "entrypoints": [
+    "PLAY_WINDOWS.bat",
+    "play.sh",
+    "index.html",
+    "YOLE_BWA_BRAWL_TROPICAL_MAYHEM_V3_2_SINGLE_FILE_ONLINE.html"
+  ]
+}

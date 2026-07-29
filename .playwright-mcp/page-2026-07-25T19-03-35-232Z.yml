@@ -1,0 +1,93 @@
+- generic [active] [ref=f3e1]:
+  - generic "YOLE BWA BRAWL 3D" [ref=f3e2]
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic: "1"
+          - generic: CARACOLI
+          - strong: "0"
+        - generic:
+          - generic: "2"
+          - generic: CHANFLOR X
+          - strong: "0"
+        - generic:
+          - generic: "3"
+          - generic: LANMÈ ROUGE
+          - strong: "0"
+        - generic:
+          - generic: "4"
+          - generic: BWA FATAL
+          - strong: "0"
+      - generic:
+        - text: MANCHE 1
+        - strong: 00:13
+        - text: PREMIER À 5
+      - generic [ref=f3e26]:
+        - button "Qualité" [ref=f3e27] [cursor=pointer]: HQ
+        - generic [ref=f3e28]:
+          - button "Dézoomer" [ref=f3e29] [cursor=pointer]: −
+          - generic [ref=f3e30]: 118%
+          - button "Zoomer" [ref=f3e31] [cursor=pointer]: +
+        - button "Réglages" [ref=f3e32] [cursor=pointer]: ⚙
+        - button "Son" [ref=f3e33] [cursor=pointer]: 🔊
+        - button "Pause" [ref=f3e34] [cursor=pointer]: Ⅱ
+    - generic: ☀ ALIZÉS STABLES · 10 m/s
+    - generic: HQ · 16.7 ms · 354 DC · 54918 tris · wake 0.008 · debris 0 · 0e022a7e
+    - generic: HARPON VERROUILLÉ
+    - generic:
+      - generic "Direction" [ref=f3e35]: DIRIGER
+      - generic:
+        - generic:
+          - generic: "66"
+          - generic: KM/H
+        - generic:
+          - generic: ÉQUILIBRE
+          - generic: STABLE
+        - generic:
+          - emphasis
+        - generic:
+          - generic: TURBO FLOW
+          - generic: 99%
+        - generic:
+          - generic: ● ● ● ● ● ●
+          - generic: VOILE 82%
+          - generic: 0 KG
+        - generic "Intégrité systémique":
+          - generic: COQUE
+          - generic:
+            - emphasis
+          - generic: MÂT
+          - generic:
+            - emphasis
+          - generic: VOILE
+          - generic:
+            - emphasis
+          - generic: BWA
+          - generic:
+            - emphasis
+      - generic [ref=f3e39]:
+        - button "🥥 COCO BOUM PRÊT" [ref=f3e40] [cursor=pointer]:
+          - generic [ref=f3e41]: 🥥
+          - generic [ref=f3e42]: COCO BOUM
+          - generic [ref=f3e43]: PRÊT
+        - button "🕸 SPIDER HARPON PRÊT" [ref=f3e44] [cursor=pointer]:
+          - generic [ref=f3e45]: 🕸
+          - generic [ref=f3e46]: SPIDER HARPON
+          - generic [ref=f3e47]: PRÊT
+        - button "🌋 MINE TSUNAMI PRÊT" [ref=f3e48] [cursor=pointer]:
+          - generic [ref=f3e49]: 🌋
+          - generic [ref=f3e50]: MINE TSUNAMI
+          - generic [ref=f3e51]: PRÊT
+        - button "🔥 TURBO AVANT" [ref=f3e52] [cursor=pointer]:
+          - generic [ref=f3e53]: 🔥
+          - generic [ref=f3e54]: TURBO
+          - generic [ref=f3e55]: AVANT
+        - button "💨 BWA DASH LATÉRAL" [ref=f3e56] [cursor=pointer]:
+          - generic [ref=f3e57]: 💨
+          - generic [ref=f3e58]: BWA DASH
+          - generic [ref=f3e59]: LATÉRAL
+        - button "🪵 BWA SHIFT STABILISER" [ref=f3e60] [cursor=pointer]:
+          - generic [ref=f3e61]: 🪵
+          - generic [ref=f3e62]: BWA SHIFT
+          - generic [ref=f3e63]: STABILISER

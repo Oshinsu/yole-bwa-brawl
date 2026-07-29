@@ -1,0 +1,4005 @@
+{
+  "catalog_version": "4.0.0",
+  "project": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
+  "locale": "fr-FR",
+  "last_reviewed": "2026-07-26",
+  "supersedes": [
+    "les prescriptions de génération contradictoires de docs/ART_DIRECTION.md antérieures au verrou V4",
+    "l'inventaire d'état historique de docs/ASSET_BACKLOG.md"
+  ],
+  "purpose": "Catalogue de prompts de production pour les surfaces UI, boutons, menus, sous-menus, HUD, mini-carte, identités de yoles et environnement. Les libellés, scores, positions, routes et états restent pilotés par le runtime.",
+  "runtime_snapshot": {
+    "ui_surfaces": "Le bloc V4 tardif de style.css dessine actuellement les cadres et boutons en CSS. Les anciens ui_panneau.png, ui_bouton_idle.png et ui_bouton_pressed.png sont des assets legacy, pas une preuve d'usage actif.",
+    "modal_backdrop": "assets/textures/menu_pause_v4.jpg est la cible active du bloc V4; menu_pause.jpg est legacy.",
+    "minimap": "La mini-carte active est le canvas #minimapCanvas, dessiné dans src/game/hud.js. Une image générée ne doit jamais cuire le tracé, les positions ou les numéros.",
+    "water": "La normale de détail et le masque de crête sont procéduraux dans src/render/ocean.js. Ne pas demander de normal map à ImageGen.",
+    "text": "Tous les mots, chiffres, unités, noms d'équipe, cooldowns, états et badges restent en HTML/CSS/canvas."
+  },
+  "prompt_schema": {
+    "compile_order": [
+      "use_case",
+      "asset_type",
+      "primary_request",
+      "input_images",
+      "scene_backdrop",
+      "subject",
+      "style_medium",
+      "composition_framing",
+      "lighting_mood",
+      "color_palette",
+      "materials_textures",
+      "text_verbatim",
+      "constraints",
+      "avoid"
+    ],
+    "rule": "Concaténer les tokens partagés puis les champs prompt non nuls. Une entrée family se génère membre par membre, jamais en une seule planche.",
+    "default_tool_mode": "built_in_imagegen",
+    "one_distinct_asset_per_call": true,
+    "text_policy": "Aucun texte dans les fonds, cadres, boutons, icônes, voiles ou décors. text_verbatim vaut null sauf exception explicitement approuvée."
+  },
+  "naming": {
+    "asset_id": "snake_case ASCII, préfixé ui_, yole_ ou env_",
+    "source": "art-source/generated/<asset_id>_source.png",
+    "candidate": "art-source/generated/<asset_id>_candidate_vNN.png",
+    "delivery": "assets/textures/<nom_stable>.<png|jpg>",
+    "never_overwrite_before_validation": true
+  },
+  "references": {
+    "ref_yole_action": {
+      "path": "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+      "role": "référence d'authenticité: coque ronde étroite, bwa portés, posture et densité d'équipage",
+      "rights_status": "user_provided_reference_only",
+      "never_copy": "logos, sponsors, numéros, personnes identifiables"
+    },
+    "ref_yole_lagoon": {
+      "path": "C:/Users/Gary/Downloads/images (3).jpg",
+      "role": "référence d'authenticité: gréement, géométrie de voile, lecture aérienne et couleur d'eau",
+      "rights_status": "user_provided_reference_only",
+      "never_copy": "logos, marques ou livrée exacte"
+    },
+    "ref_arcade_hud": {
+      "path": "C:/Users/Gary/Downloads/ChatGPT Image 20 juil. 2026, 15_14_31 (2).png",
+      "role": "référence de hiérarchie arcade, mini-carte et boutons d'action; pas une cible de densité ni un écran à reproduire",
+      "rights_status": "user_provided_reference_only",
+      "never_copy": "texte, logos, composition exacte, canon ou photoréalisme"
+    },
+    "ref_current_course": {
+      "path": "previews/03_course.png",
+      "role": "diagnostic avant V4: eau facettée, îlots coniques, cadres lourds et centre encombré",
+      "rights_status": "project_owned"
+    },
+    "ref_hud_v4": {
+      "path": "art-source/ui_hud_direction_v4.png",
+      "dimensions_px": [
+        1672,
+        941
+      ],
+      "role": "cible approuvée de composition et de rapport d'échelle",
+      "rights_status": "project_owned_generated",
+      "artifact_role": "art_direction_reference_only",
+      "do_not_ship_or_display": true,
+      "do_not_bake_its_text": true
+    }
+  },
+  "shared_art_direction": {
+    "global_v4": {
+      "primary_request": "Sport nautique martiniquais transformé en crash-racer tropical lisible sur mobile, énergie agressive obtenue par la silhouette, le contraste et le mouvement.",
+      "style_medium": "stylisation 3D arcade premium, formes crédibles simplifiées, détails peints francs, aucune imitation photographique pour les assets de jeu",
+      "lighting_mood": "heure dorée permanente; soleil bas chaud; ombres teal colorées; le Grain est le seul état sombre",
+      "color_palette": {
+        "deep_sea": "#0d4f63",
+        "shallow_sea": "#2fb9c4",
+        "foam": "#eefaff",
+        "horizon": "#d1f3f7",
+        "zenith": "#079bd1",
+        "jungle": [
+          "#1c8b4e",
+          "#0a5c39"
+        ],
+        "sand": "#e8d7a2",
+        "warm_wood": "#c98a45",
+        "carnival_gold": "#ffc531",
+        "storm": "#160f2f",
+        "ui_ink": "#031724",
+        "ui_brass": "#d7aa5b"
+      },
+      "constraints": [
+        "ancrage martiniquais spécifique",
+        "silhouette lisible à 48 px",
+        "aucun logo, sponsor, marque, watermark ou texte parasite",
+        "le madras est interdit en V4",
+        "djab et chevrons restent subtils et originaux",
+        "aucun élément polynésien, tiki, pirate ou speedboat"
+      ],
+      "avoid": [
+        "gris neutre dominant",
+        "glossy sci-fi HUD",
+        "cadres baroques épais",
+        "cordage décoratif omniprésent",
+        "dégradés plastiques sur tous les volumes",
+        "tropical générique de brochure",
+        "photoréalisme des personnages",
+        "texte illisible généré"
+      ]
+    },
+    "ui_v4": {
+      "primary_request": "Interface de sport de combat nautique: encre marine mate, laiton patiné et fines touches de bois brûlé, chevrons rapides, coins coupés, cadres minces.",
+      "style_medium": "peinture UI raster nette, peu profonde, compatible 9-slice, contraste fort sans surcharge",
+      "composition_framing": "centre de gameplay dégagé; HUD repoussé aux bords; silhouettes compactes; grands espaces intérieurs pour le texte runtime",
+      "materials_textures": "panneau bleu-noir mat, micro-grain de toile ou bois brûlé, liseré laiton fin, corde seulement aux points d'ancrage",
+      "constraints": [
+        "aucun libellé cuit",
+        "aucun faux bouton ou faux chiffre",
+        "bord actif inférieur à 12% de la petite dimension",
+        "lisible sur soleil tropical et écran de 720 px",
+        "zones tactiles distinctes de 44 CSS px minimum"
+      ],
+      "avoid": [
+        "verre générique",
+        "gros cadres bois façon taverne",
+        "ornement folklorique",
+        "néon cyberpunk",
+        "embossage texte",
+        "centre d'écran occupé par une carte ou un panneau"
+      ]
+    },
+    "yole_v4": {
+      "primary_request": "Yole ronde martiniquaise anatomiquement crédible: coque très étroite et ronde sans quille, mât raqué, vraie voile triangulaire, faisceau de bwa et équipage en appui.",
+      "style_medium": "réalisme stylisé arcade, matériaux usés, détails concentrés sur la silhouette",
+      "materials_textures": "bois salé chaud, toile vieillie, peinture écaillée neutre, coton mat",
+      "constraints": [
+        "géométrie et posture inspirées des deux photos de yoles",
+        "aucune quille, gouvernail ou coque de speedboat",
+        "motifs originaux djab, chevrons, koulèv, lanbi, kolibri ou volcan",
+        "les couleurs d'équipe restent des multiplicateurs runtime"
+      ],
+      "avoid": [
+        "madras",
+        "voile de yacht moderne",
+        "catamaran",
+        "pirate",
+        "équipage bodybuilder photoréaliste",
+        "sponsor réel"
+      ]
+    },
+    "environment_calm_v4": {
+      "primary_request": "Mer et côte martiniquaises à l'heure dorée, relief volcanique concave, eau fluide à rides orientées et écume fine.",
+      "style_medium": "stylisation 3D arcade premium avec texture naturelle contrôlée",
+      "lighting_mood": "contre-jour chaud, crêtes d'eau ivoire translucides, creux teal, brume horizon cyan pâle",
+      "constraints": [
+        "horizon calme et lisible",
+        "îlots irréguliers boisés jusqu'aux crêtes",
+        "aucun cône parfait",
+        "pas de soleil multiplié dans une texture répétée"
+      ],
+      "avoid": [
+        "mer métallique",
+        "hachures polygonales géantes",
+        "vagues de tempête en état calme",
+        "montagnes triangulaires",
+        "brume grise",
+        "plage de carte postale vide"
+      ]
+    },
+    "environment_storm_v4": {
+      "primary_request": "Mur du Grain martiniquais menaçant, masse nuageuse violette presque noire, pluie localisée et éclairs, sans basculer toute la scène en nuit.",
+      "lighting_mood": "contraste dramatique; bord chaud du soleil encore visible devant le Grain",
+      "constraints": [
+        "seul état sombre du jeu",
+        "silhouette des yoles toujours lisible",
+        "aucun texte ou symbole météo"
+      ],
+      "avoid": [
+        "ouragan satellite",
+        "ciel spatial",
+        "nuit totale",
+        "éclairs sur toute la texture"
+      ]
+    }
+  },
+  "transparency_profiles": {
+    "none": {
+      "delivery_alpha": false
+    },
+    "green_key_simple": {
+      "working_background": "#00ff00",
+      "instruction": "Fond parfaitement uniforme, sans ombre, reflet, texture, sol ni variation. Ne jamais employer #00ff00 dans le sujet.",
+      "tool_source": "ImageGen skill",
+      "tool_path_windows": "%USERPROFILE%/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+      "postprocess_shell": "PowerShell",
+      "postprocess_command_template": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input <source.png> --out <candidate.png> --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+      "validation": "alpha présent, coins alpha 0, aucune frange verte"
+    },
+    "magenta_key_foliage": {
+      "working_background": "#ff00ff",
+      "instruction": "Fond parfaitement uniforme, sans ombre, reflet, texture, sol ni variation. Ne jamais employer #ff00ff dans le sujet.",
+      "tool_source": "ImageGen skill",
+      "tool_path_windows": "%USERPROFILE%/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+      "postprocess_shell": "PowerShell",
+      "postprocess_command_template": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input <source.png> --out <candidate.png> --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+      "validation": "alpha présent, coins alpha 0, feuillage sans frange magenta; si échec sur les feuilles fines, demander avant tout fallback en transparence native"
+    },
+    "black_additive": {
+      "working_background": "#000000",
+      "delivery_alpha": false,
+      "instruction": "Fond noir pur RGB 0,0,0 jusque dans les quatre coins; aucun séparateur ou voile gris.",
+      "validation": "tous les coins et séparateurs RGB <= 2; test Screen/Additive sans rectangle visible"
+    }
+  },
+  "assets": [
+    {
+      "id": "ui_hud_master_mockup",
+      "category": "ui/art_direction",
+      "priority": "P0",
+      "artifact_role": "reference_only_do_not_ship",
+      "covers": [
+        "composition HUD paysage",
+        "mini-carte",
+        "échelle yole/eau",
+        "répartition des commandes"
+      ],
+      "output": {
+        "path": "art-source/ui_hud_direction_v4.png",
+        "working_px": [
+          1672,
+          941
+        ],
+        "delivery_px": [
+          1672,
+          941
+        ],
+        "aspect_ratio": "16:9",
+        "format": "PNG",
+        "alpha": false,
+        "do_not_cache_or_display": true
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4",
+          "yole_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "ui-mockup",
+          "asset_type": "maquette maître de HUD paysage pour direction artistique uniquement",
+          "primary_request": "Réunir l'authenticité de la yole réelle, la lecture claire du lagon, la hiérarchie du HUD arcade et les contrôles réellement présents dans le screenshot courant.",
+          "input_images": [
+            "ref_yole_action: authenticité coque, bwa et équipage",
+            "ref_yole_lagoon: gréement, eau et vue de course",
+            "ref_arcade_hud: hiérarchie seulement",
+            "ref_current_course: inventaire fonctionnel et problèmes à corriger"
+          ],
+          "scene_backdrop": "course de yoles au soleil bas entre côte volcanique et îlots",
+          "subject": "yole joueur crédible au premier plan et trois rivales lisibles",
+          "style_medium": "maquette UI de jeu mobile AAA, paysage, réaliste stylisée",
+          "composition_framing": "laisser libre le rectangle central x=27–73%, y=17–66%; classement en haut gauche, position au bord haut, mini-carte en haut droite, contrôles aux bords bas",
+          "lighting_mood": "heure dorée énergique, eau teal claire",
+          "color_palette": "palette V4 verrouillée",
+          "materials_textures": "cadres fins en encre marine et laiton; toile, bois et écume crédibles",
+          "text_verbatim": null,
+          "constraints": [
+            "la maquette peut contenir des espaces réservés, mais aucun texte généré ne sera réutilisé",
+            "ne pas couvrir la trajectoire ni les rivales",
+            "ne pas transformer cette maquette en texture de jeu"
+          ],
+          "avoid": [
+            "HUD vertical",
+            "panneaux au centre",
+            "copie exacte de ref_arcade_hud",
+            "cadres bois épais",
+            "madras"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "docs/ART_DIRECTION.md",
+          "revues visuelles"
+        ],
+        "runtime_wiring": "interdit"
+      },
+      "validation": [
+        "centre de gameplay dégagé",
+        "tous les contrôles réels représentés aux bords",
+        "aucun élément de maquette livré dans assets/textures"
+      ]
+    },
+    {
+      "id": "ui_panel_9slice_v4",
+      "category": "ui/container",
+      "priority": "P1",
+      "artifact_role": "optional_raster_skin_currently_css",
+      "covers": [
+        ".leaderboard",
+        ".round-card",
+        ".status",
+        ".menu-card",
+        ".modal",
+        ".weather-chip",
+        ".perf-stats",
+        ".rotate-hint"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_panel_9slice.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          256,
+          256
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 28,
+        "max_kb": 64
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "skin 9-slice de panneau HUD",
+          "primary_request": "Cadre très fin bleu-noir mat, coins coupés, filet laiton patiné, micro-chevrons seulement dans deux coins.",
+          "input_images": [
+            "ref_hud_v4: proportions et finesse"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme pour détourage",
+          "subject": "un seul panneau carré frontal avec grand centre calme",
+          "style_medium": "raster UI net",
+          "composition_framing": "symétrique, bord extérieur 9%, zone centrale uniforme 66%",
+          "lighting_mood": "reflet supérieur discret",
+          "color_palette": "#031724, #0d4f63, #d7aa5b, #eefaff",
+          "materials_textures": "encre marine mate, laiton fin, bois brûlé presque invisible",
+          "text_verbatim": null,
+          "constraints": [
+            "coins et bords compatibles 9-slice",
+            "aucun rivet dans la zone étirable",
+            "aucune corde épaisse"
+          ],
+          "avoid": [
+            "cadre taverne",
+            "verre brillant",
+            "ornement central",
+            "texte"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          "style.css bloc V4, uniquement si la variante raster gagne le test A/B"
+        ],
+        "runtime_wiring": "candidate_not_wired",
+        "fallback": "conserver les surfaces CSS V4"
+      },
+      "validation": [
+        "étirement propre à 160x56, 300x140 et 620x480",
+        "aucun coin déformé",
+        "centre assez sombre pour texte blanc AA"
+      ]
+    },
+    {
+      "id": "ui_alert_9slice_v4",
+      "category": "ui/container",
+      "priority": "P1",
+      "artifact_role": "optional_raster_skin_currently_css",
+      "covers": [
+        "#stormWarning",
+        "#message",
+        "#revengeBtn",
+        ".kill"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_alert_9slice.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          768,
+          256
+        ],
+        "aspect_ratio": "3:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 52,
+        "max_kb": 96
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "cartouche d'alerte 9-slice",
+          "primary_request": "Cartouche horizontal nerveux, angles en flèche, encre marine très sombre, un liseré cramoisi et un point d'or.",
+          "input_images": [
+            "ref_hud_v4: finesse des cartouches"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un cartouche vide",
+          "style_medium": "raster UI net",
+          "composition_framing": "grande zone centrale sans décoration",
+          "lighting_mood": "urgence lisible, pas de glow massif",
+          "color_palette": "#031724, #ef3f75, #ffc531, #eefaff",
+          "materials_textures": "peinture mate et filet laiton",
+          "text_verbatim": null,
+          "constraints": [
+            "9-slice horizontal",
+            "aucun pictogramme",
+            "pas de texture sous le futur texte"
+          ],
+          "avoid": [
+            "violet néon plein",
+            "cadre épais",
+            "texte",
+            "éclair décoratif"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          "#stormWarning",
+          "#message",
+          "#revengeBtn",
+          ".kill"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "lisible derrière ciel clair et Grain",
+        "aucune répétition visible à 260–640 px de large"
+      ]
+    },
+    {
+      "id": "ui_button_primary_idle_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#playBtn",
+        "#customCloseBtn",
+        "#resumeBtn",
+        "#rematchBtn",
+        "#retryBtn"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_button_primary_idle.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          768,
+          256
+        ],
+        "aspect_ratio": "3:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 54,
+        "max_kb": 96
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "bouton principal de menu 9-slice, état idle",
+          "primary_request": "Bouton horizontal agressif mais simple, pointe avant discrète, surface orange brûlé et or, coque bleu-noir très mince.",
+          "input_images": [
+            "ref_hud_v4: densité de cadre"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un bouton vide",
+          "style_medium": "raster UI premium",
+          "composition_framing": "centre entièrement libre pour deux lignes HTML",
+          "lighting_mood": "highlight supérieur fin",
+          "color_palette": "#ff7524, #ffc531, #031724, #eefaff",
+          "materials_textures": "peinture de coque mate, laiton patiné",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun pictogramme",
+            "compatible 9-slice",
+            "contour visible à 48 px de haut"
+          ],
+          "avoid": [
+            "pilule glossy",
+            "texte",
+            "gros relief 3D",
+            "corde"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".primary"
+        ],
+        "runtime_wiring": "candidate_not_wired",
+        "state_policy": "disabled et focus restent des filtres/contours CSS"
+      },
+      "validation": [
+        "texte runtime centré sans collision",
+        "test 235x50 et 420x64",
+        "contraste du libellé >= 4.5:1"
+      ]
+    },
+    {
+      "id": "ui_button_primary_pressed_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#playBtn:active",
+        "#customCloseBtn:active",
+        "#resumeBtn:active",
+        "#rematchBtn:active",
+        "#retryBtn:active"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_button_primary_pressed.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          768,
+          256
+        ],
+        "aspect_ratio": "3:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 54,
+        "max_kb": 96
+      },
+      "generation": {
+        "intent": "edit",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "precise-object-edit",
+          "asset_type": "bouton principal de menu 9-slice, état pressed",
+          "primary_request": "Enfoncer optiquement le bouton de 6%, assombrir le haut, renforcer l'ombre interne et déplacer le reflet vers le bas.",
+          "input_images": [
+            "ui_button_primary_idle_v4 working source before chroma removal: edit target"
+          ],
+          "scene_backdrop": "préserver exactement le fond #00ff00 parfaitement uniforme de la source idle",
+          "subject": "même bouton",
+          "style_medium": "même raster UI",
+          "composition_framing": "silhouette et padding strictement identiques",
+          "lighting_mood": "état appuyé immédiat",
+          "color_palette": "identique à l'idle",
+          "materials_textures": "identiques à l'idle",
+          "text_verbatim": null,
+          "constraints": [
+            "changer uniquement l'état d'enfoncement",
+            "préserver le fond chroma #00ff00, dimensions, coins et insets; créer l'alpha seulement après l'edit avec le helper"
+          ],
+          "avoid": [
+            "nouvel ornement",
+            "texte",
+            "changement de couleur d'identité"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".primary:active",
+          ".primary.pressed"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "différence perceptible en moins de 80 ms",
+        "aucun saut de silhouette entre idle et pressed"
+      ]
+    },
+    {
+      "id": "ui_button_secondary_idle_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#tourBtn",
+        "#customBtn",
+        "#restartBtn",
+        "#replayBtn",
+        "#downloadReplayBtn",
+        "#downloadTelemetryBtn"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_button_secondary_idle.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          768,
+          256
+        ],
+        "aspect_ratio": "3:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 54,
+        "max_kb": 96
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "bouton secondaire 9-slice, état idle",
+          "primary_request": "Bouton horizontal bleu-noir mat, filet teal très fin, micro-laiton sur le bord gauche, centre vide.",
+          "input_images": [
+            "ref_hud_v4: cadres fins"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un bouton vide",
+          "style_medium": "raster UI premium",
+          "composition_framing": "compatible une ou deux lignes HTML",
+          "lighting_mood": "calme mais tactile",
+          "color_palette": "#031724, #0d4f63, #2fb9c4, #d7aa5b",
+          "materials_textures": "peinture mate, grain imperceptible",
+          "text_verbatim": null,
+          "constraints": [
+            "compatible 9-slice",
+            "aucune icône",
+            "aucun motif sous le texte"
+          ],
+          "avoid": [
+            "verre",
+            "texte",
+            "bois massif",
+            "bord blanc épais"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".secondary"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "étirement propre de 180 à 460 px",
+        "distinction immédiate du primaire"
+      ]
+    },
+    {
+      "id": "ui_button_secondary_pressed_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#tourBtn:active",
+        "#customBtn:active",
+        "#restartBtn:active",
+        "#replayBtn:active",
+        "#downloadReplayBtn:active",
+        "#downloadTelemetryBtn:active"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_button_secondary_pressed.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          768,
+          256
+        ],
+        "aspect_ratio": "3:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 54,
+        "max_kb": 96
+      },
+      "generation": {
+        "intent": "edit",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "precise-object-edit",
+          "asset_type": "bouton secondaire 9-slice, état pressed",
+          "primary_request": "Changer uniquement l'état enfoncé: surface plus sombre, reflet bas, ombre interne courte.",
+          "input_images": [
+            "ui_button_secondary_idle_v4 working source before chroma removal: edit target"
+          ],
+          "scene_backdrop": "préserver exactement le fond #00ff00 parfaitement uniforme de la source idle",
+          "subject": "même bouton",
+          "style_medium": "même raster UI",
+          "composition_framing": "silhouette identique",
+          "lighting_mood": "feedback tactile",
+          "color_palette": "identique à l'idle",
+          "materials_textures": "identiques à l'idle",
+          "text_verbatim": null,
+          "constraints": [
+            "préserver le fond chroma #00ff00, dimensions et insets; créer l'alpha seulement après l'edit avec le helper"
+          ],
+          "avoid": [
+            "nouvel élément",
+            "texte",
+            "glow"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".secondary:active",
+          ".secondary.pressed"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "aucun saut de bord",
+        "pressed plus sombre que idle"
+      ]
+    },
+    {
+      "id": "ui_utility_button_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#qualityBtn",
+        "#zoomOutBtn",
+        "#zoomInBtn",
+        "#settingsBtn",
+        "#soundBtn",
+        "#pauseBtn"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_utility_button.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          256,
+          256
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 56
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "fond carré compact de commande de bord",
+          "primary_request": "Commande carrée compacte, coins coupés, surface bleu-noir, filet laiton mince, centre vide pour glyphe runtime.",
+          "input_images": [
+            "ref_hud_v4: groupe de commandes haut droite"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un seul fond de bouton",
+          "style_medium": "raster UI net",
+          "composition_framing": "symétrique, padding central 42%",
+          "lighting_mood": "mat",
+          "color_palette": "#031724, #0d4f63, #d7aa5b",
+          "materials_textures": "peinture mate et liseré laiton",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune icône",
+            "lisible à 31 px",
+            "état pressed créé par transform/brightness CSS"
+          ],
+          "avoid": [
+            "cercle glossy",
+            "texte",
+            "cordage",
+            "reflet blanc massif"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".top-actions .icon-btn",
+          ".zoom-cluster button"
+        ],
+        "runtime_wiring": "candidate_not_wired",
+        "state_policy": "pressed, disabled et focus sont CSS; HQ/MQ/LQ et +/− restent du texte runtime"
+      },
+      "validation": [
+        "groupe haut droite visuellement unifié",
+        "aucune collision avec mini-carte",
+        "glyphe lisible à 31 et 42 px"
+      ]
+    },
+    {
+      "id": "ui_choice_tile_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#hapticsToggle",
+        "#stableCameraToggle",
+        "#flashToggle",
+        "#impactToggle",
+        "#leftHandedToggle",
+        "#perfToggle",
+        "#autoQualityToggle",
+        "#rigChoices button",
+        "#liveryChoices button"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_choice_tile_9slice.png",
+        "working_px": [
+          1024,
+          512
+        ],
+        "delivery_px": [
+          512,
+          256
+        ],
+        "aspect_ratio": "2:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "nine_slice_inset_px": 42,
+        "max_kb": 72
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "tuile neutre de réglage et de personnalisation",
+          "primary_request": "Tuile horizontale sobre, encoche d'accent à gauche, fond encre marine, bord teal/laiton très fin.",
+          "input_images": [
+            "ref_hud_v4: langage de panneau"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "une tuile vide",
+          "style_medium": "raster UI 9-slice",
+          "composition_framing": "zone gauche libre pour glyphe, deux lignes libres à droite",
+          "lighting_mood": "mat",
+          "color_palette": "#031724, #0d4f63, #2fb9c4, #d7aa5b",
+          "materials_textures": "panneau peint",
+          "text_verbatim": null,
+          "constraints": [
+            "active/inactive pilotés par teinte et outline CSS",
+            "aucun symbole ou texte",
+            "9-slice"
+          ],
+          "avoid": [
+            "carte collectible",
+            "bois lourd",
+            "texte",
+            "glow actif cuit"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".setting-toggle",
+          ".custom-choices button"
+        ],
+        "runtime_wiring": "candidate_not_wired",
+        "state_policy": ".active reste un accent CSS pour conserver accessibilité et thèmes"
+      },
+      "validation": [
+        "texte français long ne touche pas le cadre",
+        "états actif/inactif discernables sans dépendre uniquement de la couleur"
+      ]
+    },
+    {
+      "id": "ui_action_button_idle_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#bwaBtn",
+        "#boostLateralBtn",
+        "#boostForwardBtn",
+        "#weaponSlotBtn"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_action_idle.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          256,
+          256
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 72
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "cadre circulaire de bouton d'action",
+          "primary_request": "Anneau tactile circulaire mince, encre marine profonde, micro-laiton, encoche basse neutre destinée au code couleur runtime.",
+          "input_images": [
+            "ref_arcade_hud: hiérarchie circulaire seulement",
+            "ref_hud_v4: proportions paysage"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un seul bouton vide",
+          "style_medium": "raster UI net",
+          "composition_framing": "centre libre 58%, bord extérieur fin",
+          "lighting_mood": "mat, léger rim clair",
+          "color_palette": "#031724, #0d4f63, #d7aa5b, #eefaff",
+          "materials_textures": "panneau peint, très peu de bois",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune icône",
+            "aucune couleur d'arme cuite",
+            "lisible à 50–72 px",
+            "label HTML peut rester sous le cercle"
+          ],
+          "avoid": [
+            "gros donut de corde",
+            "néon",
+            "texte",
+            "glow coloré"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".action"
+        ],
+        "runtime_wiring": "candidate_not_wired",
+        "state_policy": "liseré arme, cooldown, empty et focus restent runtime"
+      },
+      "validation": [
+        "silhouette nette à 50 px",
+        "quatre boutons tiennent sans chevauchement en 660 px de large"
+      ]
+    },
+    {
+      "id": "ui_action_button_pressed_v4",
+      "category": "ui/button",
+      "priority": "P0",
+      "covers": [
+        "#bwaBtn:active",
+        "#boostLateralBtn:active",
+        "#boostForwardBtn:active",
+        "#weaponSlotBtn:active"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_action_pressed.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          256,
+          256
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 72
+      },
+      "generation": {
+        "intent": "edit",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "precise-object-edit",
+          "asset_type": "cadre circulaire de bouton d'action, état pressed",
+          "primary_request": "Changer uniquement l'état tactile: anneau enfoncé, centre 12% plus sombre, rim supérieur réduit et ombre interne plus courte.",
+          "input_images": [
+            "ui_action_button_idle_v4 working source before chroma removal: edit target"
+          ],
+          "scene_backdrop": "préserver exactement le fond #00ff00 parfaitement uniforme de la source idle",
+          "subject": "même bouton",
+          "style_medium": "même raster UI",
+          "composition_framing": "silhouette strictement identique",
+          "lighting_mood": "feedback instantané",
+          "color_palette": "identique",
+          "materials_textures": "identiques",
+          "text_verbatim": null,
+          "constraints": [
+            "préserver le fond chroma #00ff00, dimensions et centre libre; créer l'alpha seulement après l'edit avec le helper"
+          ],
+          "avoid": [
+            "couleur d'arme",
+            "texte",
+            "nouvel ornement"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".action:active",
+          ".action.pressed"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "différence claire idle/pressed",
+        "aucun wobble de bord"
+      ]
+    },
+    {
+      "id": "ui_joystick_base_v4",
+      "category": "ui/control",
+      "priority": "P1",
+      "covers": [
+        ".joy-ring"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_joystick_base.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          256,
+          256
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 72
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "base de joystick mobile",
+          "primary_request": "Instrument de barre circulaire fin, deux repères latéraux en chevron, anneau bleu-noir et filet laiton; pas un cordage.",
+          "input_images": [
+            "ref_hud_v4: contrôle bas gauche"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "anneau percé au centre",
+          "style_medium": "raster UI net",
+          "composition_framing": "trou central 58%, padding 8%",
+          "lighting_mood": "mat",
+          "color_palette": "#031724, #0d4f63, #d7aa5b, #2fb9c4",
+          "materials_textures": "instrument peint",
+          "text_verbatim": null,
+          "constraints": [
+            "trou central réellement transparent",
+            "aucun faux stick",
+            "lisible à 89 px"
+          ],
+          "avoid": [
+            "corde épaisse",
+            "noix de coco glossy",
+            "texte"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".joy-ring"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "centre alpha 0",
+        "aucun halo",
+        "direction gauche/droite lisible"
+      ]
+    },
+    {
+      "id": "ui_joystick_knob_v4",
+      "category": "ui/control",
+      "priority": "P1",
+      "covers": [
+        ".joy-knob"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_joystick_knob.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          192,
+          192
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 48
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "pommeau de joystick mobile",
+          "primary_request": "Pommeau compact bleu-noir avec centre légèrement concave et petite marque de bois chaud, tactile mais sobre.",
+          "input_images": [
+            "ref_hud_v4: échelle du contrôle"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un disque centré",
+          "style_medium": "raster UI net",
+          "composition_framing": "padding 15%",
+          "lighting_mood": "highlight court",
+          "color_palette": "#031724, #0d4f63, #c98a45, #eefaff",
+          "materials_textures": "peinture mate, insert bois",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune ombre portée",
+            "silhouette ronde"
+          ],
+          "avoid": [
+            "boule dorée",
+            "coco photoréaliste",
+            "texte"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".joy-knob"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "lecture tactile à 39 et 60 px",
+        "aucun bord vert"
+      ]
+    },
+    {
+      "id": "ui_gauge_frame_v4",
+      "category": "ui/hud",
+      "priority": "P0",
+      "covers": [
+        ".meter.balance",
+        ".meter.flow",
+        ".meter.hull",
+        ".integrity-grid i"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_gauge_frame.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          512,
+          96
+        ],
+        "aspect_ratio": "16:3",
+        "format": "PNG-24",
+        "alpha": true,
+        "horizontal_cap_px": 28,
+        "max_kb": 48
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "cadre horizontal de jauge extensible",
+          "primary_request": "Rail de jauge très fin, embouts coupés en chevrons, fond encre marine, filet laiton discret.",
+          "input_images": [
+            "ref_hud_v4: équilibre au bas centre"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "rail vide",
+          "style_medium": "raster UI net",
+          "composition_framing": "ligne centrale libre, embouts symétriques",
+          "lighting_mood": "mat",
+          "color_palette": "#031724, #0d4f63, #d7aa5b",
+          "materials_textures": "instrument peint",
+          "text_verbatim": null,
+          "constraints": [
+            "embouts non étirables",
+            "aucun remplissage coloré",
+            "aucune graduation textuelle"
+          ],
+          "avoid": [
+            "cadre bois",
+            "glow",
+            "texte"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".meter",
+          ".integrity-grid>i"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "propre à 70, 190 et 512 px",
+        "remplissage runtime non masqué"
+      ]
+    },
+    {
+      "id": "ui_gauge_fill_neutral_v4",
+      "category": "ui/hud",
+      "priority": "P0",
+      "covers": [
+        ".meter i"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_gauge_fill_neutral.png",
+        "working_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          512,
+          96
+        ],
+        "aspect_ratio": "16:3",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 40
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "remplissage neutre de jauge tintable",
+          "primary_request": "Bande de remplissage ivoire neutre, micro-facettes horizontales et reflet contrôlé, destinée à être teintée au runtime.",
+          "input_images": [
+            "ref_hud_v4: densité de la barre"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "bande horizontale pleine",
+          "style_medium": "raster UI net",
+          "composition_framing": "tuilable horizontalement",
+          "lighting_mood": "reflet faible",
+          "color_palette": "#eefaff et gris colorés très faibles",
+          "materials_textures": "peinture mate",
+          "text_verbatim": null,
+          "constraints": [
+            "chroma quasi neutre pour tint runtime",
+            "bords gauche et droit raccordables",
+            "aucun code couleur cuit"
+          ],
+          "avoid": [
+            "arc-en-ciel",
+            "texte",
+            "brillance métal"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".meter i"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "écart chromatique max 24/255 avant teinte",
+        "répétition invisible"
+      ]
+    },
+    {
+      "id": "ui_reticle_harpoon_v4",
+      "category": "ui/hud",
+      "priority": "P1",
+      "covers": [
+        "#targetReticle"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_reticle_harpoon.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 64
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "réticule de verrouillage harpon",
+          "primary_request": "Réticule fin en quatre crochets, asymétrie légère de harpon, cercle central discontinu.",
+          "input_images": [
+            "ref_hud_v4: finesse générale"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un réticule centré",
+          "style_medium": "raster UI très net",
+          "composition_framing": "80% de vide, lignes de 2–4% de l'image",
+          "lighting_mood": "ambre lisible",
+          "color_palette": "#ffc531, #eefaff",
+          "materials_textures": "aplats nets",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun label",
+            "centre transparent",
+            "lisible à 55 px"
+          ],
+          "avoid": [
+            "lunette militaire",
+            "crosshair firearm",
+            "texte",
+            "glow massif"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          "#targetReticle"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "centre de la cible non masqué",
+        "lisible sur mer claire et Grain"
+      ]
+    },
+    {
+      "id": "ui_loading_djab_mark_v4",
+      "category": "ui/brand",
+      "priority": "P2",
+      "covers": [
+        ".loader-orbit",
+        ".modal-icon fallback"
+      ],
+      "output": {
+        "path": "assets/textures/ui_v4_djab_mark.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 64
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "logo-brand",
+          "asset_type": "emblème secondaire original de jeu",
+          "primary_request": "Masque djab martiniquais original réduit à une silhouette frontale énergique et quatre chevrons.",
+          "input_images": [],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un seul emblème",
+          "style_medium": "marque vector-friendly en aplats",
+          "composition_framing": "centré, silhouette forte, marge 18%",
+          "lighting_mood": "plat",
+          "color_palette": "#031724, #eefaff, #ffc531",
+          "materials_textures": "aucune texture fine",
+          "text_verbatim": null,
+          "constraints": [
+            "original",
+            "aucune lettre",
+            "aucun logo réel",
+            "lisible à 32 px"
+          ],
+          "avoid": [
+            "crâne",
+            "démon européen",
+            "tiki",
+            "texte",
+            "détails fins"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".loader-orbit",
+          "marque décorative non textuelle"
+        ],
+        "runtime_wiring": "candidate_not_wired"
+      },
+      "validation": [
+        "silhouette originale",
+        "pas de ressemblance avec une marque",
+        "lisible monochrome"
+      ]
+    },
+    {
+      "id": "ui_menu_home_backdrop_v4",
+      "category": "ui/menu",
+      "priority": "P1",
+      "covers": [
+        "#menu"
+      ],
+      "output": {
+        "path": "assets/textures/menu_home_v4.jpg",
+        "working_px": [
+          2048,
+          1152
+        ],
+        "delivery_px": [
+          1600,
+          900
+        ],
+        "aspect_ratio": "16:9",
+        "format": "JPEG",
+        "alpha": false,
+        "max_kb": 320
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "fond de menu principal paysage",
+          "primary_request": "Course de yoles en accélération dans un lagon martiniquais, yole héroïne à droite, sillage fluide, soleil bas et côte volcanique crédible.",
+          "input_images": [
+            "ref_yole_action: anatomie et équipage",
+            "ref_yole_lagoon: gréement et eau",
+            "ref_hud_v4: cadrage paysage"
+          ],
+          "scene_backdrop": "mer teal, côte boisée, îlots irréguliers",
+          "subject": "une yole principale et deux silhouettes distantes",
+          "style_medium": "concept art 3D arcade premium",
+          "composition_framing": "grand espace négatif sombre à gauche pour le menu; action à droite; horizon au tiers supérieur",
+          "lighting_mood": "heure dorée énergique",
+          "color_palette": "palette V4 calme",
+          "materials_textures": "bois, toile vieillie, eau naturelle",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun texte ou logo",
+            "la yole garde une coque ronde sans quille",
+            "pas de HUD peint"
+          ],
+          "avoid": [
+            "bateau moderne",
+            "photographie",
+            "îlots coniques",
+            "centre encombré"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "#menu option de repli si le menu 3D reste insuffisant"
+        ],
+        "runtime_wiring": "optional_not_wired",
+        "fallback": "conserver le rendu 3D live"
+      },
+      "validation": [
+        "texte HTML gauche lisible",
+        "aucune information cuite",
+        "safe crop 16:9 et 4:3"
+      ]
+    },
+    {
+      "id": "ui_modal_backdrop_v4",
+      "category": "ui/menu",
+      "priority": "P0",
+      "covers": [
+        "#customScreen",
+        "#pauseScreen",
+        "#endScreen",
+        "#fatal"
+      ],
+      "output": {
+        "path": "assets/textures/menu_pause_v4.jpg",
+        "working_px": [
+          2048,
+          1152
+        ],
+        "delivery_px": [
+          1600,
+          900
+        ],
+        "aspect_ratio": "16:9",
+        "format": "JPEG",
+        "alpha": false,
+        "max_kb": 420
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_storm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "fond partagé des menus pause, fin et personnalisation",
+          "primary_request": "Mer tropicale sombre sous un bord de Grain, yole floue très éloignée, éclat chaud résiduel à l'horizon, centre calme pour panneau.",
+          "input_images": [
+            "ref_arcade_hud: contraste du Grain seulement",
+            "ref_hud_v4: horizon et relief"
+          ],
+          "scene_backdrop": "mur nuageux violet-noir et côte volcanique",
+          "subject": "environnement sans personnage au premier plan",
+          "style_medium": "concept art 3D arcade premium",
+          "composition_framing": "centre médian sombre et peu détaillé, intérêt visuel sur les bords",
+          "lighting_mood": "orage localisé, pas nuit totale",
+          "color_palette": "#160f2f, #0d4f63, #d1f3f7, #ffc531",
+          "materials_textures": "nuages lourds, pluie fine, mer mate",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun panneau, bouton, texte ou logo peint",
+            "luminance médiane centrale adaptée au texte blanc"
+          ],
+          "avoid": [
+            "éclair au centre",
+            "yole géante derrière le texte",
+            "nuit spatiale",
+            "horizon penché"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          ".modal-screen"
+        ],
+        "runtime_wiring": "active"
+      },
+      "validation": [
+        "aucun texte baked",
+        "centre lisible sous overlay 58–72%",
+        "safe crop mobile paysage"
+      ]
+    },
+    {
+      "id": "ui_action_glyph_family_v4",
+      "category": "ui/icon_family",
+      "priority": "P0",
+      "covers": [
+        "#weaponSlotIco",
+        "#bwaBtn .ico",
+        "#boostLateralBtn .ico",
+        "#boostForwardBtn .ico"
+      ],
+      "output": {
+        "member_working_px": [
+          1024,
+          1024
+        ],
+        "member_delivery_px": [
+          128,
+          128
+        ],
+        "atlas_path": "assets/textures/ui_action_icons_v4.png",
+        "atlas_px": [
+          1408,
+          128
+        ],
+        "atlas_grid": "11x1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 220
+      },
+      "generation": {
+        "intent": "generate",
+        "one_call_per_member": true,
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "glyphe d'action de jeu mobile",
+          "primary_request": "Créer uniquement le symbole nommé par le membre, silhouette ivoire très forte avec un seul accent, sans anneau ni fond de bouton.",
+          "input_images": [
+            "ref_hud_v4: échelle et force des icônes"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un glyphe centré",
+          "style_medium": "illustration UI en aplats, vector-friendly",
+          "composition_framing": "marge 18%, silhouette lisible à 24 px",
+          "lighting_mood": "plat",
+          "color_palette": "#eefaff plus l'accent du membre",
+          "materials_textures": "aucune texture fine",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune lettre",
+            "aucun cadre",
+            "même épaisseur de trait pour tous les membres",
+            "assembler après validation individuelle"
+          ],
+          "avoid": [
+            "emoji",
+            "3D glossy",
+            "texte",
+            "logo",
+            "détails sous 4 px livrés"
+          ]
+        },
+        "transparency_profile": "green_key_simple",
+        "members": [
+          {
+            "slot": 0,
+            "id": "coco_boum",
+            "subject": "noix de coco fendue avec onde de choc",
+            "accent": "#45eaff"
+          },
+          {
+            "slot": 1,
+            "id": "spider_harpon",
+            "subject": "pointe de harpon et câble en boucle",
+            "accent": "#ffb52e"
+          },
+          {
+            "slot": 2,
+            "id": "mine_tsunami",
+            "subject": "mine marine ronde et crête de vague",
+            "accent": "#ff3e65"
+          },
+          {
+            "slot": 3,
+            "id": "turbo",
+            "subject": "double chevron propulsif",
+            "accent": "#ffc531"
+          },
+          {
+            "slot": 4,
+            "id": "bwa_dash",
+            "subject": "yole vue du dessus glissant latéralement",
+            "accent": "#54f8ff"
+          },
+          {
+            "slot": 5,
+            "id": "bwa_shift",
+            "subject": "masque djab stylisé traversé par un chevron d'équilibre",
+            "accent": "#9b5cff"
+          },
+          {
+            "slot": 6,
+            "id": "barik_rhum",
+            "subject": "petit baril cerclé avec mèche",
+            "accent": "#ff6b1c"
+          },
+          {
+            "slot": 7,
+            "id": "chadron",
+            "subject": "oursin épineux vu de dessus",
+            "accent": "#9b5cff"
+          },
+          {
+            "slot": 8,
+            "id": "konk_lanbi",
+            "subject": "conque de lambi soufflant trois traits",
+            "accent": "#fff0b8"
+          },
+          {
+            "slot": 9,
+            "id": "pwason_volan",
+            "subject": "trois poissons volants en banc",
+            "accent": "#54f8ff"
+          },
+          {
+            "slot": 10,
+            "id": "rhum",
+            "subject": "petite bouteille de rhum générique sans étiquette",
+            "accent": "#ffc531"
+          }
+        ]
+      },
+      "integration": {
+        "targets": [
+          "style.css .action>span.ico",
+          "src/game/balance.js WEAPONS"
+        ],
+        "runtime_wiring": "requires_mapping_update",
+        "note": "Le slot rhum séparé corrige le partage historique avec turbo."
+      },
+      "validation": [
+        "chaque glyphe identifiable sans libellé à 24 px",
+        "atlas sans saignement entre cellules",
+        "alpha 0 dans les coins"
+      ]
+    },
+    {
+      "id": "ui_utility_glyph_family_v4",
+      "category": "ui/icon_family",
+      "priority": "P1",
+      "covers": [
+        "#settingsBtn",
+        "#soundBtn",
+        "#pauseBtn",
+        ".setting-toggle span",
+        "#replayBtn",
+        "#downloadReplayBtn",
+        "#downloadTelemetryBtn",
+        "#retryBtn"
+      ],
+      "output": {
+        "member_working_px": [
+          1024,
+          1024
+        ],
+        "member_delivery_px": [
+          64,
+          64
+        ],
+        "atlas_path": "assets/textures/ui_utility_icons_v4.png",
+        "atlas_px": [
+          384,
+          192
+        ],
+        "atlas_grid": "6x3",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 120
+      },
+      "generation": {
+        "intent": "generate",
+        "one_call_per_member": true,
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "glyphe utilitaire de HUD",
+          "primary_request": "Créer uniquement le glyphe nommé par le membre, aplats ivoire/teal, sans bouton ni texte.",
+          "input_images": [
+            "ref_hud_v4: cohérence de trait"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un glyphe centré",
+          "style_medium": "icône raster vector-friendly",
+          "composition_framing": "marge 20%, trait uniforme",
+          "lighting_mood": "plat",
+          "color_palette": "#eefaff, #2fb9c4",
+          "materials_textures": "aucune texture",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune lettre ou chiffre",
+            "une génération par membre",
+            "même épaisseur de trait"
+          ],
+          "avoid": [
+            "emoji",
+            "texte",
+            "ombres",
+            "3D"
+          ]
+        },
+        "transparency_profile": "green_key_simple",
+        "members": [
+          {
+            "slot": 0,
+            "id": "settings",
+            "subject": "roue dentée à six dents"
+          },
+          {
+            "slot": 1,
+            "id": "sound_on",
+            "subject": "haut-parleur avec deux ondes"
+          },
+          {
+            "slot": 2,
+            "id": "sound_off",
+            "subject": "haut-parleur barré"
+          },
+          {
+            "slot": 3,
+            "id": "pause",
+            "subject": "deux barres de pause"
+          },
+          {
+            "slot": 4,
+            "id": "resume",
+            "subject": "triangle lecture"
+          },
+          {
+            "slot": 5,
+            "id": "haptics",
+            "subject": "mobile avec deux vibrations"
+          },
+          {
+            "slot": 6,
+            "id": "stable_camera",
+            "subject": "caméra avec horizon stable"
+          },
+          {
+            "slot": 7,
+            "id": "reduce_flash",
+            "subject": "éclat entouré d'un bouclier"
+          },
+          {
+            "slot": 8,
+            "id": "impact",
+            "subject": "étoile d'impact compacte"
+          },
+          {
+            "slot": 9,
+            "id": "left_handed",
+            "subject": "main gauche ouverte simplifiée"
+          },
+          {
+            "slot": 10,
+            "id": "performance",
+            "subject": "trois barres de performance"
+          },
+          {
+            "slot": 11,
+            "id": "auto_quality",
+            "subject": "petite roue dentée entourée d'une boucle"
+          },
+          {
+            "slot": 12,
+            "id": "replay",
+            "subject": "flèche circulaire et triangle lecture"
+          },
+          {
+            "slot": 13,
+            "id": "download",
+            "subject": "flèche vers un plateau"
+          },
+          {
+            "slot": 14,
+            "id": "retry",
+            "subject": "flèche circulaire simple"
+          },
+          {
+            "slot": 15,
+            "id": "trophy",
+            "subject": "coupe nautique très simple"
+          },
+          {
+            "slot": 16,
+            "id": "network_error",
+            "subject": "globe avec petite rupture"
+          },
+          {
+            "slot": 17,
+            "id": "close_back",
+            "subject": "chevron retour"
+          }
+        ]
+      },
+      "integration": {
+        "targets": [
+          ".top-actions",
+          ".setting-toggle",
+          ".replay-actions",
+          ".modal-icon"
+        ],
+        "runtime_wiring": "optional_requires_css_mapping",
+        "note": "HQ/MQ/LQ, +, − et tous les libellés restent du texte déterministe."
+      },
+      "validation": [
+        "aucun glyphe ambigu à 16 px",
+        "pas de lettres générées",
+        "atlas 6x3 exact"
+      ]
+    },
+    {
+      "id": "ui_minimap_frame_v4",
+      "category": "ui/minimap",
+      "priority": "P0",
+      "covers": [
+        "#minimap",
+        ".minimap-map"
+      ],
+      "output": {
+        "path": "assets/textures/ui_minimap_frame_v4.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 88
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "cadre circulaire de mini-carte tactique",
+          "primary_request": "Boussole marine circulaire très fine, nord indiqué uniquement par un triangle sans lettre, encre marine et laiton patiné.",
+          "input_images": [
+            "ref_arcade_hud: fonction de mini-carte",
+            "ref_hud_v4: échelle et position"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "anneau de mini-carte vide",
+          "style_medium": "raster UI net",
+          "composition_framing": "trou central transparent 78%, bord 8%, triangle nord à 12 h",
+          "lighting_mood": "mat",
+          "color_palette": "#031724, #0d4f63, #d7aa5b, #eefaff",
+          "materials_textures": "instrument peint, corde seulement deux petits nœuds optionnels",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune carte, route, île, position, numéro ou lettre N",
+            "centre totalement transparent",
+            "lisible à 114 px"
+          ],
+          "avoid": [
+            "rose des vents détaillée",
+            "cadre épais",
+            "texte",
+            "fausse carte"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          ".minimap-map autour de #minimapCanvas"
+        ],
+        "runtime_wiring": "candidate_not_wired",
+        "state_policy": "storm-near reste une classe CSS animée"
+      },
+      "validation": [
+        "canvas non masqué",
+        "route et marqueurs runtime lisibles",
+        "cadre tient à 114, 132 et 188 px"
+      ]
+    },
+    {
+      "id": "ui_minimap_marker_family_v4",
+      "category": "ui/minimap",
+      "priority": "P1",
+      "covers": [
+        "#minimapCanvas marqueurs"
+      ],
+      "output": {
+        "member_working_px": [
+          1024,
+          1024
+        ],
+        "member_delivery_px": [
+          64,
+          64
+        ],
+        "atlas_path": "assets/textures/ui_minimap_markers_v4.png",
+        "atlas_px": [
+          384,
+          64
+        ],
+        "atlas_grid": "6x1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 64
+      },
+      "generation": {
+        "intent": "generate",
+        "one_call_per_member": true,
+        "inherits": [
+          "global_v4",
+          "ui_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "marqueur de mini-carte tintable",
+          "primary_request": "Créer uniquement le marqueur nommé, silhouette ivoire simple, sans chiffre ni anneau coloré.",
+          "input_images": [
+            "ref_hud_v4: échelle mini-carte"
+          ],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un marqueur centré",
+          "style_medium": "icône en aplats",
+          "composition_framing": "marge 20%",
+          "lighting_mood": "plat",
+          "color_palette": "#eefaff neutre, tint runtime",
+          "materials_textures": "aucune texture",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun chiffre",
+            "une génération par membre",
+            "teinte d'équipe appliquée au runtime"
+          ],
+          "avoid": [
+            "texte",
+            "ombre",
+            "détails fins"
+          ]
+        },
+        "transparency_profile": "green_key_simple",
+        "members": [
+          {
+            "slot": 0,
+            "id": "player_arrow",
+            "subject": "pointe de yole vue du dessus"
+          },
+          {
+            "slot": 1,
+            "id": "rival_yole",
+            "subject": "petite silhouette de yole vue du dessus"
+          },
+          {
+            "slot": 2,
+            "id": "route_buoy",
+            "subject": "bouée de parcours vue du dessus"
+          },
+          {
+            "slot": 3,
+            "id": "pickup_crate",
+            "subject": "caisse carrée vue du dessus"
+          },
+          {
+            "slot": 4,
+            "id": "islet",
+            "subject": "îlot irrégulier vu du dessus"
+          },
+          {
+            "slot": 5,
+            "id": "storm_front",
+            "subject": "trois dents de front orageux"
+          }
+        ]
+      },
+      "integration": {
+        "targets": [
+          "src/game/hud.js drawMinimap"
+        ],
+        "runtime_wiring": "optional_canvas_sprite_upgrade",
+        "note": "La route, les numéros 1–4, les couleurs et les positions restent dessinés dynamiquement."
+      },
+      "validation": [
+        "marqueurs distincts à 8–16 px",
+        "aucun chiffre baked",
+        "tint sans perte de silhouette"
+      ]
+    },
+    {
+      "id": "yole_sail_livery_family_v4",
+      "category": "yole/sail",
+      "priority": "P0",
+      "covers": [
+        "SAIL_LIVERIES KOULÈV",
+        "SAIL_LIVERIES LANBI",
+        "SAIL_LIVERIES KOLIBRI",
+        "SAIL_LIVERIES VOLCAN"
+      ],
+      "output": {
+        "member_working_px": [
+          1024,
+          1024
+        ],
+        "member_delivery_px": [
+          1024,
+          1024
+        ],
+        "atlas_path": "assets/textures/sail_atlas_v4.jpg",
+        "atlas_px": [
+          2048,
+          2048
+        ],
+        "atlas_grid": "2x2",
+        "format": "JPEG",
+        "alpha": false,
+        "max_kb": 720
+      },
+      "generation": {
+        "intent": "generate",
+        "one_call_per_member": true,
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "panneau carré de texture de voile de yole",
+          "primary_request": "Livrée originale à aplats durs sur toile vieillie; grand emblème du membre centré dans le tiers inférieur; deux chevrons irréguliers en haut.",
+          "input_images": [
+            "ref_yole_action: tension et matière de voile",
+            "ref_yole_lagoon: géométrie triangulaire"
+          ],
+          "scene_backdrop": "texture carrée sans scène",
+          "subject": "une seule livrée de voile",
+          "style_medium": "peinture de voile arcade, contours durs",
+          "composition_framing": "tiers supérieur 70% vide; motif bas large; aucune trame régulière",
+          "lighting_mood": "albedo sans ombre directionnelle",
+          "color_palette": "noir, blanc cassé, cramoisi et un accent propre au membre",
+          "materials_textures": "toile salée, taches et usure légère",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun texte, numéro, logo ou sponsor",
+            "aucun madras",
+            "motif lisible après compression du mapping",
+            "pas de détail dans les 8% de bord"
+          ],
+          "avoid": [
+            "photo",
+            "checker régulier",
+            "dégradé lisse",
+            "pirate",
+            "logo esport"
+          ]
+        },
+        "transparency_profile": "none",
+        "members": [
+          {
+            "slot": "0,0",
+            "id": "koulev",
+            "subject": "koulèv stylisé en S angulaire",
+            "accent": "#ff7524"
+          },
+          {
+            "slot": "1,0",
+            "id": "lanbi",
+            "subject": "spirale de conque lanbi coupée par un chevron",
+            "accent": "#1de1e8"
+          },
+          {
+            "slot": "0,1",
+            "id": "kolibri",
+            "subject": "kolibri plongeant en silhouette géométrique",
+            "accent": "#7658ff"
+          },
+          {
+            "slot": "1,1",
+            "id": "volcan",
+            "subject": "profil volcanique et éclat de lave abstrait",
+            "accent": "#ef3f75"
+          }
+        ]
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/sail_atlas.jpg",
+          "src/render/yole-visual.js atlas 2x2"
+        ],
+        "runtime_wiring": "drop_in_after_visual_validation"
+      },
+      "validation": [
+        "atlas 2x2 sans gouttière visible",
+        "motifs distincts à 64 px",
+        "tiers supérieur calme",
+        "aucun madras ou texte"
+      ]
+    },
+    {
+      "id": "yole_hull_paint_neutral_v4",
+      "category": "yole/hull",
+      "priority": "P0",
+      "covers": [
+        "hullMaterial map partagé par les quatre yoles"
+      ],
+      "output": {
+        "path": "assets/textures/hull_paint_v4.jpg",
+        "working_px": [
+          2048,
+          2048
+        ],
+        "delivery_px": [
+          1024,
+          1024
+        ],
+        "aspect_ratio": "1:1",
+        "format": "JPEG",
+        "alpha": false,
+        "max_kb": 260
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "albedo neutre de coque de yole tintable",
+          "primary_request": "Peinture de coque usée en valeurs ivoire, charbon coloré et bois apparent, fines rayures longitudinales et éclats de sel.",
+          "input_images": [
+            "ref_yole_action: matière et construction de coque"
+          ],
+          "scene_backdrop": "texture carrée sans scène",
+          "subject": "surface peinte neutre",
+          "style_medium": "albedo de jeu stylisé",
+          "composition_framing": "détail homogène, aucune grande forme focale",
+          "lighting_mood": "sans ombre ni reflet cuit",
+          "color_palette": "neutres colorés désaturés, aucun accent d'équipe",
+          "materials_textures": "bois peint salé, usure longitudinale",
+          "text_verbatim": null,
+          "constraints": [
+            "compatible multiplication par couleur runtime",
+            "chroma faible",
+            "aucun numéro, mot, sponsor ou bande d'équipe"
+          ],
+          "avoid": [
+            "rouge, cyan, violet ou rose dominants",
+            "métal",
+            "fibre de carbone",
+            "quille dessinée",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/hull_paint.jpg"
+        ],
+        "runtime_wiring": "drop_in_after_neutrality_test"
+      },
+      "validation": [
+        "écart chromatique max 24/255",
+        "quatre teintes runtime restent distinctes",
+        "aucune ombre cuite"
+      ]
+    },
+    {
+      "id": "yole_wood_bwa_v4",
+      "category": "yole/material",
+      "priority": "P1",
+      "covers": [
+        "mâts et bwa"
+      ],
+      "output": {
+        "path": "assets/textures/wood_bwa_v4.jpg",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable": true,
+        "max_kb": 72
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "texture albedo de bois de bwa tuilable",
+          "primary_request": "Bois martiniquais chaud, fibre longue, coups de rame et sel, variations contenues.",
+          "input_images": [
+            "ref_yole_action: bwa réels"
+          ],
+          "scene_backdrop": "texture carrée",
+          "subject": "bois longitudinal",
+          "style_medium": "albedo de jeu stylisé",
+          "composition_framing": "tuilable sur X et Y",
+          "lighting_mood": "sans ombre directionnelle",
+          "color_palette": "#c98a45, brun chaud, ivoire salé",
+          "materials_textures": "fibre de bois et usure",
+          "text_verbatim": null,
+          "constraints": [
+            "seamless",
+            "pas de nœud géant",
+            "aucun clou ou corde"
+          ],
+          "avoid": [
+            "bois gris",
+            "parquet",
+            "vernis miroir",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/wood_bwa.jpg"
+        ],
+        "runtime_wiring": "drop_in_after_tile_test"
+      },
+      "validation": [
+        "test mosaïque 4x4 sans couture",
+        "fibre lisible sur perche de 4 px"
+      ]
+    },
+    {
+      "id": "yole_crew_cloth_neutral_v4",
+      "category": "yole/crew",
+      "priority": "P0",
+      "covers": [
+        "matériau textile de assets/models/yole_crew.glb"
+      ],
+      "output": {
+        "path": "art-source/crew_cloth_neutral_v4.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG",
+        "alpha": false,
+        "max_kb": 180
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "albedo textile neutre d'équipage tintable",
+          "primary_request": "Coton technique usé, panneaux charbon/ivoire et petit chevron djab neutre, sueur et sel discrets.",
+          "input_images": [
+            "ref_yole_action: vêtements et posture"
+          ],
+          "scene_backdrop": "texture carrée sans scène",
+          "subject": "surface textile neutre",
+          "style_medium": "albedo de personnage stylisé",
+          "composition_framing": "motifs assez larges pour petits îlots UV",
+          "lighting_mood": "sans ombre ou muscle cuit",
+          "color_palette": "gris coloré chaud, ivoire, noir teinté teal",
+          "materials_textures": "coton mat, sel",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun nom, mot BWA, numéro ou sponsor",
+            "couleur d'équipe appliquée au runtime",
+            "détails supérieurs à 8 px en 512"
+          ],
+          "avoid": [
+            "madras",
+            "peau dans la texture textile",
+            "logo",
+            "camouflage",
+            "métal"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "texture embarquée dans assets/models/yole_crew.glb lors d'un rebake"
+        ],
+        "runtime_wiring": "source_only_requires_glb_reexport"
+      },
+      "validation": [
+        "teinte des quatre équipes distincte",
+        "pas de saignement UV à 512",
+        "metalness 0, roughness proche de 0.78"
+      ]
+    },
+    {
+      "id": "yole_crew_djab_backmark_v4",
+      "category": "yole/crew",
+      "priority": "P1",
+      "covers": [
+        "dos et poitrine des yoleurs"
+      ],
+      "output": {
+        "path": "art-source/crew_djab_backmark_v4.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 56
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "logo-brand",
+          "asset_type": "motif textile original sans texte",
+          "primary_request": "Petit masque djab abstrait fusionné avec deux bwa croisés, silhouette très simple.",
+          "input_images": [],
+          "scene_backdrop": "fond #00ff00 uniforme",
+          "subject": "un motif monochrome",
+          "style_medium": "marque vector-friendly",
+          "composition_framing": "centré, marge 20%",
+          "lighting_mood": "plat",
+          "color_palette": "#eefaff monochrome tintable",
+          "materials_textures": "aucune texture",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune lettre",
+            "original",
+            "lisible à 24 px"
+          ],
+          "avoid": [
+            "crâne",
+            "tiki",
+            "démon réaliste",
+            "texte",
+            "détails fins"
+          ]
+        },
+        "transparency_profile": "green_key_simple"
+      },
+      "integration": {
+        "targets": [
+          "yole_crew_cloth_neutral_v4",
+          "rebake GLB"
+        ],
+        "runtime_wiring": "source_only"
+      },
+      "validation": [
+        "silhouette lisible",
+        "aucune ressemblance de marque"
+      ]
+    },
+    {
+      "id": "yole_shape_concept_v4",
+      "category": "yole/concept",
+      "priority": "P0",
+      "artifact_role": "modeling_reference_only",
+      "covers": [
+        "révision future yole_hull.glb",
+        "silhouette du gréement"
+      ],
+      "output": {
+        "path": "art-source/yole_shape_concept_v4.png",
+        "working_px": [
+          2048,
+          1152
+        ],
+        "delivery_px": [
+          2048,
+          1152
+        ],
+        "aspect_ratio": "16:9",
+        "format": "PNG",
+        "alpha": false,
+        "do_not_ship": true
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "planche de silhouette pour modélisation",
+          "primary_request": "Yole ronde martiniquaise cohérente en vues latérale, trois-quarts arrière et dessus, avec mât raqué, voile et bwa.",
+          "input_images": [
+            "ref_yole_action: structure",
+            "ref_yole_lagoon: vue de dessus"
+          ],
+          "scene_backdrop": "fond neutre clair",
+          "subject": "même yole dans trois vues séparées",
+          "style_medium": "concept 3D stylisé propre",
+          "composition_framing": "trois vues non superposées, sans annotation",
+          "lighting_mood": "studio neutre",
+          "color_palette": "bois chaud, voile ivoire neutre",
+          "materials_textures": "bois, toile",
+          "text_verbatim": null,
+          "constraints": [
+            "concept seulement; les mesures de ASSET_CONTRACT.md font foi",
+            "sans quille, dérive ou gouvernail",
+            "coque étroite et ronde"
+          ],
+          "avoid": [
+            "blueprint chiffré inventé",
+            "catamaran",
+            "pirogue",
+            "voilier moderne",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "workflow Blender",
+          "docs/ASSET_CONTRACT.md"
+        ],
+        "runtime_wiring": "interdit"
+      },
+      "validation": [
+        "silhouette conforme aux photos",
+        "mesures jamais déduites de l'image générée"
+      ]
+    },
+    {
+      "id": "yole_crew_pose_concept_v4",
+      "category": "yole/concept",
+      "priority": "P1",
+      "artifact_role": "rigging_reference_only",
+      "covers": [
+        "poses d'appui des six yoleurs"
+      ],
+      "output": {
+        "path": "art-source/yole_crew_pose_concept_v4.png",
+        "working_px": [
+          2048,
+          1152
+        ],
+        "delivery_px": [
+          2048,
+          1152
+        ],
+        "aspect_ratio": "16:9",
+        "format": "PNG",
+        "alpha": false,
+        "do_not_ship": true
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "yole_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "planche de poses d'équipage",
+          "primary_request": "Six yoleurs stylisés en appui coordonné sur les bwa: poids du corps vers l'extérieur, mains serrant le bois, postures distinctes mais cohérentes.",
+          "input_images": [
+            "ref_yole_action: gestes et densité"
+          ],
+          "scene_backdrop": "fond neutre",
+          "subject": "six silhouettes d'équipage sur un gabarit de yole simple",
+          "style_medium": "concept character stylisé",
+          "composition_framing": "vue trois-quarts arrière de gameplay",
+          "lighting_mood": "studio",
+          "color_palette": "tenues neutres tintables",
+          "materials_textures": "coton mat, peau stylisée",
+          "text_verbatim": null,
+          "constraints": [
+            "anatomie crédible",
+            "membres non fusionnés",
+            "aucun visage identifiable"
+          ],
+          "avoid": [
+            "bodybuilders",
+            "rameurs assis uniformes",
+            "personnes photoréalistes",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "workflow rig yole_crew.glb"
+        ],
+        "runtime_wiring": "interdit"
+      },
+      "validation": [
+        "appuis lisibles à distance",
+        "poses compatibles avec sept articulations pilotées"
+      ]
+    },
+    {
+      "id": "env_water_master_reference_v4",
+      "category": "environment/water",
+      "priority": "P0",
+      "artifact_role": "shader_target_only",
+      "covers": [
+        "couleur",
+        "échelle de rides",
+        "réponse spéculaire",
+        "écume"
+      ],
+      "output": {
+        "path": "art-source/water_master_reference_v4.png",
+        "working_px": [
+          2048,
+          1152
+        ],
+        "delivery_px": [
+          2048,
+          1152
+        ],
+        "aspect_ratio": "16:9",
+        "format": "PNG",
+        "alpha": false,
+        "do_not_ship": true
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "référence de rendu eau pour shader",
+          "primary_request": "Surface de lagon martiniquais fluide autour d'une yole rapide: longues rides orientées par le vent, petits clapotis secondaires, sillage ivoire fin, aucun pavage polygonal.",
+          "input_images": [
+            "ref_yole_lagoon: couleur et échelle naturelle",
+            "ref_hud_v4: cible V4",
+            "ref_current_course: problèmes à éliminer"
+          ],
+          "scene_backdrop": "mer ouverte et horizon simple",
+          "subject": "eau et sillage, yole réduite à une silhouette secondaire",
+          "style_medium": "rendu 3D arcade premium",
+          "composition_framing": "caméra gameplay basse, 65% eau",
+          "lighting_mood": "soleil bas, highlights fins non brûlés",
+          "color_palette": "#0d4f63, #2fb9c4, #eefaff, #d1f3f7",
+          "materials_textures": "eau diélectrique, écume fine",
+          "text_verbatim": null,
+          "constraints": [
+            "référence visuelle seulement",
+            "ne pas exporter comme normal map",
+            "crêtes non facettées"
+          ],
+          "avoid": [
+            "gelée plastique",
+            "acier froissé",
+            "facettes géantes",
+            "océan tempête",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "réglage src/render/ocean.js",
+          "revue A/B"
+        ],
+        "runtime_wiring": "interdit"
+      },
+      "validation": [
+        "comparaison à zoom et caméra identiques",
+        "aucun asset eau généré utilisé comme normal map"
+      ]
+    },
+    {
+      "id": "env_wake_foam_stamp_v4",
+      "category": "environment/water",
+      "priority": "P0",
+      "covers": [
+        "accent de sillage",
+        "impact de coque"
+      ],
+      "output": {
+        "path": "assets/textures/wake_foam_stamp_v4.jpg",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "JPEG",
+        "alpha": false,
+        "blend": "additive_or_screen",
+        "max_kb": 88
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "stamp d'écume additive",
+          "primary_request": "Écume de sillage en V cassé, fines bulles ivoire, centre plus intense, bords dissipés.",
+          "input_images": [
+            "ref_yole_action: sillage réel",
+            "ref_hud_v4: densité cible"
+          ],
+          "scene_backdrop": "fond noir pur #000000",
+          "subject": "un seul sillage vu du dessus",
+          "style_medium": "sprite VFX peint",
+          "composition_framing": "V vertical centré, marge 10%",
+          "lighting_mood": "émission ivoire contrôlée",
+          "color_palette": "#eefaff sur #000000",
+          "materials_textures": "écume, bulles",
+          "text_verbatim": null,
+          "constraints": [
+            "fond noir pur",
+            "aucune eau bleue",
+            "aucun rectangle visible en Screen"
+          ],
+          "avoid": [
+            "fumée",
+            "explosion",
+            "vague circulaire parfaite",
+            "texte"
+          ]
+        },
+        "transparency_profile": "black_additive"
+      },
+      "integration": {
+        "targets": [
+          "future couche visuelle du PersistentWakeField"
+        ],
+        "runtime_wiring": "optional_not_wired",
+        "fallback": "garder le champ de sillage procédural"
+      },
+      "validation": [
+        "coins RGB <= 2",
+        "aucun halo rectangulaire",
+        "sillage lisible sans saturer le blanc"
+      ]
+    },
+    {
+      "id": "env_spray_flipbook_family_v4",
+      "category": "environment/water",
+      "priority": "P1",
+      "covers": [
+        "assets/textures/spray_flipbook.jpg"
+      ],
+      "output": {
+        "member_working_px": [
+          1024,
+          1024
+        ],
+        "member_delivery_px": [
+          256,
+          256
+        ],
+        "atlas_path": "assets/textures/spray_flipbook_v4.jpg",
+        "atlas_px": [
+          1024,
+          1024
+        ],
+        "atlas_grid": "4x4",
+        "format": "JPEG",
+        "alpha": false,
+        "blend": "additive",
+        "max_kb": 180
+      },
+      "generation": {
+        "intent": "generate",
+        "one_call_per_member": true,
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "frame individuel de spray d'eau additif",
+          "primary_request": "Gerbe d'eau ivoire du stade indiqué, silhouette irrégulière et fluide, sans eau bleue.",
+          "input_images": [
+            "ref_yole_action: gerbe de coque"
+          ],
+          "scene_backdrop": "fond noir pur #000000",
+          "subject": "une seule gerbe",
+          "style_medium": "sprite VFX peint",
+          "composition_framing": "centré, marge 12%, base alignée",
+          "lighting_mood": "émission ivoire",
+          "color_palette": "#eefaff, cyan très pâle sur #000000",
+          "materials_textures": "gouttes et écume",
+          "text_verbatim": null,
+          "constraints": [
+            "fond noir pur",
+            "une frame par appel",
+            "même caméra et même base",
+            "assembler ensuite en 4x4"
+          ],
+          "avoid": [
+            "grille générée",
+            "fumée",
+            "feu",
+            "texte"
+          ]
+        },
+        "transparency_profile": "black_additive",
+        "members": [
+          {
+            "slot": 0,
+            "id": "f00",
+            "stage": "minuscule impact au ras de l'eau"
+          },
+          {
+            "slot": 1,
+            "id": "f01",
+            "stage": "montée 15%"
+          },
+          {
+            "slot": 2,
+            "id": "f02",
+            "stage": "montée 30%"
+          },
+          {
+            "slot": 3,
+            "id": "f03",
+            "stage": "montée 45%"
+          },
+          {
+            "slot": 4,
+            "id": "f04",
+            "stage": "montée 60%"
+          },
+          {
+            "slot": 5,
+            "id": "f05",
+            "stage": "montée 75%"
+          },
+          {
+            "slot": 6,
+            "id": "f06",
+            "stage": "pic 90%"
+          },
+          {
+            "slot": 7,
+            "id": "f07",
+            "stage": "pic ouvert 100%"
+          },
+          {
+            "slot": 8,
+            "id": "f08",
+            "stage": "retombée 85%"
+          },
+          {
+            "slot": 9,
+            "id": "f09",
+            "stage": "retombée 70%"
+          },
+          {
+            "slot": 10,
+            "id": "f10",
+            "stage": "retombée 55%"
+          },
+          {
+            "slot": 11,
+            "id": "f11",
+            "stage": "retombée 40%"
+          },
+          {
+            "slot": 12,
+            "id": "f12",
+            "stage": "gouttes 30%"
+          },
+          {
+            "slot": 13,
+            "id": "f13",
+            "stage": "gouttes 20%"
+          },
+          {
+            "slot": 14,
+            "id": "f14",
+            "stage": "écume basse 10%"
+          },
+          {
+            "slot": 15,
+            "id": "f15",
+            "stage": "trace résiduelle 5%"
+          }
+        ]
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/spray_flipbook.jpg"
+        ],
+        "runtime_wiring": "drop_in_after_atlas_test"
+      },
+      "validation": [
+        "séparateurs RGB <= 2",
+        "continuité temporelle frame à frame",
+        "aucune croix lumineuse"
+      ]
+    },
+    {
+      "id": "env_shore_foam_strip_v4",
+      "category": "environment/water",
+      "priority": "P1",
+      "covers": [
+        "ligne d'écume au pied des îlots"
+      ],
+      "output": {
+        "path": "assets/textures/shore_foam_strip_v4.jpg",
+        "working_px": [
+          2048,
+          768
+        ],
+        "delivery_px": [
+          2048,
+          512
+        ],
+        "aspect_ratio": "4:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable_x": true,
+        "blend": "screen",
+        "max_kb": 140
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "ruban d'écume littorale horizontal tuilable",
+          "primary_request": "Dentelle d'écume tropicale irrégulière, fine ligne principale et petites poches secondaires.",
+          "input_images": [
+            "ref_hud_v4: côte et écume"
+          ],
+          "scene_backdrop": "fond noir pur #000000",
+          "subject": "un ruban horizontal d'écume",
+          "style_medium": "sprite VFX peint",
+          "composition_framing": "raccordable gauche/droite, ligne dans le tiers médian",
+          "lighting_mood": "ivoire doux",
+          "color_palette": "#eefaff sur #000000",
+          "materials_textures": "écume fine",
+          "text_verbatim": null,
+          "constraints": [
+            "fond noir pur",
+            "seamless horizontal",
+            "pas de plage ou d'eau bleue"
+          ],
+          "avoid": [
+            "vague géante",
+            "ligne droite",
+            "fumée",
+            "texte"
+          ]
+        },
+        "transparency_profile": "black_additive"
+      },
+      "integration": {
+        "targets": [
+          "future couronne littorale dans src/render/world.js"
+        ],
+        "runtime_wiring": "optional_not_wired"
+      },
+      "validation": [
+        "test répétition 3x",
+        "fond invisible en Screen"
+      ]
+    },
+    {
+      "id": "env_sky_clouds_v4",
+      "category": "environment/sky",
+      "priority": "P0",
+      "covers": [
+        "YOLE_TEXTURES.clouds"
+      ],
+      "output": {
+        "path": "assets/textures/sky_clouds_v4.jpg",
+        "working_px": [
+          2048,
+          1024
+        ],
+        "delivery_px": [
+          2048,
+          512
+        ],
+        "aspect_ratio": "4:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable_x": true,
+        "max_kb": 120
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "bande de nuages panoramique horizontalement tuilable",
+          "primary_request": "Petits cumulus antillais étirés par les alizés, couverture légère, dessous teal coloré et bords chauds.",
+          "input_images": [
+            "ref_hud_v4: heure dorée et quantité de nuages"
+          ],
+          "scene_backdrop": "ciel seul, sans horizon",
+          "subject": "nuages espacés",
+          "style_medium": "texture de ciel 3D stylisée",
+          "composition_framing": "raccord gauche/droite, bas calme",
+          "lighting_mood": "soleil bas hors cadre",
+          "color_palette": "#d1f3f7, #079bd1, ivoire chaud",
+          "materials_textures": "nuages doux mais non photographiques",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun disque solaire",
+            "aucune montagne ou mer",
+            "seamless horizontal"
+          ],
+          "avoid": [
+            "orage",
+            "HDRI",
+            "ciel gris",
+            "soleil répété",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/sky_clouds.jpg"
+        ],
+        "runtime_wiring": "drop_in_after_seam_test"
+      },
+      "validation": [
+        "test cylindre 360° sans couture",
+        "pas de soleil ou horizon peint",
+        "poids <= 120 Ko"
+      ]
+    },
+    {
+      "id": "env_horizon_haze_v4",
+      "category": "environment/sky",
+      "priority": "P0",
+      "covers": [
+        "raccord ciel-mer",
+        "brume atmosphérique"
+      ],
+      "output": {
+        "path": "assets/textures/horizon_haze_v4.jpg",
+        "working_px": [
+          2048,
+          768
+        ],
+        "delivery_px": [
+          2048,
+          256
+        ],
+        "aspect_ratio": "8:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable_x": true,
+        "max_kb": 72
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "bande de brume d'horizon",
+          "primary_request": "Brume cyan pâle très basse, variation douce et irrégulière, sans relief ni nuage identifiable.",
+          "input_images": [
+            "ref_hud_v4: horizon"
+          ],
+          "scene_backdrop": "bande abstraite",
+          "subject": "brume atmosphérique",
+          "style_medium": "texture de jeu subtile",
+          "composition_framing": "seamless horizontal",
+          "lighting_mood": "heure dorée",
+          "color_palette": "#d1f3f7 avec pointe chaude #f4dfa8",
+          "materials_textures": "brume",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun soleil",
+            "aucun objet",
+            "haut et bas raccordables aux couleurs runtime"
+          ],
+          "avoid": [
+            "gris",
+            "nuage distinct",
+            "montagne",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "option de couche d'horizon dans src/render/sky.js"
+        ],
+        "runtime_wiring": "optional_not_wired",
+        "fallback": "couleur procédurale #d1f3f7"
+      },
+      "validation": [
+        "aucune couture",
+        "pas de bande visible à la jonction mer/ciel"
+      ]
+    },
+    {
+      "id": "env_sun_glow_v4",
+      "category": "environment/sky",
+      "priority": "P2",
+      "covers": [
+        "disque et halo solaire optionnels"
+      ],
+      "output": {
+        "path": "assets/textures/sun_glow_v4.jpg",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "JPEG",
+        "alpha": false,
+        "blend": "additive",
+        "max_kb": 64
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "sprite additif de soleil",
+          "primary_request": "Disque solaire ivoire chaud aux bords nets avec halo très contenu et deux rayons courts.",
+          "input_images": [
+            "ref_hud_v4: taille et chaleur du soleil"
+          ],
+          "scene_backdrop": "fond noir pur #000000",
+          "subject": "un soleil centré",
+          "style_medium": "sprite VFX",
+          "composition_framing": "disque 24%, halo 58%, marge noire",
+          "lighting_mood": "heure dorée",
+          "color_palette": "#fff6dd, #ffc531 sur #000000",
+          "materials_textures": "lumière",
+          "text_verbatim": null,
+          "constraints": [
+            "fond noir pur",
+            "un seul disque",
+            "halo non brûlé"
+          ],
+          "avoid": [
+            "lens flare photographique",
+            "rayons jusqu'aux bords",
+            "texte"
+          ]
+        },
+        "transparency_profile": "black_additive"
+      },
+      "integration": {
+        "targets": [
+          "src/render/sky.js uniquement si supérieur au disque procédural"
+        ],
+        "runtime_wiring": "optional_not_wired"
+      },
+      "validation": [
+        "aucun carré visible",
+        "aligné avec la direction de lumière unique"
+      ]
+    },
+    {
+      "id": "env_storm_wall_v4",
+      "category": "environment/sky",
+      "priority": "P1",
+      "covers": [
+        "Mur du Grain"
+      ],
+      "output": {
+        "path": "assets/textures/storm_wall_v4.jpg",
+        "working_px": [
+          2048,
+          1024
+        ],
+        "delivery_px": [
+          2048,
+          1024
+        ],
+        "aspect_ratio": "2:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable_x": true,
+        "max_kb": 260
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_storm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "bande panoramique de front orageux",
+          "primary_request": "Mur nuageux tropical profond, base de pluie dense, volumes violets-noirs et une fente de lumière froide.",
+          "input_images": [
+            "ref_arcade_hud: menace et contraste seulement"
+          ],
+          "scene_backdrop": "ciel orageux sans mer",
+          "subject": "front nuageux",
+          "style_medium": "texture de ciel arcade premium",
+          "composition_framing": "seamless horizontal, base plus dense",
+          "lighting_mood": "menaçant mais pas nuit",
+          "color_palette": "#160f2f, #0d4f63, #d1f3f7",
+          "materials_textures": "nuages et pluie",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun éclair figé central",
+            "aucune mer ou montagne",
+            "seamless horizontal"
+          ],
+          "avoid": [
+            "ouragan satellite",
+            "espace",
+            "violet néon",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "future texture du StormWall dans src/render/sky.js"
+        ],
+        "runtime_wiring": "optional_not_wired",
+        "fallback": "garder le mur procédural"
+      },
+      "validation": [
+        "yoles restent lisibles",
+        "seamless 360°",
+        "le calme ne devient pas sombre"
+      ]
+    },
+    {
+      "id": "env_backdrop_far_v4",
+      "category": "environment/islets",
+      "priority": "P0",
+      "covers": [
+        "YOLE_TEXTURES.backdrop"
+      ],
+      "output": {
+        "path": "assets/textures/backdrop_far_v4.png",
+        "working_px": [
+          2048,
+          768
+        ],
+        "delivery_px": [
+          2048,
+          384
+        ],
+        "aspect_ratio": "16:3",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 320
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "silhouette panoramique de chaîne volcanique lointaine",
+          "primary_request": "Chaîne martiniquaise vue de la mer, profils concaves, épaules irrégulières, sommets décentrés, forêt assombrie par la distance.",
+          "input_images": [
+            "ref_hud_v4: relief cible",
+            "ref_current_course: triangles à éliminer"
+          ],
+          "scene_backdrop": "fond #ff00ff uniforme",
+          "subject": "une bande continue de relief",
+          "style_medium": "matte painting 3D stylisé",
+          "composition_framing": "ligne de crête continue bord à bord; sujet touche tout le bord bas sans trou; aucun objet isolé",
+          "lighting_mood": "brume horizon #d1f3f7",
+          "color_palette": "verts désaturés teal, roche vert-noir",
+          "materials_textures": "forêt lointaine, roche volcanique",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun cône parfait",
+            "fond magenta plat",
+            "bord bas entièrement opaque",
+            "pas de mer ou de ciel dans le sujet"
+          ],
+          "avoid": [
+            "triangles",
+            "Alpes",
+            "falaises blanches",
+            "trous jusqu'au bas",
+            "texte"
+          ]
+        },
+        "transparency_profile": "magenta_key_foliage"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/backdrop_far.png",
+          "src/render/sky.js setBackdrop"
+        ],
+        "runtime_wiring": "drop_in_after_alpha_and_cylinder_test"
+      },
+      "validation": [
+        "bande basse alpha 255 sur toute la largeur",
+        "aucune couture sur cylindre",
+        "pas de triangle dominant"
+      ]
+    },
+    {
+      "id": "env_backdrop_near_v4",
+      "category": "environment/islets",
+      "priority": "P0",
+      "covers": [
+        "YOLE_TEXTURES.backdropNear"
+      ],
+      "output": {
+        "path": "assets/textures/backdrop_near_v4.png",
+        "working_px": [
+          2048,
+          768
+        ],
+        "delivery_px": [
+          2048,
+          384
+        ],
+        "aspect_ratio": "16:3",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 360
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "bande panoramique de côte proche",
+          "primary_request": "Collines tropicales irrégulières très boisées, petits pitons, plage ivoire discontinue et roches basaltiques au pied.",
+          "input_images": [
+            "ref_hud_v4: côte proche",
+            "ref_current_course: bande plate à éliminer"
+          ],
+          "scene_backdrop": "fond #ff00ff uniforme",
+          "subject": "côte continue",
+          "style_medium": "matte painting 3D stylisé",
+          "composition_framing": "crête continue bord à bord; terrain entièrement raccordé au bord bas; plage fine",
+          "lighting_mood": "heure dorée",
+          "color_palette": "#1c8b4e, #0a5c39, #e8d7a2, roche vert-noir",
+          "materials_textures": "forêt, sable, basalte",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun trou jusqu'au bas",
+            "fond magenta plat",
+            "aucun palmier isolé à bord coupé",
+            "pas de ciel ou mer dans le sujet"
+          ],
+          "avoid": [
+            "ruban vert plat",
+            "cônes",
+            "montagnes grises",
+            "architecture",
+            "texte"
+          ]
+        },
+        "transparency_profile": "magenta_key_foliage"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/backdrop_near.png",
+          "src/render/sky.js setNearBackdrop"
+        ],
+        "runtime_wiring": "drop_in_after_alpha_and_parallax_test"
+      },
+      "validation": [
+        "bord bas opaque continu",
+        "parallaxe naturelle",
+        "aucun halo magenta"
+      ]
+    },
+    {
+      "id": "env_morne_rock_v4",
+      "category": "environment/islets",
+      "priority": "P0",
+      "covers": [
+        "YOLE_TEXTURES.morne"
+      ],
+      "output": {
+        "path": "assets/textures/morne_rock_v4.jpg",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable": true,
+        "max_kb": 88
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "albedo tuilable de basalte végétalisé",
+          "primary_request": "Basalte martiniquais vert-noir, petites fissures, lichen et mousse très discrets, variation homogène.",
+          "input_images": [
+            "ref_hud_v4: couleur des reliefs"
+          ],
+          "scene_backdrop": "texture carrée",
+          "subject": "surface rocheuse",
+          "style_medium": "albedo de jeu stylisé",
+          "composition_framing": "seamless X/Y",
+          "lighting_mood": "sans ombre directionnelle",
+          "color_palette": "#2f3a30, #0a5c39, bruns chauds",
+          "materials_textures": "basalte, lichen",
+          "text_verbatim": null,
+          "constraints": [
+            "désaturée pour préserver vertex colors",
+            "aucune grosse pierre focale",
+            "seamless"
+          ],
+          "avoid": [
+            "béton gris",
+            "pierre blanche",
+            "falaise entière",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/morne_rock.jpg",
+          "src/render/world.js material island"
+        ],
+        "runtime_wiring": "drop_in_after_tile_test"
+      },
+      "validation": [
+        "mosaïque 4x4 sans couture",
+        "vertex color sable→jungle→roche reste dominante"
+      ]
+    },
+    {
+      "id": "env_shore_sand_rock_v4",
+      "category": "environment/islets",
+      "priority": "P1",
+      "covers": [
+        "pied des îlots",
+        "hauts-fonds"
+      ],
+      "output": {
+        "path": "assets/textures/shore_sand_rock_v4.jpg",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "JPEG",
+        "alpha": false,
+        "tileable": true,
+        "max_kb": 88
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "albedo tuilable de rivage sable et basalte",
+          "primary_request": "Sable ivoire humide mêlé à de petits éclats de basalte vert-noir, transition naturelle et homogène.",
+          "input_images": [
+            "ref_hud_v4: plage étroite"
+          ],
+          "scene_backdrop": "texture carrée",
+          "subject": "surface de rivage",
+          "style_medium": "albedo stylisé",
+          "composition_framing": "seamless",
+          "lighting_mood": "sans reflet cuit",
+          "color_palette": "#e8d7a2, #2f3a30, #0a5c39",
+          "materials_textures": "sable humide, petits fragments",
+          "text_verbatim": null,
+          "constraints": [
+            "pas d'eau ou d'écume cuite",
+            "seamless",
+            "aucun coquillage géant"
+          ],
+          "avoid": [
+            "plage blanche",
+            "galets gris",
+            "traces de pas",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "future couronne littorale dans src/render/world.js"
+        ],
+        "runtime_wiring": "optional_not_wired"
+      },
+      "validation": [
+        "seamless",
+        "lisible sans voler l'attention aux yoles"
+      ]
+    },
+    {
+      "id": "env_vegetation_cluster_v4",
+      "category": "environment/islets",
+      "priority": "P2",
+      "covers": [
+        "billboard optionnel de végétation lointaine"
+      ],
+      "output": {
+        "path": "assets/textures/vegetation_cluster_v4.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 120
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "cluster de végétation tropicale détouré",
+          "primary_request": "Touffe dense de végétation martiniquaise basse avec deux petits palmiers inclinés, silhouette compacte.",
+          "input_images": [
+            "ref_hud_v4: densité de côte"
+          ],
+          "scene_backdrop": "fond #ff00ff uniforme",
+          "subject": "un seul cluster végétal",
+          "style_medium": "billboard 3D stylisé",
+          "composition_framing": "base plate, marge 10%, aucun élément coupé",
+          "lighting_mood": "heure dorée cohérente",
+          "color_palette": "#1c8b4e, #0a5c39, #c98a45",
+          "materials_textures": "feuillage simple",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune ombre portée",
+            "fond magenta uniforme",
+            "pas de feuille plus fine que 4 px livrés"
+          ],
+          "avoid": [
+            "jungle photoréaliste",
+            "bananier géant",
+            "pot",
+            "texte"
+          ]
+        },
+        "transparency_profile": "magenta_key_foliage"
+      },
+      "integration": {
+        "targets": [
+          "future billboard LQ/MQ dans src/render/world.js"
+        ],
+        "runtime_wiring": "optional_not_wired"
+      },
+      "validation": [
+        "aucune frange magenta",
+        "silhouette propre à 64 px"
+      ]
+    },
+    {
+      "id": "env_sargasse_v4",
+      "category": "environment/obstacle",
+      "priority": "P1",
+      "covers": [
+        "YOLE_TEXTURES.sargasse"
+      ],
+      "output": {
+        "path": "assets/textures/sargasse_v4.png",
+        "working_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "aspect_ratio": "1:1",
+        "format": "PNG-24",
+        "alpha": true,
+        "max_kb": 140
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "plaque de sargasses vue du dessus",
+          "primary_request": "Radeau irrégulier de sargasses brun-or et vert olive, trous d'eau internes, bord cassé.",
+          "input_images": [],
+          "scene_backdrop": "fond #ff00ff uniforme",
+          "subject": "une plaque de sargasses",
+          "style_medium": "sprite de jeu stylisé",
+          "composition_framing": "vue top-down, marge 12%",
+          "lighting_mood": "albedo sans ombre",
+          "color_palette": "brun chaud, olive, or fané",
+          "materials_textures": "algues flottantes",
+          "text_verbatim": null,
+          "constraints": [
+            "aucune eau bleue",
+            "forme non circulaire",
+            "trous internes transparents après détourage"
+          ],
+          "avoid": [
+            "île",
+            "nénuphars",
+            "tas compact rond",
+            "texte"
+          ]
+        },
+        "transparency_profile": "magenta_key_foliage"
+      },
+      "integration": {
+        "targets": [
+          "assets/textures/sargasse.png"
+        ],
+        "runtime_wiring": "drop_in_after_alpha_test"
+      },
+      "validation": [
+        "trous alpha propres",
+        "pas de contour magenta",
+        "lisible à 24 px"
+      ]
+    },
+    {
+      "id": "env_islet_shape_concept_v4",
+      "category": "environment/concept",
+      "priority": "P0",
+      "artifact_role": "geometry_reference_only",
+      "covers": [
+        "cinq silhouettes de makeIslandGeometry",
+        "backdrops"
+      ],
+      "output": {
+        "path": "art-source/islet_shape_concept_v4.png",
+        "working_px": [
+          2048,
+          1152
+        ],
+        "delivery_px": [
+          2048,
+          1152
+        ],
+        "aspect_ratio": "16:9",
+        "format": "PNG",
+        "alpha": false,
+        "do_not_ship": true
+      },
+      "generation": {
+        "intent": "generate",
+        "inherits": [
+          "global_v4",
+          "environment_calm_v4"
+        ],
+        "prompt": {
+          "use_case": "stylized-concept",
+          "asset_type": "planche de formes d'îlots pour modélisation",
+          "primary_request": "Cinq îlots volcaniques martiniquais distincts: piton concave, épaulement boisé, double crête, roche basse, anse sableuse; tous irréguliers.",
+          "input_images": [
+            "ref_hud_v4: cible de relief",
+            "ref_current_course: cônes à éliminer"
+          ],
+          "scene_backdrop": "fond neutre clair",
+          "subject": "cinq îlots séparés vus à angle de gameplay",
+          "style_medium": "concept 3D stylisé",
+          "composition_framing": "ligne de base commune, aucun chevauchement, sans labels",
+          "lighting_mood": "heure dorée neutre",
+          "color_palette": "#1c8b4e, #0a5c39, #2f3a30, #e8d7a2",
+          "materials_textures": "forêt, basalte, sable",
+          "text_verbatim": null,
+          "constraints": [
+            "aucun cône parfait",
+            "profils concaves",
+            "végétation jusqu'aux crêtes",
+            "concept seulement"
+          ],
+          "avoid": [
+            "triangles",
+            "volcans fumants",
+            "îles flottantes",
+            "montagnes grises",
+            "texte"
+          ]
+        },
+        "transparency_profile": "none"
+      },
+      "integration": {
+        "targets": [
+          "réglage makeIslandGeometry dans src/render/world.js"
+        ],
+        "runtime_wiring": "interdit"
+      },
+      "validation": [
+        "cinq silhouettes réellement distinctes",
+        "aucun cône",
+        "échelonnement sable→jungle→roche visible"
+      ]
+    }
+  ],
+  "do_not_generate_with_imagegen": [
+    {
+      "id": "sea_detail_normal_and_crest",
+      "owner": "src/render/ocean.js makeSeaDetailTexture",
+      "reason": "Une normal map plausible visuellement peut être mathématiquement fausse. Conserver la génération procédurale tuilable et orientée par le vent."
+    },
+    {
+      "id": "minimap_live_map",
+      "owner": "src/game/hud.js et #minimapCanvas",
+      "reason": "Route, yoles, îlots et Grain changent en temps réel. Générer uniquement cadre et glyphes optionnels."
+    },
+    {
+      "id": "runtime_typography",
+      "owner": "index.html, src/game/hud.js et CSS",
+      "reason": "Les libellés, nombres, unités, noms, positions et cooldowns doivent rester exacts, localisables et accessibles."
+    },
+    {
+      "id": "ui_state_color",
+      "owner": "classes CSS .active, .pressed, .cooldown, .empty, .storm-near et classes w-*",
+      "reason": "Les états et codes couleur changent dynamiquement; ne pas les cuire dans les fonds neutres."
+    }
+  ],
+  "coverage": {
+    "button_ids": {
+      "playBtn": [
+        "ui_button_primary_idle_v4",
+        "ui_button_primary_pressed_v4"
+      ],
+      "tourBtn": [
+        "ui_button_secondary_idle_v4",
+        "ui_button_secondary_pressed_v4"
+      ],
+      "customBtn": [
+        "ui_button_secondary_idle_v4",
+        "ui_button_secondary_pressed_v4"
+      ],
+      "qualityBtn": [
+        "ui_utility_button_v4"
+      ],
+      "zoomOutBtn": [
+        "ui_utility_button_v4"
+      ],
+      "zoomInBtn": [
+        "ui_utility_button_v4"
+      ],
+      "settingsBtn": [
+        "ui_utility_button_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "soundBtn": [
+        "ui_utility_button_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "pauseBtn": [
+        "ui_utility_button_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "bwaBtn": [
+        "ui_action_button_idle_v4",
+        "ui_action_button_pressed_v4",
+        "ui_action_glyph_family_v4"
+      ],
+      "boostLateralBtn": [
+        "ui_action_button_idle_v4",
+        "ui_action_button_pressed_v4",
+        "ui_action_glyph_family_v4"
+      ],
+      "boostForwardBtn": [
+        "ui_action_button_idle_v4",
+        "ui_action_button_pressed_v4",
+        "ui_action_glyph_family_v4"
+      ],
+      "weaponSlotBtn": [
+        "ui_action_button_idle_v4",
+        "ui_action_button_pressed_v4",
+        "ui_action_glyph_family_v4"
+      ],
+      "revengeBtn": [
+        "ui_alert_9slice_v4"
+      ],
+      "customCloseBtn": [
+        "ui_button_primary_idle_v4",
+        "ui_button_primary_pressed_v4"
+      ],
+      "hapticsToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "stableCameraToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "flashToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "impactToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "leftHandedToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "perfToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "autoQualityToggle": [
+        "ui_choice_tile_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "resumeBtn": [
+        "ui_button_primary_idle_v4",
+        "ui_button_primary_pressed_v4"
+      ],
+      "restartBtn": [
+        "ui_button_secondary_idle_v4",
+        "ui_button_secondary_pressed_v4"
+      ],
+      "rematchBtn": [
+        "ui_button_primary_idle_v4",
+        "ui_button_primary_pressed_v4"
+      ],
+      "replayBtn": [
+        "ui_button_secondary_idle_v4",
+        "ui_button_secondary_pressed_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "downloadReplayBtn": [
+        "ui_button_secondary_idle_v4",
+        "ui_button_secondary_pressed_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "downloadTelemetryBtn": [
+        "ui_button_secondary_idle_v4",
+        "ui_button_secondary_pressed_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "retryBtn": [
+        "ui_button_primary_idle_v4",
+        "ui_button_primary_pressed_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "dynamicRigChoices": [
+        "ui_choice_tile_v4"
+      ],
+      "dynamicLiveryChoices": [
+        "ui_choice_tile_v4",
+        "yole_sail_livery_family_v4"
+      ]
+    },
+    "screens_and_hud": {
+      "loading": [
+        "ui_loading_djab_mark_v4"
+      ],
+      "main_menu": [
+        "ui_menu_home_backdrop_v4",
+        "ui_panel_9slice_v4"
+      ],
+      "custom_submenu": [
+        "ui_modal_backdrop_v4",
+        "ui_panel_9slice_v4",
+        "ui_choice_tile_v4"
+      ],
+      "pause_settings_submenu": [
+        "ui_modal_backdrop_v4",
+        "ui_panel_9slice_v4",
+        "ui_choice_tile_v4"
+      ],
+      "end_replay_submenu": [
+        "ui_modal_backdrop_v4",
+        "ui_panel_9slice_v4"
+      ],
+      "fatal_submenu": [
+        "ui_modal_backdrop_v4",
+        "ui_panel_9slice_v4"
+      ],
+      "leaderboard": [
+        "ui_panel_9slice_v4"
+      ],
+      "round_position_timer": [
+        "ui_panel_9slice_v4"
+      ],
+      "weather_perf_killfeed": [
+        "ui_panel_9slice_v4",
+        "ui_alert_9slice_v4"
+      ],
+      "status_speed_balance_flow_hull_integrity": [
+        "ui_panel_9slice_v4",
+        "ui_gauge_frame_v4",
+        "ui_gauge_fill_neutral_v4"
+      ],
+      "top_right_controls": [
+        "ui_utility_button_v4",
+        "ui_utility_glyph_family_v4"
+      ],
+      "target_reticle": [
+        "ui_reticle_harpoon_v4"
+      ],
+      "minimap": [
+        "ui_minimap_frame_v4",
+        "ui_minimap_marker_family_v4",
+        "minimap_live_map"
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+CONTRÔLES — TROPICAL MAYHEM V3.2
+----------------------------------
+A / D ou flèches : direction
+Clic droit + glisser + relâcher : viser et tirer
+Espace : utiliser l'arme active
+E : changer d'arme
+& é " ' : sélectionner Coco / Harpon / Mine / Rhum
+Shift : contre-gîte Bwa Shift / coupe un câble très tendu
+W ou F : Turbo avant
+X ou Ctrl : Bwa Dash latéral
++ / - ou molette : zoom caméra
+R : vengeance après élimination
+P / Échap : pause
+F3 : overlay performance
+
+MOBILE
+------
+Premier doigt / joystick : cap + voile
+Second doigt + glisser + relâcher : viser et tirer sans lâcher la barre
+Boutons droits : soute active, Turbo, Dash et contre-gîte
+Boutons − / + : zoom tactique
+
+DUEL LOCAL
+-----------
+J1 : Q/D · Espace/E · Z/X · Shift
+J2 : J/L · I/O · U/M · K
+Deux pilotes humains + deux rivaux IA, caméra partagée. Replay désactivé.
+
+BUT
+---
+Faire chavirer les autres, ancrer une cible au harpon pour tendre l'élastique et rester devant le Mur du Grain. Premier à 5 points.

@@ -1,0 +1,14 @@
+# Le jeu est 100 % statique : aucune compilation, aucune dépendance runtime.
+# `three` est en dependencies pour l'outillage local, mais la page charge sa
+# copie depuis vendor/. On installe donc sans rien construire.
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev || npm install --omit=dev"]
+
+[phases.build]
+cmds = ["node -e \"console.log('rien a construire : site statique')\""]
+
+[start]
+cmd = "npm run serve:prod"

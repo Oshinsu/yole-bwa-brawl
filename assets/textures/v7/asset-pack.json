@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "pack": {
+    "id": "yole-bwa-brawl-v7-combat-juice",
+    "version": "7.0",
+    "createdOn": "2026-07-27",
+    "category": "combat-vfx-signatures",
+    "previousSemanticAssetCount": 70,
+    "newSignatureCount": 4,
+    "cumulativeSemanticAssetCount": 74,
+    "newRuntimeTextureFileCount": 5,
+    "cumulativeFileCountIncludingAtlas": 75,
+    "countingNote": "The atlas is a runtime aggregation of the four new signatures, not a fifth artistic signature.",
+    "generationMode": "built-in-imagegen",
+    "promptManifest": "art-source/generated-v7/juice/manifest.json",
+    "contactSheet": "previews/v7_juice_contact.png",
+    "documentation": "docs/ASSET_PACK_V7.md"
+  },
+  "signatures": [
+    {
+      "id": "harpoon_anchor_tear",
+      "role": "harpoon bite, tether snap and elastic recoil impact",
+      "path": "assets/textures/v7/juice/harpoon_anchor_tear.webp",
+      "source": "art-source/generated-v7/juice/harpoon_anchor_tear_source.png",
+      "width": 512,
+      "height": 512,
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "colorMode": "RGB",
+      "alpha": false,
+      "blendIntent": "additive",
+      "blackCornersValidated": true,
+      "maximumCornerChannel": 1,
+      "bytes": 304536,
+      "sha256": "76fff21d6aae5380f73e292d1fbdba57bdb44f750a0256ada9d708df7eb3bae3",
+      "atlasCell": {
+        "column": 0,
+        "row": 0,
+        "x": 0,
+        "y": 0,
+        "width": 512,
+        "height": 512,
+        "u0": 0.0,
+        "v0": 0.0,
+        "u1": 0.5,
+        "v1": 0.5
+      }
+    },
+    {
+      "id": "coconut_shockwave",
+      "role": "coconut artillery impact and broad water-pressure ring",
+      "path": "assets/textures/v7/juice/coconut_shockwave.webp",
+      "source": "art-source/generated-v7/juice/coconut_shockwave_source.png",
+      "width": 512,
+      "height": 512,
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "colorMode": "RGB",
+      "alpha": false,
+      "blendIntent": "additive",
+      "blackCornersValidated": true,
+      "maximumCornerChannel": 2,
+      "bytes": 513048,
+      "sha256": "4434733eecc992c53771ef61ba71e138bd217c4f8dbb29ea490b4cc1f2f9feb6",
+      "atlasCell": {
+        "column": 1,
+        "row": 0,
+        "x": 512,
+        "y": 0,
+        "width": 512,
+        "height": 512,
+        "u0": 0.5,
+        "v0": 0.0,
+        "u1": 1.0,
+        "v1": 0.5
+      }
+    },
+    {
+      "id": "mine_detonation",
+      "role": "sea-mine detonation, concussion and debris burst",
+      "path": "assets/textures/v7/juice/mine_detonation.webp",
+      "source": "art-source/generated-v7/juice/mine_detonation_source.png",
+      "width": 512,
+      "height": 512,
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "colorMode": "RGB",
+      "alpha": false,
+      "blendIntent": "additive",
+      "blackCornersValidated": true,
+      "maximumCornerChannel": 1,
+      "bytes": 379635,
+      "sha256": "8fbdb5cdd8f6551e9cf248e923a956bdd07542a90df5101a8197a97cc44949c9",
+      "atlasCell": {
+        "column": 0,
+        "row": 1,
+        "x": 0,
+        "y": 512,
+        "width": 512,
+        "height": 512,
+        "u0": 0.0,
+        "v0": 0.5,
+        "u1": 0.5,
+        "v1": 1.0
+      }
+    },
+    {
+      "id": "perfect_counterheel",
+      "role": "perfect counter-heel timing success feedback",
+      "path": "assets/textures/v7/juice/perfect_counterheel.webp",
+      "source": "art-source/generated-v7/juice/perfect_counterheel_source.png",
+      "width": 512,
+      "height": 512,
+      "aspectRatio": "1:1",
+      "format": "PNG",
+      "colorMode": "RGB",
+      "alpha": false,
+      "blendIntent": "additive",
+      "blackCornersValidated": true,
+      "maximumCornerChannel": 1,
+      "bytes": 383874,
+      "sha256": "7d19a8fd89c7217ae30497aa25a615e1c98bb96c55f7330529ecfb842dbc7051",
+      "atlasCell": {
+        "column": 1,
+        "row": 1,
+        "x": 512,
+        "y": 512,
+        "width": 512,
+        "height": 512,
+        "u0": 0.5,
+        "v0": 0.5,
+        "u1": 1.0,
+        "v1": 1.0
+      }
+    }
+  ],
+  "atlas": {
+    "id": "juice_vfx_atlas",
+    "role": "2x2 runtime aggregation of all four V7 combat-juice signatures",
+    "path": "assets/textures/v7/juice/juice_vfx_atlas.webp",
+    "width": 1024,
+    "height": 1024,
+    "columns": 2,
+    "rows": 2,
+    "cellWidth": 512,
+    "cellHeight": 512,
+    "format": "PNG",
+    "colorMode": "RGB",
+    "alpha": false,
+    "blendIntent": "additive",
+    "drawCallIntent": "One atlas-backed texture batch / draw call for the four signatures.",
+    "blackCornersValidated": true,
+    "maximumCornerChannel": 1,
+    "bytes": 1592377,
+    "sha256": "b8b947e4b7ba106854e53b36053e26816453afd112a7b02a22be492ff6569a02",
+    "mappingOrder": [
+      "harpoon_anchor_tear",
+      "coconut_shockwave",
+      "mine_detonation",
+      "perfect_counterheel"
+    ],
+    "cellComparison": [
+      {
+        "id": "harpoon_anchor_tear",
+        "differentPixelPercent": 0.0,
+        "maximumChannelDelta": 0,
+        "meanAbsoluteChannelDelta": 0.0
+      },
+      {
+        "id": "coconut_shockwave",
+        "differentPixelPercent": 3.6201,
+        "maximumChannelDelta": 2,
+        "meanAbsoluteChannelDelta": 0.014707
+      },
+      {
+        "id": "mine_detonation",
+        "differentPixelPercent": 1.2199,
+        "maximumChannelDelta": 2,
+        "meanAbsoluteChannelDelta": 0.004827
+      },
+      {
+        "id": "perfect_counterheel",
+        "differentPixelPercent": 3.0441,
+        "maximumChannelDelta": 2,
+        "meanAbsoluteChannelDelta": 0.0123
+      }
+    ]
+  },
+  "qualityAssurance": {
+    "sourceCountValidated": true,
+    "signatureCountValidated": true,
+    "atlasMappingValidated": true,
+    "dimensionsValidated": true,
+    "fileSignaturesValidated": true,
+    "sha256Validated": true,
+    "blackCornersValidated": true,
+    "maximumObservedCornerChannel": 2,
+    "maximumObservedSourceCornerChannel": 3,
+    "visualContentValidated": true,
+    "atlasCellMaximumChannelDelta": 2,
+    "contactSheetValidated": true
+  }
+}

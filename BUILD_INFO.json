@@ -1,0 +1,158 @@
+{
+  "title": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
+  "version": "1.2.0",
+  "referenceDate": "2026-07-27",
+  "renderer": "Three.js 0.185.1 / WebGL2 baseline",
+  "simulationHz": 60,
+  "boats": 4,
+  "gameModes": [
+    "Combat Box",
+    "Tour des Yoles 2026 (8 étapes)"
+  ],
+  "targetScore": 5,
+  "buoyancyPointsPerBoat": 16,
+  "floodCompartmentsPerBoat": 6,
+  "crewMassesPerBoat": 6,
+  "waveComponents": 8,
+  "oceanRings": 4,
+  "wakeResolution": 192,
+  "weapons": {
+    "base": [
+      "Canon Coco",
+      "Spider-Harpon",
+      "Mine Tsunami",
+      "Rhum"
+    ],
+    "crate": [
+      "Barik Rhum",
+      "Chadron",
+      "Konk Lanbi",
+      "Pwason Volan"
+    ]
+  },
+  "qualityTiers": [
+    "LQ",
+    "MQ",
+    "HQ"
+  ],
+  "source": {
+    "runtimeModules": 33,
+    "runtimeLines": 9780,
+    "runtimeBytes": 430088
+  },
+  "validation": {
+    "deterministicTicksPerRun": 18000,
+    "deterministicChecksum": "a9818132",
+    "scenarioChecksum": "5af0515e",
+    "integratedCombatTicks": 30000,
+    "integratedChecksum": "5a2fcbcd",
+    "replayChecksum": "2fa84e5b",
+    "tourTicks": 35402,
+    "tourStages": 8,
+    "eglShaderProgramsLinked": 0,
+    "eglShaderSmokeSkipped": true,
+    "browserUiSmoke": true,
+    "browserShaderProgramsLinked": 9,
+    "browserShaderRenderer": "WebKit WebGL",
+    "headlessBrowserWebGL": true,
+    "functionalMinimapSmoke": true,
+    "compactHudCollisionSmoke": true,
+    "pauseInputRegressionSmoke": true,
+    "benchmarkBoatSteps": 480000,
+    "verifiedCommand": "npm run verify",
+    "benchmarkElapsedMs": 3203.37,
+    "benchmarkBoatStepsPerSecond": 146123,
+    "benchmarkMinBoatStepsPerSecond": 60000,
+    "framerateChecksum": "8156fdc2",
+    "colorPipeline": {
+      "toneMapping": "ACES filmique dans la passe de composition",
+      "outputEncoding": "sRGB explicite (three.js ne l'ajoute qu'aux materiaux integres)",
+      "exposure": 0.9,
+      "blackPoint": 0.1,
+      "measuredMedianLumaHQ": 0.3313,
+      "measuredClippedFractionHQ": 0.0,
+      "mqHqMedianLumaDelta": 0.0003
+    },
+    "aiBoostsPer100s": {
+      "peyi": 6,
+      "tour": 53,
+      "channpyon": 50
+    },
+    "turboCooldownSeconds": 10.0,
+    "turboRollKickRadPerSecond": 0.55,
+    "playtestCompetentPilot": {
+      "meanRollRad": 0.207,
+      "capsizes": 0,
+      "eliminations": 0,
+      "meanSpeedKmh": 73.6,
+      "aiShotsPerMinute": 30.8
+    },
+    "touchTargetMinPx": {
+      "coarsePointer": 46,
+      "finePointer": 31,
+      "contract": 44
+    },
+    "playtestSeeds": 5,
+    "hullDamageByWeapon": {
+      "mine": 0.3,
+      "barik": 0.22,
+      "dashRam": 0.182,
+      "wave": 0.2,
+      "lanbi": 0.1,
+      "harpoon": 0.1,
+      "sargassePerSecond": 0.1,
+      "chadron": 0.04,
+      "pwason": 0.0
+    },
+    "blastWaterOnlyRollRad": {
+      "mine9m": 0.419,
+      "coco4m": 0.54
+    },
+    "harpoonRayHalfWidthM": 3.2
+  },
+  "arcadeSystems": [
+    "Turbo avant",
+    "Bwa Dash latéral",
+    "Harpoon Slingshot",
+    "Camera Zoom",
+    "Support manette (Gamepad)",
+    "Tour des Yoles par étapes"
+  ],
+  "simulationVersion": "3.7.0",
+  "gameplayVersion": "tropical-mayhem-v3-8-balistique",
+  "aiLevels": [
+    "peyi",
+    "tour",
+    "channpyon"
+  ],
+  "music": {
+    "tracks": 8,
+    "totalMB": 12,
+    "assignment": {
+      "menu": "Coconut Cannon Rush",
+      "course": "Canoe Combat",
+      "tour": "Canot de Guerre",
+      "duel": "Turquoise Turbo",
+      "grain": "Carnival Apocalypse",
+      "depart": "An Nou Ay",
+      "victoire": "Midnight Canoe",
+      "defaite": "Oops, You Lost!"
+    },
+    "streamed": true,
+    "precached": false
+  },
+  "fonts": {
+    "inter": {
+      "file": "assets/fonts/inter-var.woff2",
+      "kb": 47,
+      "variable": "100 900"
+    },
+    "anton": {
+      "file": "assets/fonts/anton-400.woff2",
+      "kb": 18
+    },
+    "license": "SIL OFL 1.1",
+    "precached": true,
+    "inlinedInSingleFile": true
+  }
+}

@@ -1,0 +1,25 @@
+- generic [active] [ref=e1]:
+  - generic "YOLE BWA BRAWL 3D" [ref=e2]
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: COMBAT RACER MARTINIQUAIS · TROPICAL MAYHEM V3.2
+      - heading "YOLE BWA BRAWL" [level=1] [ref=e7]: YOLEBWA BRAWL
+      - paragraph [ref=e8]: Soleil géant, palmiers, turbo latéral, harpon slingshot et noix de coco explosives. Le dernier à chavirer paie les bokits.
+      - button "🥥 LANCER TROPICAL MAYHEM V3.2" [ref=e9] [cursor=pointer]
+      - generic [ref=e10]:
+        - generic [ref=e11]: 🥥 COCO BOUM
+        - generic [ref=e12]: 🕸 HARPON SLINGSHOT
+        - generic [ref=e13]: 💨 BWA DASH
+        - generic [ref=e14]: 🌊 MINE TSUNAMI
+      - generic [ref=e15]: A/D diriger · Espace Coco · E Harpon · Q Mine · W Turbo · X Dash latéral · +/- Zoom · Shift Bwa
+    - generic [ref=e16]:
+      - text: NOUVEAU MODE ARCADE
+      - strong [ref=e17]: LA MER A PÉTÉ UN CÂBLE
+      - text: Accroche un rival façon Spider-Man, dépasse-le puis Bwa Dash dans sa coque.
+      - generic [ref=e18]:
+        - generic [ref=e19]: 16×
+        - generic [ref=e20]: points de flottabilité par yole
+      - generic [ref=e21]:
+        - generic [ref=e22]: 60 Hz
+        - generic [ref=e23]: simulation fixe et replay checksum
+    - generic [ref=e24]: THREE.JS 0.185.1 · BUILD 1.2 TROPICAL MAYHEM

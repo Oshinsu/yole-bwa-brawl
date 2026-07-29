@@ -1,0 +1,11 @@
+Polices embarquees dans assets/fonts/ — SIL Open Font License 1.1
+
+Anton — Copyright (c) Vernon Adams, Cyreal. SIL OFL 1.1.
+  https://fonts.google.com/specimen/Anton
+Inter — Copyright (c) The Inter Project Authors. SIL OFL 1.1.
+  https://fonts.google.com/specimen/Inter
+
+L'OFL autorise explicitement l'embarquement et la redistribution, y
+compris dans un produit commercial, tant que les fichiers de police ne
+sont pas vendus seuls et que cette notice accompagne la distribution.
+Texte complet : https://openfontlicense.org/

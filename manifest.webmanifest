@@ -1,0 +1,26 @@
+{
+  "name": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
+  "short_name": "BWA MAYHEM",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#062847",
+  "theme_color": "#00b8c9",
+  "description": "Combat racer tropical de yoles : Turbo, Bwa Dash, Canon Coco, Spider-Harpon, Mine Tsunami et vagues explosives.",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "id": "yole-bwa-brawl-tropical-mayhem-v3-2",
+  "scope": "./"
+}
