@@ -100,7 +100,7 @@ assert.equal(vault.latest().replay.finalChecksum, replay.finalChecksum);
 assert.equal(vault.load(first.id).summary.champion, 'BWA FATAL');
 
 vault.save({ ...replay, seed: 2 }, { champion: 'CARACOLI' });
-vault.save({ ...replay, seed: 3 }, { champion: 'CHANFLOR X' });
+vault.save({ ...replay, seed: 3 }, { champion: 'KOLIBRI' });
 assert.equal(vault.list().length, 2, 'vault limit was not enforced');
 assert.equal(vault.latest().replay.seed, 3);
 assert.match(replayFilename(replay), /^yole-bwa-brawl-[0-9a-f]{8}-[0-9a-f]{8}\.json$/);

@@ -55,7 +55,12 @@ export const CONFIG = {
   targetScore: 5,
   roundLimit: 78,
   trackHalfWidth: 54,
-  names: ["BWA FATAL", "CHANFLOR X", "CARACOLI", "LANMÈ ROUGE"],
+  // ⚠️ AUCUN NOM DE MARQUE ICI. « CHANFLOR X » a été retiré : c'est une marque
+  // déposée d'eau de source martiniquaise, et le jeu est publié publiquement.
+  // Les trois autres sont sûrs — « caracoli » est un arbre et un lieu-dit,
+  // « lanmè rouge » veut dire « mer rouge » en créole, « bwa fatal » est inventé.
+  // Si tu ajoutes un nom, vérifie qu'il n'appartient à personne.
+  names: ["BWA FATAL", "KOLIBRI", "CARACOLI", "LANMÈ ROUGE"],
   colors: [0xff7524, 0x1de1e8, 0x7658ff, 0xef3f75],
   accents: [0xfff2c9, 0xf3ffff, 0xf0edff, 0xffeef6]
 };

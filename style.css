@@ -2405,3 +2405,62 @@ body.minimal-impact .score-cue{
    de trois à quatre. Sans cette reprise, la quatrième passait À LA LIGNE et se
    retrouvait sous les autres, à moitié hors du cadre en paysage.
    Mesuré : 52 × 52 px sur téléphone, au-dessus du contrat de 44. */
+
+/* ── LIENS DU MENU : installer, archive, source ───────────────────────────
+   Posés SOUS les badges d'armes, en retrait : ce sont des sorties, pas des
+   appels à l'action. Le regard doit tomber sur « COMBAT BOX » d'abord.
+
+   ⚠️ Aucune animation en boucle — test/ui-microinteractions.test.mjs interdit
+   `infinite` dans ses sections balisées, et un lien qui clignote sous un menu
+   de jeu tire l'œil au mauvais endroit. */
+.menu-liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.lien-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(104, 241, 255, .26);
+  background: rgba(6, 55, 69, .42);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.lien-menu:hover,
+.lien-menu:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--cyan);
+  background: rgba(10, 78, 96, .6);
+}
+/* Le focus doit rester visible : ces liens sont dans l'ordre de tabulation. */
+.lien-menu:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.lien-menu.discret { opacity: .62; }
+#installBtn {
+  border-color: rgba(255, 224, 90, .5);
+  background: rgba(78, 56, 10, .46);
+  color: var(--yellow);
+}
+#installBtn:hover, #installBtn:focus-visible {
+  border-color: var(--yellow);
+  background: rgba(104, 76, 14, .6);
+}
+@media (max-width: 760px) {
+  .menu-liens { gap: 6px; margin-top: 12px; }
+  .lien-menu { padding: 7px 11px; font-size: 9px; }
+}
+
+/* La ligne de contrôles du menu ne garde que l'essentiel : le reste vit dans
+   l'écran de pause. Le second niveau est nettement estompé pour que l'œil ne
+   s'y arrête pas avant d'avoir vu les modes de jeu. */
+.control-copy b { color: var(--yellow); font-weight: 900; }
+.control-copy span { opacity: .58; }

@@ -18,3 +18,6 @@ docs/ZIK_ANALYSE.json
 
 # Raccourci Windows : chemin ABSOLU, il ne veut rien dire chez quelqu'un d'autre.
 *.lnk
+
+# Artefacts de sondes accessibilite, jamais servis.
+.playwright-mcp/

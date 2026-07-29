@@ -37,7 +37,7 @@ immédiatement reconnaissable, et surtout **génératif** — on peut produire h
 | Yole | Trame madras | Accent |
 |---|---|---|
 | BWA FATAL | ocre / rouge brique / noir | `#ff7524` |
-| CHANFLOR X | turquoise / blanc / jaune | `#1de1e8` |
+| KOLIBRI | turquoise / blanc / jaune | `#1de1e8` |
 | CARACOLI | violine / vert / or | `#7658ff` |
 | LANMÈ ROUGE | rouge / rose / blanc | `#ef3f75` |
 

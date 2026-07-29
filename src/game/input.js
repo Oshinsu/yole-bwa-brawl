@@ -694,6 +694,34 @@ export const InputSystems = {
 
   bindUI() {
     const ui = this.ui;
+    // ── INSTALLATION DE L'APPLICATION ────────────────────────────────────
+    //
+    // ⚠️ L'ÉVÉNEMENT NE SE REJOUE PAS. Le navigateur émet `beforeinstallprompt`
+    // UNE fois, tôt, et si on ne le garde pas il est perdu : le bouton ne
+    // pourra plus rien déclencher. On le capture donc et on le stocke.
+    //
+    // ⚠️ Le bouton reste MASQUÉ tant que l'événement n'est pas venu. Safari ne
+    // l'émet jamais — sur iOS l'installation passe par Partager > Sur l'écran
+    // d'accueil, et rien ne permet de la déclencher en JavaScript. Un bouton
+    // toujours visible qui échoue une fois sur deux serait pire que rien.
+    globalThis.addEventListener?.("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      this.invitationInstall = event;
+      ui.install?.classList?.remove("hidden");
+    });
+    globalThis.addEventListener?.("appinstalled", () => {
+      this.invitationInstall = null;
+      ui.install?.classList?.add("hidden");
+    });
+    if (ui.install) {
+      ui.install.onclick = async () => {
+        const invitation = this.invitationInstall;
+        if (!invitation) return;
+        this.invitationInstall = null;
+        ui.install.classList.add("hidden");
+        try { await invitation.prompt(); } catch { /* refus ou navigateur capricieux */ }
+      };
+    }
     // ⚠️ LA MUSIQUE MOURAIT AU PREMIER PASSAGE EN ARRIÈRE-PLAN.
     //
     // Sur mobile, quitter l'onglet met en pause les HTMLAudioElement. Au

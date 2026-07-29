@@ -2210,7 +2210,7 @@ coco et pwason vers le pool de projectiles, mine, barik et chadron vers le pool
 de mines, lanbi en cône instantané, rhum en immunité.
 
 Le harpon ne part pas tant qu'aucune cible n'est verrouillée — vérifié, ce n'est
-pas une régression : après 240 ticks d'étalement il verrouille `CHANFLOR X`,
+pas une régression : après 240 ticks d'étalement il verrouille `KOLIBRI`,
 part, et décompte sa munition.
 
 ⚠️ **Poids livré : 4,61 Mo** pour un plafond fixé à 1,9. Dépassé de 2,4×.

@@ -49,7 +49,35 @@
       <div class="menu-badges">
         <span>🥥 COCO BOUM</span><span>🕸 HARPON SLINGSHOT</span><span>💨 BWA DASH</span><span>🌊 MINE TSUNAMI</span>
       </div>
-      <div class="control-copy">Glisse pour diriger · Clic droit ou 2e doigt pour viser · &amp; é &quot; ' ( - è _ = tirer · Shift = contre-gîte · double-tap sur l'eau = turbo · double-coup de barre = Bwa Dash · C = rétro</div>
+      <!-- ⚠️ « Télécharger » veut dire deux choses pour un jeu navigateur, et
+           les deux méritent leur bouton.
+
+           INSTALLER : la vraie réponse. Le jeu est une PWA complète — icône,
+           plein écran, hors ligne. Le bouton n'apparaît QUE si le navigateur a
+           émis `beforeinstallprompt` : Chrome et Edge le font, Safari jamais
+           (sur iOS il faut passer par Partager > Sur l'écran d'accueil). Un
+           bouton toujours visible qui ne marche qu'une fois sur deux serait pire
+           que pas de bouton.
+
+           ARCHIVE : pour qui veut le dossier complet, sans navigateur ni
+           réseau. -->
+      <div class="menu-liens">
+        <button id="installBtn" class="lien-menu hidden" type="button">
+          <span aria-hidden="true">⬇</span> INSTALLER LE JEU
+        </button>
+        <a class="lien-menu" href="https://github.com/Oshinsu/yole-bwa-brawl/releases/latest" target="_blank" rel="noopener">
+          <span aria-hidden="true">📦</span> TÉLÉCHARGER L'ARCHIVE
+        </a>
+        <a class="lien-menu discret" href="https://github.com/Oshinsu/yole-bwa-brawl" target="_blank" rel="noopener">
+          <span aria-hidden="true">&lt;/&gt;</span> CODE SOURCE
+        </a>
+      </div>
+      <!-- ⚠️ RACCOURCIE VOLONTAIREMENT. Cette ligne listait treize commandes en
+           deux lignes de petit texte gris : le bloc le plus dense et le plus laid
+           de l'écran, et personne ne mémorise treize raccourcis avant de jouer.
+           La liste complète vit maintenant dans l'écran de pause, consultable en
+           cours de partie, quand on en a réellement besoin. -->
+      <div class="control-copy">Glisse pour diriger · <b>Shift</b> = contre-gîte · les chiffres tirent<br><span>Liste complète : Échap → Raccourcis clavier</span></div>
     </div>
     <div class="menu-card glass">
       <b>40E TOUR DES YOLES · 26 JUILLET → 2 AOÛT</b>

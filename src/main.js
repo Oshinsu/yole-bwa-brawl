@@ -82,6 +82,7 @@ const ui = {
   joystick: byId("joystick"),
   joyKnob: byId("joyKnob"),
   lookBack: byId("lookBackBtn"),
+  install: byId("installBtn"),
   bwa: byId("bwaBtn"),
   weaponHold2: byId("weaponHold2Btn"),
   weaponCrate: byId("weaponCrateBtn"),
