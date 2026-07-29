@@ -31,7 +31,7 @@ import {
   ACTION_WAVE, ACTION_HARPOON, ACTION_MINE, ACTION_SHIFT, ACTION_REVENGE,
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, RIGS, AI_LEVELS,
   CONFIG, BALANCE, ZOOM_MIN, ZOOM_MAX, CREW_DOTS, TOUR_STAGES, TOUR_STAGE_POINTS,
-  vibrate, createBuoyVisual, resolveLoadout } from "./balance.js";
+  vibrate, createBuoyVisual, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS } from "./balance.js";
 
 
 // Assombrissement de la couleur de brouillard par rapport à la couleur
@@ -596,6 +596,8 @@ export class Game {
       1.35
     );
 
+    // Chaque manche repart sur un 3 · 2 · 1 · GO.
+    this.countdown = COUNTDOWN_SECONDS + COUNTDOWN_GO_SECONDS;
     // ⚠️ Le transitoire de compilation des shaders recommence à chaque manche :
     // on redonne au gestionnaire de qualité sa période de grâce, sinon il juge
     // la machine sur des images bloquées par la compilation. Voir
@@ -931,6 +933,17 @@ export class Game {
 
   fixedUpdate(dt) {
     if (this.mode !== "playing" || this.paused) return;
+    // ── 3 · 2 · 1 · GO ────────────────────────────────────────────────────
+    //
+    // ⚠️ TOUT EST GELÉ, ET `tick` N'AVANCE PAS. Le rebours tourne avant le
+    // premier pas de simulation : les yoles ne bougent pas, la brume n'avance
+    // pas, le chrono ne tourne pas. Le replay est donc intact — il commence au
+    // tick 1 comme avant, et la durée du rebours étant fixe, une relecture le
+    // rejoue à l'identique sans qu'il ait besoin d'entrer dans le payload.
+    if (this.countdown > 0) {
+      this.countdown = Math.max(0, this.countdown - dt);
+      return;
+    }
     this.tick++;
     if (this.playback) {
       const frame = this.playback.inputAt(this.tick, this.playbackInput);

@@ -68,7 +68,7 @@ const { Game } = await import('../src/game/game.js');
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
-  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','leaderboard','roundLabel',
+  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon',
   'endTitle','endCopy','statTakedowns','statPerfects','statSpeed','replay','downloadReplay','replayStatus','weatherChip','hullBar','hullText','mastBar','sailBar','bwaIntegrityBar'
@@ -80,6 +80,11 @@ const game = new Game(THREE, ui);
 game.audio.muted = true;
 game.audio.ensure = () => {};
 game.startMatch();
+// ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
+// tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
+// test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
+// vide. On force le rebours à zéro pour reprendre au premier tick réel.
+game.countdown = 0;
 
 let maxRoll = 0;
 let maxSpeed = 0;
@@ -103,7 +108,7 @@ for (let tick = 0; tick < 30000; tick++) {
     maxRoll = Math.max(maxRoll, Math.abs(boat.roll));
     maxSpeed = Math.max(maxSpeed, boat.speed);
   }
-  if (game.mode === 'ended') game.startMatch();
+  if (game.mode === 'ended') { game.startMatch(); game.countdown = 0; }
 }
 
 // Checksum de scenario mesure sur la simulation pure. Le hitstop ne retire que
@@ -140,6 +145,9 @@ console.log(JSON.stringify({
 // End-to-end game replay: gameplay weather advances on the fixed clock, inputs are
 // quantized before simulation, and the same seed must reproduce the final checksum.
 game.startMatch();
+// ⚠️ Meme saut de rebours que partout ailleurs : c'est la manche qui sert a
+// ENREGISTRER le replay, elle doit partir du meme etat que la relecture.
+game.countdown = 0;
 const liveReplayChecksums = [];
 for (let tick = 1; tick <= 1800 && game.mode === 'playing'; tick++) {
   game.input.steer = Math.sin(tick * 0.0123) * 0.71;
@@ -164,6 +172,12 @@ assert.ok(capturedReplay.inputs.some((frame) => Math.abs(frame.aim) > 0.2), 'gam
 assert.ok(capturedReplay.inputs.some((frame) => frame.aimActive), 'game replay contains no active aiming interval');
 const expectedReplayChecksum = capturedReplay.finalChecksum;
 game.startReplay(capturedReplay);
+// ⚠️ MÊME TRAITEMENT QUE LE RUN DIRECT. Celui-ci a sauté le 3 · 2 · 1 ; si la
+// relecture le joue, elle gèle `fixedUpdate` pendant que le run direct
+// avançait, et les checksums divergent des le premier tick compare. Le rebours
+// n'entre pas dans le replay — il n'avance pas `tick` et ne touche a aucun
+// etat de simulation — mais les deux cotes doivent le traiter pareil.
+game.countdown = 0;
 const replayCheckpoints = new Map(capturedReplay.checkpoints.map((entry) => [entry.tick, entry.checksum]));
 for (let tick = 0; tick < capturedReplay.finalTick && game.mode === 'playing'; tick++) {
   game.fixedUpdate(1 / 60);

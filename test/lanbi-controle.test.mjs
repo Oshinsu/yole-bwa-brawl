@@ -82,7 +82,7 @@ const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate',
   'zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
-  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','leaderboard','roundLabel',
+  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon','difficultyToggle',
   'endTitle','endCopy','statTakedowns','statPerfects','statSpeed','replay','downloadReplay',
@@ -139,6 +139,11 @@ function partie() {
   jeu.audio.muted = true;
   jeu.audio.ensure = () => {};
   jeu.startMatch();
+  // ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
+  // tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
+  // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
+  // vide. On force le rebours à zéro pour reprendre au premier tick réel.
+  jeu.countdown = 0;
   return jeu;
 }
 

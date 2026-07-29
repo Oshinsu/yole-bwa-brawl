@@ -137,6 +137,11 @@
     <!-- Nombres de dégâts flottants. `aria-hidden` volontaire : #killfeed est
          déjà `role="log" aria-live="polite"` et porte la même information en
          texte. Doubler noierait le lecteur d'écran sous les chiffres. -->
+    <!-- Départ et mort : deux états que le joueur doit lire SANS chercher. -->
+    <div id="countdown" class="countdown hidden" role="status" aria-live="assertive"><b></b><small></small></div>
+    <div id="spectateur" class="spectateur hidden" role="status" aria-live="polite">
+      <b>CHAVIRÉ</b><em></em><small></small>
+    </div>
     <div id="damageNumbers" class="damage-numbers" aria-hidden="true"></div>
     <div id="killfeed" class="killfeed" role="log" aria-live="polite" aria-relevant="additions" aria-label="Événements du combat"></div>
     <div id="targetReticle" class="reticle hidden" role="img" aria-label="Viseur inactif"><i></i><b id="targetReticleLabel">HARPON VERROUILLÉ</b></div>

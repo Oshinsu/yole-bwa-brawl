@@ -7,7 +7,7 @@ import { clamp, formatTime } from "../core/math.js";
 import { routeCenter } from "../render/world.js";
 import { checksumBoats } from "../sim/replay.js";
 import { YOLE_HANDLING } from "../sim/yole-physics.js";
-import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, resolveAiLevel } from "./balance.js";
+import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, resolveAiLevel, COUNTDOWN_GO_SECONDS } from "./balance.js";
 import { AIM_MAX_RADIANS } from "./input.js";
 import { handlingCue } from "./handling-feedback.js";
 
@@ -638,6 +638,55 @@ export const HudSystems = {
         this.music?.setScene?.(this.tour ? "tour" : "course");
       }
     }
+    // ── 3 · 2 · 1 · GO ───────────────────────────────────────────────────
+    if (this.ui.countdown) {
+      const reste = this.countdown ?? 0;
+      const actif = reste > 0;
+      this.ui.countdown.classList.toggle("hidden", !actif);
+      if (actif) {
+        // Au-dessus de COUNTDOWN_GO_SECONDS il reste des chiffres ; en dessous
+        // c'est le GO, qui s'affiche pendant qu'on démarre déjà.
+        const chiffres = reste - COUNTDOWN_GO_SECONDS;
+        const texte = chiffres > 0 ? String(Math.ceil(chiffres)) : "GO";
+        if (this.countdownTexte !== texte) {
+          this.countdownTexte = texte;
+          const gros = this.ui.countdown.querySelector?.("b");
+          if (gros) gros.textContent = texte;
+          const dessous = this.ui.countdown.querySelector?.("small");
+          if (dessous) dessous.textContent = texte === "GO" ? "" : "TIENS BON LA BARRE";
+          this.ui.countdown.classList.toggle("go", texte === "GO");
+          // ⚠️ Le son est relancé À CHAQUE changement de chiffre, pas à chaque
+          // image : ce bloc ne s'exécute que sur transition.
+          this.audio?.play?.(texte === "GO" ? "turbo" : "buoy",
+                             { gain: texte === "GO" ? 0.5 : 0.34, rate: texte === "GO" ? 1 : 1.3 });
+          restartUiCue(this.ui.countdown, "countdown-tick");
+        }
+      } else this.countdownTexte = null;
+    }
+
+    // ── CAMÉRA FANTÔME ───────────────────────────────────────────────────
+    // Éliminé, on se retrouvait derrière une autre yole sans rien qui l'explique.
+    if (this.ui.spectateur) {
+      const mort = Boolean(player.eliminated);
+      this.ui.spectateur.classList.toggle("hidden", !mort);
+      if (mort) {
+        const suivi = this.cameraFollowName ?? null;
+        const cible = this.ui.spectateur.querySelector?.("em");
+        if (cible) cible.textContent = suivi ? `CAMÉRA SUR ${suivi}` : "CAMÉRA SUR TON ÉPAVE";
+        const bas = this.ui.spectateur.querySelector?.("small");
+        if (bas) {
+          // Le repêchage n'existe qu'en Combat : en Tour, une élimination est
+          // un abandon d'étape, et promettre un retour serait mentir.
+          const reste = this.tour
+            ? null
+            : Math.max(0, BALANCE.respawn.delay - (player.respawnTimer ?? 0));
+          bas.textContent = reste === null
+            ? "ÉTAPE TERMINÉE POUR TOI"
+            : reste > 0.05 ? `REPÊCHAGE DANS ${reste.toFixed(0)} s` : "ON TE REMET À FLOT…";
+        }
+      }
+    }
+
     this.updateMinimap(player);
 
     // UN SEUL emplacement d'arme. L'identite passe par la COULEUR du lisere,

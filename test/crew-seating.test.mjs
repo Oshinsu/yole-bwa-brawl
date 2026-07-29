@@ -68,7 +68,7 @@ const { Game } = await import('../src/game/game.js');
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
-  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','leaderboard','roundLabel',
+  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon',
   'endTitle','endCopy','statTakedowns','statPerfects','statSpeed','replay','downloadReplay','replayStatus','weatherChip','hullBar','hullText','mastBar','sailBar','bwaIntegrityBar'
@@ -97,6 +97,11 @@ const BEAM_Y = 0.25;
 
 game.audio.muted = true;
 game.startMatch();
+// ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
+// tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
+// test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
+// vide. On force le rebours à zéro pour reprendre au premier tick réel.
+game.countdown = 0;
 
 let samples = 0, sumAbsX = 0, horsCoque = 0, coteHaut = 0, rollComptes = 0;
 let pireEcartAuBois = 0, pireMarge = Infinity, etalementMax = 0;

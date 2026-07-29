@@ -82,7 +82,7 @@ const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate',
   'zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
-  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','leaderboard','roundLabel',
+  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon','difficultyToggle',
   'endTitle','endCopy','statTakedowns','statPerfects','statSpeed','replay','downloadReplay',
@@ -100,6 +100,11 @@ function courir(levelKey, ticks = 6000) {
   game.audio.ensure = () => {};
   game.settings.set('aiLevel', levelKey);
   game.startMatch();
+  // ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
+  // tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
+  // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
+  // vide. On force le rebours à zéro pour reprendre au premier tick réel.
+  game.countdown = 0;
   assert.equal(game.matchAiLevel, levelKey, 'le niveau doit être figé au lancement');
 
   let turbosJoueur = 0;
@@ -201,6 +206,11 @@ assert.ok(
   jeu.audio.muted = true;
   jeu.audio.ensure = () => {};
   jeu.startMatch();
+  // ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
+  // tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
+  // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
+  // vide. On force le rebours à zéro pour reprendre au premier tick réel.
+  jeu.countdown = 0;
   const bateau = jeu.boats[1];
   bateau.ammo.chadron = 3;
   bateau.cooldowns.chadron = 0;

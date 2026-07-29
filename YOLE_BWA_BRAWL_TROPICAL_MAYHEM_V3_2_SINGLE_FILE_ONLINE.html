@@ -2481,6 +2481,91 @@ body.minimal-impact .score-cue{
 .control-copy b { color: var(--yellow); font-weight: 900; }
 .control-copy span { opacity: .58; }
 
+/* ── DÉPART ET CAMÉRA FANTÔME ─────────────────────────────────────────────
+   Deux états que le joueur doit lire sans les chercher : « la course n'a pas
+   commencé » et « tu es mort, voici ce que tu regardes et quand tu reviens ».
+
+   ⚠️ Les animations sont toutes en `forwards`, JAMAIS `infinite` — la section
+   QA du fichier l'interdit, et un compteur qui pulse en boucle attire l'œil
+   alors qu'il doit disparaître. */
+.countdown {
+  /* 46 % et pas 38 % : à 38 le chiffre venait toucher le bas de `#message`,
+     qui affiche « PRÉPARE LA CONTRE-GÎTE » pendant le rebours. Les deux se
+     lisaient comme un seul bloc collé. */
+  position: absolute; left: 50%; top: 46%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 8;
+}
+.countdown b {
+  display: block;
+  font-family: var(--font-display);
+  font-synthesis: style;
+  font-size: clamp(90px, 16vw, 210px);
+  line-height: .86;
+  color: var(--ink);
+  text-shadow: 0 10px 34px rgba(0,0,0,.6), 0 0 60px rgba(78,242,255,.35);
+}
+.countdown small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .24em;
+  color: var(--cyan);
+}
+.countdown.go b { color: var(--yellow); text-shadow: 0 10px 34px rgba(0,0,0,.6), 0 0 70px rgba(255,224,90,.5); }
+.countdown.countdown-tick b { animation: countdownPop .34s ease-out forwards; }
+@keyframes countdownPop {
+  from { transform: scale(1.5); opacity: 0; }
+  60%  { transform: scale(.94); opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.spectateur {
+  position: absolute; left: 50%; top: 15%;
+  transform: translateX(-50%);
+  min-width: 260px;
+  padding: 12px 22px;
+  border-radius: 18px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 7;
+  background: linear-gradient(180deg, rgba(58,10,26,.92), rgba(20,6,14,.94));
+  border: 1px solid rgba(255,109,133,.42);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+}
+.spectateur b {
+  display: block;
+  font-family: var(--font-display);
+  font-synthesis: style;
+  font-size: 30px;
+  letter-spacing: .04em;
+  color: #ff6a7f;
+}
+.spectateur em {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  color: var(--ink);
+}
+.spectateur small {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+@media (max-width: 760px) {
+  .spectateur { top: 10%; min-width: 190px; padding: 8px 14px; }
+  .spectateur b { font-size: 21px; }
+  .spectateur em { font-size: 9px; }
+}
+
 </style>
 
 <script type="importmap">
@@ -2618,6 +2703,11 @@ body.minimal-impact .score-cue{
     <!-- Nombres de dégâts flottants. `aria-hidden` volontaire : #killfeed est
          déjà `role="log" aria-live="polite"` et porte la même information en
          texte. Doubler noierait le lecteur d'écran sous les chiffres. -->
+    <!-- Départ et mort : deux états que le joueur doit lire SANS chercher. -->
+    <div id="countdown" class="countdown hidden" role="status" aria-live="assertive"><b></b><small></small></div>
+    <div id="spectateur" class="spectateur hidden" role="status" aria-live="polite">
+      <b>CHAVIRÉ</b><em></em><small></small>
+    </div>
     <div id="damageNumbers" class="damage-numbers" aria-hidden="true"></div>
     <div id="killfeed" class="killfeed" role="log" aria-live="polite" aria-relevant="additions" aria-label="Événements du combat"></div>
     <div id="targetReticle" class="reticle hidden" role="img" aria-label="Viseur inactif"><i></i><b id="targetReticleLabel">HARPON VERROUILLÉ</b></div>
@@ -10472,6 +10562,11 @@ const WEAPONS = [
 // la relecture. La cause a été trouvée depuis : le pas fixe consommait
 // `visualRng`, dont le rendu dépend à cadence variable. Corrigé aux deux sites,
 // le passage à deux armes ne diverge plus — vérifié IA active et IA coupée.
+// Départ : 3 · 2 · 1 · GO. Une seconde par chiffre, plus la demi-seconde du
+// « GO » qui reste affiché pendant qu'on démarre déjà.
+const COUNTDOWN_SECONDS = 3.0;
+const COUNTDOWN_GO_SECONDS = 0.85;
+
 const LOADOUT_POOL = Object.freeze(["wave", "harpoon", "mine", "rhum"]);
 const LOADOUT_SIZE = 2;
 const DEFAULT_LOADOUT = Object.freeze(["wave", "harpoon"]);
@@ -13975,6 +14070,55 @@ const HudSystems = {
         this.music?.setScene?.(this.tour ? "tour" : "course");
       }
     }
+    // ── 3 · 2 · 1 · GO ───────────────────────────────────────────────────
+    if (this.ui.countdown) {
+      const reste = this.countdown ?? 0;
+      const actif = reste > 0;
+      this.ui.countdown.classList.toggle("hidden", !actif);
+      if (actif) {
+        // Au-dessus de COUNTDOWN_GO_SECONDS il reste des chiffres ; en dessous
+        // c'est le GO, qui s'affiche pendant qu'on démarre déjà.
+        const chiffres = reste - COUNTDOWN_GO_SECONDS;
+        const texte = chiffres > 0 ? String(Math.ceil(chiffres)) : "GO";
+        if (this.countdownTexte !== texte) {
+          this.countdownTexte = texte;
+          const gros = this.ui.countdown.querySelector?.("b");
+          if (gros) gros.textContent = texte;
+          const dessous = this.ui.countdown.querySelector?.("small");
+          if (dessous) dessous.textContent = texte === "GO" ? "" : "TIENS BON LA BARRE";
+          this.ui.countdown.classList.toggle("go", texte === "GO");
+          // ⚠️ Le son est relancé À CHAQUE changement de chiffre, pas à chaque
+          // image : ce bloc ne s'exécute que sur transition.
+          this.audio?.play?.(texte === "GO" ? "turbo" : "buoy",
+                             { gain: texte === "GO" ? 0.5 : 0.34, rate: texte === "GO" ? 1 : 1.3 });
+          restartUiCue(this.ui.countdown, "countdown-tick");
+        }
+      } else this.countdownTexte = null;
+    }
+
+    // ── CAMÉRA FANTÔME ───────────────────────────────────────────────────
+    // Éliminé, on se retrouvait derrière une autre yole sans rien qui l'explique.
+    if (this.ui.spectateur) {
+      const mort = Boolean(player.eliminated);
+      this.ui.spectateur.classList.toggle("hidden", !mort);
+      if (mort) {
+        const suivi = this.cameraFollowName ?? null;
+        const cible = this.ui.spectateur.querySelector?.("em");
+        if (cible) cible.textContent = suivi ? `CAMÉRA SUR ${suivi}` : "CAMÉRA SUR TON ÉPAVE";
+        const bas = this.ui.spectateur.querySelector?.("small");
+        if (bas) {
+          // Le repêchage n'existe qu'en Combat : en Tour, une élimination est
+          // un abandon d'étape, et promettre un retour serait mentir.
+          const reste = this.tour
+            ? null
+            : Math.max(0, BALANCE.respawn.delay - (player.respawnTimer ?? 0));
+          bas.textContent = reste === null
+            ? "ÉTAPE TERMINÉE POUR TOI"
+            : reste > 0.05 ? `REPÊCHAGE DANS ${reste.toFixed(0)} s` : "ON TE REMET À FLOT…";
+        }
+      }
+    }
+
     this.updateMinimap(player);
 
     // UN SEUL emplacement d'arme. L'identite passe par la COULEUR du lisere,
@@ -14257,7 +14401,12 @@ const InputSystems = {
   // bouton. Le garde `isApplyingReplay` ne protégeait que l'ENREGISTREMENT du
   // bit, pas la mutation physique.
   playerInputLocked() {
-    return Boolean(this.paused) || (Boolean(this.playback) && !this.isApplyingReplay);
+    // ⚠️ Le rebours verrouille AUSSI. Sans ça on pourrait tirer et border
+    // pendant le 3-2-1 : les entrées seraient acceptées alors que la
+    // simulation est gelée, et elles partiraient toutes d'un coup sur le GO.
+    return Boolean(this.paused)
+      || this.countdown > 0
+      || (Boolean(this.playback) && !this.isApplyingReplay);
   },
 
   restartInputCue(element, className = "input-confirmed") {
@@ -15374,6 +15523,11 @@ const CameraSystems = {
       alive.sort((a, b) => b.z - a.z);
       follow = alive[0] || player;
     }
+    // ⚠️ La caméra publie QUI elle suit. Sans ça, le HUD devrait refaire le
+    // même tri de son côté — deux vérités pour une seule question, et elles
+    // finiraient par diverger. Purement informatif : aucune lecture par la
+    // simulation.
+    this.cameraFollowName = follow === player ? null : (follow?.name ?? null);
 
     if (this.mode === "menu") {
       const t = this.time * 0.12;
@@ -16660,6 +16814,8 @@ class Game {
       1.35
     );
 
+    // Chaque manche repart sur un 3 · 2 · 1 · GO.
+    this.countdown = COUNTDOWN_SECONDS + COUNTDOWN_GO_SECONDS;
     // ⚠️ Le transitoire de compilation des shaders recommence à chaque manche :
     // on redonne au gestionnaire de qualité sa période de grâce, sinon il juge
     // la machine sur des images bloquées par la compilation. Voir
@@ -16995,6 +17151,17 @@ class Game {
 
   fixedUpdate(dt) {
     if (this.mode !== "playing" || this.paused) return;
+    // ── 3 · 2 · 1 · GO ────────────────────────────────────────────────────
+    //
+    // ⚠️ TOUT EST GELÉ, ET `tick` N'AVANCE PAS. Le rebours tourne avant le
+    // premier pas de simulation : les yoles ne bougent pas, la brume n'avance
+    // pas, le chrono ne tourne pas. Le replay est donc intact — il commence au
+    // tick 1 comme avant, et la durée du rebours étant fixe, une relecture le
+    // rejoue à l'identique sans qu'il ait besoin d'entrer dans le payload.
+    if (this.countdown > 0) {
+      this.countdown = Math.max(0, this.countdown - dt);
+      return;
+    }
     this.tick++;
     if (this.playback) {
       const frame = this.playback.inputAt(this.tick, this.playbackInput);
@@ -17478,6 +17645,8 @@ const ui = {
   message: byId("message"),
   killfeed: byId("killfeed"),
   damageNumbers: byId("damageNumbers"),
+  countdown: byId("countdown"),
+  spectateur: byId("spectateur"),
   reticle: byId("targetReticle"),
   reticleLabel: byId("targetReticleLabel"),
   aimHelp: byId("aimHelp"),

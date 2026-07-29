@@ -74,6 +74,8 @@ const ui = {
   message: byId("message"),
   killfeed: byId("killfeed"),
   damageNumbers: byId("damageNumbers"),
+  countdown: byId("countdown"),
+  spectateur: byId("spectateur"),
   reticle: byId("targetReticle"),
   reticleLabel: byId("targetReticleLabel"),
   aimHelp: byId("aimHelp"),

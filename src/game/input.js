@@ -66,7 +66,12 @@ export const InputSystems = {
   // bouton. Le garde `isApplyingReplay` ne protégeait que l'ENREGISTREMENT du
   // bit, pas la mutation physique.
   playerInputLocked() {
-    return Boolean(this.paused) || (Boolean(this.playback) && !this.isApplyingReplay);
+    // ⚠️ Le rebours verrouille AUSSI. Sans ça on pourrait tirer et border
+    // pendant le 3-2-1 : les entrées seraient acceptées alors que la
+    // simulation est gelée, et elles partiraient toutes d'un coup sur le GO.
+    return Boolean(this.paused)
+      || this.countdown > 0
+      || (Boolean(this.playback) && !this.isApplyingReplay);
   },
 
   restartInputCue(element, className = "input-confirmed") {

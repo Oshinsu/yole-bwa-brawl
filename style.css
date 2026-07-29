@@ -2464,3 +2464,88 @@ body.minimal-impact .score-cue{
    s'y arrête pas avant d'avoir vu les modes de jeu. */
 .control-copy b { color: var(--yellow); font-weight: 900; }
 .control-copy span { opacity: .58; }
+
+/* ── DÉPART ET CAMÉRA FANTÔME ─────────────────────────────────────────────
+   Deux états que le joueur doit lire sans les chercher : « la course n'a pas
+   commencé » et « tu es mort, voici ce que tu regardes et quand tu reviens ».
+
+   ⚠️ Les animations sont toutes en `forwards`, JAMAIS `infinite` — la section
+   QA du fichier l'interdit, et un compteur qui pulse en boucle attire l'œil
+   alors qu'il doit disparaître. */
+.countdown {
+  /* 46 % et pas 38 % : à 38 le chiffre venait toucher le bas de `#message`,
+     qui affiche « PRÉPARE LA CONTRE-GÎTE » pendant le rebours. Les deux se
+     lisaient comme un seul bloc collé. */
+  position: absolute; left: 50%; top: 46%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 8;
+}
+.countdown b {
+  display: block;
+  font-family: var(--font-display);
+  font-synthesis: style;
+  font-size: clamp(90px, 16vw, 210px);
+  line-height: .86;
+  color: var(--ink);
+  text-shadow: 0 10px 34px rgba(0,0,0,.6), 0 0 60px rgba(78,242,255,.35);
+}
+.countdown small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .24em;
+  color: var(--cyan);
+}
+.countdown.go b { color: var(--yellow); text-shadow: 0 10px 34px rgba(0,0,0,.6), 0 0 70px rgba(255,224,90,.5); }
+.countdown.countdown-tick b { animation: countdownPop .34s ease-out forwards; }
+@keyframes countdownPop {
+  from { transform: scale(1.5); opacity: 0; }
+  60%  { transform: scale(.94); opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.spectateur {
+  position: absolute; left: 50%; top: 15%;
+  transform: translateX(-50%);
+  min-width: 260px;
+  padding: 12px 22px;
+  border-radius: 18px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 7;
+  background: linear-gradient(180deg, rgba(58,10,26,.92), rgba(20,6,14,.94));
+  border: 1px solid rgba(255,109,133,.42);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+}
+.spectateur b {
+  display: block;
+  font-family: var(--font-display);
+  font-synthesis: style;
+  font-size: 30px;
+  letter-spacing: .04em;
+  color: #ff6a7f;
+}
+.spectateur em {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  color: var(--ink);
+}
+.spectateur small {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+@media (max-width: 760px) {
+  .spectateur { top: 10%; min-width: 190px; padding: 8px 14px; }
+  .spectateur b { font-size: 21px; }
+  .spectateur em { font-size: 9px; }
+}

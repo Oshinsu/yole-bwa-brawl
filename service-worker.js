@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-1709389c065f";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-ca049729852a";
 const CORE = [
   "./", "./index.html", "./style.css", "./manifest.webmanifest",
   // 65 Ko : la typographie fait partie de la coquille, contrairement aux

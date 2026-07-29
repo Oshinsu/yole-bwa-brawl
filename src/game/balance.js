@@ -122,6 +122,11 @@ export const WEAPONS = [
 // la relecture. La cause a été trouvée depuis : le pas fixe consommait
 // `visualRng`, dont le rendu dépend à cadence variable. Corrigé aux deux sites,
 // le passage à deux armes ne diverge plus — vérifié IA active et IA coupée.
+// Départ : 3 · 2 · 1 · GO. Une seconde par chiffre, plus la demi-seconde du
+// « GO » qui reste affiché pendant qu'on démarre déjà.
+export const COUNTDOWN_SECONDS = 3.0;
+export const COUNTDOWN_GO_SECONDS = 0.85;
+
 export const LOADOUT_POOL = Object.freeze(["wave", "harpoon", "mine", "rhum"]);
 export const LOADOUT_SIZE = 2;
 export const DEFAULT_LOADOUT = Object.freeze(["wave", "harpoon"]);

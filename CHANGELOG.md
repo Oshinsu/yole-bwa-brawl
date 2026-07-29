@@ -13,6 +13,62 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 57 — 3 · 2 · 1 · GO, et on sait enfin ce qu'on regarde quand on est mort
+
+### Le départ
+
+La course commençait sec : le menu disparaissait, les yoles filaient. Rien ne
+disait « prépare-toi ».
+
+⚠️ **TOUT EST GELÉ PENDANT LE REBOURS, ET `tick` N'AVANCE PAS.** Le compteur
+tourne avant le premier pas de simulation : les yoles ne bougent pas, la brume
+n'avance pas, le chrono reste à 00:00. Le replay est donc intact — il commence
+au tick 1 comme avant, et la durée étant fixe, une relecture le rejoue à
+l'identique sans qu'il ait à entrer dans le payload.
+
+`playerInputLocked()` couvre aussi le rebours. Sans ça on pourrait border et
+tirer pendant le 3-2-1 : les entrées seraient acceptées alors que la simulation
+est gelée, et elles partiraient toutes d'un coup sur le GO.
+
+Le son n'est relancé qu'au CHANGEMENT de chiffre, pas à chaque image — le bloc
+ne s'exécute que sur transition.
+
+### La caméra fantôme
+
+Éliminé, on se retrouvait derrière une autre yole sans rien qui l'explique.
+Trois informations manquaient, elles sont maintenant dans un panneau :
+
+```
+CHAVIRÉ
+CAMÉRA SUR KOLIBRI
+REPÊCHAGE DANS 7 s
+```
+
+⚠️ **La caméra PUBLIE qui elle suit.** Sans `cameraFollowName`, le HUD devrait
+refaire le même tri de son côté — deux vérités pour une seule question, et
+elles finiraient par diverger.
+
+⚠️ **En Tour, le panneau ne promet pas de retour.** `updateRespawns` sort
+immédiatement en mode Tour : une élimination y est un abandon d'étape. Le
+panneau affiche donc « ÉTAPE TERMINÉE POUR TOI » au lieu d'un compte à rebours
+qui n'arriverait jamais.
+
+Relevé en jeu : épave à 21 m jusqu'à expiration, puis bascule à 132 m sur la
+yole de tête, panneau mis à jour dans la foulée.
+
+### Neuf tests à reprendre, et deux pièges dedans
+
+Le gel a cassé six fichiers de test qui enchaînaient `startMatch()` puis
+`fixedUpdate()` : ils ne mesuraient plus que du vide. Tous forcent désormais
+`countdown = 0`, avec le motif écrit à côté.
+
+⚠️ **Deux divergences de replay au passage, toutes deux de ma faute.** Ma
+première substitution ne traitait que la PREMIÈRE occurrence par fichier :
+`full-game-smoke.mjs` en a trois — la manche d'échauffement, celle qui
+ENREGISTRE le replay, et la relecture. Le run d'enregistrement sautait le
+rebours pendant que la relecture le jouait : divergence au tick 1. Les trois
+côtés doivent le traiter pareil.
+
 ## Passe 56 — Quatre tuiles pour un pouce, et le jeu en ligne
 
 ### 8 armes n'a jamais été le problème mobile

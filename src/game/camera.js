@@ -140,6 +140,11 @@ export const CameraSystems = {
       alive.sort((a, b) => b.z - a.z);
       follow = alive[0] || player;
     }
+    // ⚠️ La caméra publie QUI elle suit. Sans ça, le HUD devrait refaire le
+    // même tri de son côté — deux vérités pour une seule question, et elles
+    // finiraient par diverger. Purement informatif : aucune lecture par la
+    // simulation.
+    this.cameraFollowName = follow === player ? null : (follow?.name ?? null);
 
     if (this.mode === "menu") {
       const t = this.time * 0.12;

@@ -68,7 +68,7 @@ const { Game } = await import('../src/game/game.js');
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
-  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','leaderboard','roundLabel',
+  'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon',
   'endTitle','endCopy','statTakedowns','statPerfects','statSpeed','replay','downloadReplay','replayStatus','weatherChip','hullBar','hullText','mastBar','sailBar','bwaIntegrityBar'
@@ -100,6 +100,11 @@ function joue(msParImage, tickCible) {
   const jeu = new Game(THREE, Object.fromEntries(uiKeys.map((cle) => [cle, new FakeElement()])));
   jeu.audio.muted = true;
   jeu.startMatch();
+  // ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
+  // tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
+  // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
+  // vide. On force le rebours à zéro pour reprendre au premier tick réel.
+  jeu.countdown = 0;
   const parTick = new Map();
   let horloge = 0;
   let garde = 0;
