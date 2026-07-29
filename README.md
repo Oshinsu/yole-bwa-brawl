@@ -262,6 +262,23 @@ deviendrait illisible.
 
 ⚠️ Le raccourci stocke un chemin absolu : déplacer le dossier le casse.
 
+### Brancher un domaine
+
+Le jeu est publié sur GitHub Pages. Pour lui donner un domaine à toi :
+
+```bash
+npm run domaine bwabrawl.com                # affiche les enregistrements DNS
+npm run domaine bwabrawl.com -- --appliquer # écrit le CNAME, une fois le DNS posé
+```
+
+Les adresses de GitHub Pages sont **lues chez GitHub** à chaque exécution, pas
+recopiées dans le script : elles changent rarement mais elles changent, et une
+liste figée est une panne DNS silencieuse.
+
+⚠️ Le fichier `CNAME` n'est **pas** dans le dépôt tant qu'un domaine n'est pas
+acheté. GitHub Pages le lit et se met à servir sous ce nom : le committer trop
+tôt casserait l'adresse `oshinsu.github.io` sans rien donner en échange.
+
 ### Mettre en ligne
 
 ```bash

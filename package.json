@@ -59,7 +59,8 @@
     "stamp": "python3 tools/stamp_version.py",
     "check:sw": "python3 tools/stamp_version.py --verifier",
     "deploy:railway": "npm run stamp && npm run verify && railway up",
-    "test:lanbi": "node test/lanbi-controle.test.mjs"
+    "test:lanbi": "node test/lanbi-controle.test.mjs",
+    "domaine": "python3 tools/brancher_domaine.py"
   },
   "dependencies": {
     "three": "0.185.1"
