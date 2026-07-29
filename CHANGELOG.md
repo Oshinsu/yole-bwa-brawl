@@ -13,6 +13,90 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 56 — Quatre tuiles pour un pouce, et le jeu en ligne
+
+### 8 armes n'a jamais été le problème mobile
+
+Depuis la refonte de la soute, on n'en a **jamais plus de trois** en course :
+deux en soute, une de caisse. Les huit armes sont du CONTENU — de la variété
+d'une partie à l'autre — pas un inventaire à gérer.
+
+Le vrai défaut était ailleurs, et il était sévère :
+
+```js
+// Clavier seulement : sur telephone la caisse suffit a choisir.
+cycleWeapon() { ... }        // lié à E, et à rien d'autre
+```
+
+⚠️ **Au doigt, on ne pouvait pas changer d'arme du tout.** On tirait ce que
+`activeWeapon` valait, posé uniquement par les ramassages. La deuxième arme de
+soute existait et n'était **jamais** accessible.
+
+### Une tuile = une arme = un appui
+
+La sélection est précisément ce qu'un pouce ne peut pas faire pendant qu'il
+barre. Trois tuiles d'arme, tir direct, aucun mode :
+
+| avant | après |
+|---|---|
+| CONTRE-GÎTE | CONTRE-GÎTE |
+| TURBO | **soute 1** |
+| ARME ACTIVE | **soute 2** |
+| — | **caisse** |
+
+**La tuile TURBO est partie** : elle doublonnait le double-tap sur l'eau, déjà
+en place (280 ms, `input.js`). Même raisonnement que pour le Bwa Dash à la passe
+47 — sauf qu'ici le geste existait déjà, il n'y avait rien à créer.
+
+⚠️ **Mesuré AVANT d'écrire une ligne**, sur cinq formats en paysage : quatre
+tuiles donnent **52 × 52 px** sur téléphone et 72 × 72 sur tablette, au-dessus
+du contrat de 44. La barre ne fait que 227 px de large sur un écran de 640. Si
+ça n'était pas passé, l'idée tombait.
+
+### Deux défauts vus à la capture, pas au test
+
+⚠️ **La 4ᵉ tuile passait à la ligne.** Les grilles CSS étaient restées à trois
+colonnes — je les avais moi-même ramenées de 4 à 3 en retirant la tuile du dash.
+Douze règles à reprendre.
+
+⚠️ **La tuile 1 affichait l'arme ACTIVE.** Elle changeait donc de visage dès
+qu'on tirait autre chose : trois tuiles fixes dont une qui bouge, on ne sait
+plus laquelle fait quoi. Chaque tuile est maintenant clouée à son arme.
+
+### Publication sur GitHub Pages
+
+Dépôt public `Oshinsu/yole-bwa-brawl`, publié par workflow. **306 fichiers,
+24 Mo** — `art-source/` (237 Mo de PNG sources) et `previews/` (119 Mo de
+captures) sont exclus par `.gitignore`.
+
+Le workflow **estampille le service worker** puis vérifie le précache avant de
+publier : sans ça, un second déploiement laisserait chaque joueur déjà venu sur
+l'ancienne version, définitivement et sans le moindre signal.
+
+⚠️ **UN BUG N'EXISTAIT QU'EN LIGNE, ET SEULE LA MISE EN LIGNE POUVAIT LE
+MONTRER.** L'inscription du service worker passait `scope: "../"`, résolu par
+rapport au DOCUMENT. À la racine d'un domaine ça donne `/` et tout va bien ;
+publié sous `/yole-bwa-brawl/`, ça demande la portée `/` alors que le maximum
+autorisé est `/yole-bwa-brawl/`. Le navigateur refuse :
+
+```
+The path of the provided scope ('/') is not under the max scope
+allowed ('/yole-bwa-brawl/')
+```
+
+Hors-ligne mort, installation PWA impossible, précache inutile — exactement le
+défaut de la passe 49, revenu par un autre chemin. La portée est désormais
+DÉRIVÉE de l'URL du worker : elle vaut le dossier qui le contient, à la racine
+comme en sous-répertoire.
+
+### Mesuré sur l'adresse publique
+
+```
+service worker : activated, portée /yole-bwa-brawl/, 174 entrées en cache
+premier chargement : 6,98 Mo · 0 requête en échec · 0 erreur console
+canvas rendu, 4 tuiles, partie lancée
+```
+
 ## Passe 55 — Trois refontes d'armes, et le bord du monde
 
 ### Le verrou de déterminisme était levé

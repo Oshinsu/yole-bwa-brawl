@@ -1,5 +1,7 @@
 # YOLE: BWA BRAWL — Tropical Mayhem V3.2
 
+**▶ Jouer : https://oshinsu.github.io/yole-bwa-brawl/**
+
 Prototype jouable **Three.js 0.185.1**, mobile-first, de combat racer martiniquais tropical, rapide et volontairement WTF.
 
 Cette édition ajoute le cœur arcade demandé : **Turbo avant**, **Bwa Dash latéral**, **Canon Coco**, **Spider-Harpon avec slingshot**, **Mine Tsunami à vagues concentriques**, caméra tactique zoomable, soleil massif, palmiers renforcés, explosions plus généreuses et Mur du Grain plus permissif.
