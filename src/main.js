@@ -179,8 +179,24 @@ if (new URLSearchParams(location.search).get("autoplay") === "1") setTimeout(() 
 // `load` seulement s'il ne l'est pas encore.
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   const enregistrerServiceWorker = () => {
+    // ⚠️ LA PORTÉE DOIT ÊTRE DÉRIVÉE DU WORKER, PAS ÉCRITE EN DUR.
+    //
+    // `scope: "../"` se résout par rapport au DOCUMENT. À la racine d'un
+    // domaine ça donne "/" et tout va bien — mais publié sous un
+    // sous-répertoire (GitHub Pages : /yole-bwa-brawl/), ça donne "/" alors que
+    // la portée maximale autorisée est "/yole-bwa-brawl/". Le navigateur refuse
+    // l'inscription :
+    //   « The path of the provided scope ('/') is not under the max scope
+    //     allowed ('/yole-bwa-brawl/') »
+    // Mesuré en ligne : hors-ligne mort, installation PWA impossible, précache
+    // inutile — exactement le défaut corrigé à la passe 49, revenu par un autre
+    // chemin.
+    //
+    // On calcule donc la portée à partir de l'URL du worker lui-même : elle
+    // vaut le dossier qui le contient, à la racine comme en sous-répertoire.
+    const worker = new URL("../service-worker.js", import.meta.url);
     navigator.serviceWorker
-      .register(new URL("../service-worker.js", import.meta.url), { scope: "../" })
+      .register(worker, { scope: new URL("./", worker).href })
       .catch((error) => {
         console.warn("PWA service worker unavailable:", error?.message || error);
       });
