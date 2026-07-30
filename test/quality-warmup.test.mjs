@@ -7,7 +7,7 @@
 // de « réagit à une machine lente ». Mesuré, les deux bras donnent palier 0.
 // La logique se vérifie donc ici, avec des temps d'image injectés.
 import assert from "node:assert/strict";
-import { QualityManager } from "../src/core/quality.js";
+import { QualityManager, palierInitial } from "../src/core/quality.js";
 
 let echecs = 0;
 function cas(nom, fn) {
@@ -62,6 +62,56 @@ cas("le mode manuel reste prioritaire", () => {
   q.setTier(1, true);
   for (let i = 0; i < 400; i++) q.update(300);
   assert.equal(q.tier, 1, "le mode manuel a été écrasé par l'adaptation");
+});
+
+// ── Le sauvetage, et son inversion d'origine ────────────────────────────────
+
+cas("une machine très lente tombe directement en LQ, sans étape intermédiaire", () => {
+  const q = new QualityManager(() => {}, 2);
+  // 40 ms d'images : lent, mais pas catastrophique — descente d'un cran.
+  for (let i = 0; i < 400; i++) q.update(40);
+  const unCran = q.tier;
+  const r = new QualityManager(() => {}, 2);
+  // 120 ms : 8 images/seconde. La machine a répondu, inutile de lui faire
+  // refaire la preuve pendant onze secondes de plus.
+  for (let i = 0; i < 60; i++) r.update(120);
+  assert.equal(r.tier, 0, `deux crans attendus d'un coup, obtenu ${r.tier}`);
+  assert.ok(unCran >= 0 && unCran < 2, "la lenteur modérée doit descendre progressivement");
+});
+
+cas("le palier remonte quand il reste de la marge SOUS la vsync", () => {
+  const q = new QualityManager(() => {}, 0);
+  // ⚠️ LE CAS QUI ÉTAIT IMPOSSIBLE. 16,7 ms d'intervalle — la vsync à 60 Hz —
+  // mais 4 ms de travail réel. L'ancien seuil regardait l'intervalle et exigeait
+  // « moins de 13,2 ms » : derrière une vsync, jamais. Le palier ne remontait
+  // sur AUCUNE machine, ce qui restait invisible tant qu'on démarrait en haut.
+  for (let i = 0; i < 3000; i++) q.update(16.7, 4);
+  assert.ok(q.tier > 0, "une machine avec de la marge doit remonter de palier");
+});
+
+cas("un intervalle de vsync SANS marge de travail ne fait pas remonter", () => {
+  const q = new QualityManager(() => {}, 0);
+  // Même intervalle, mais l'image coûte 15 ms des 16,7 disponibles : monter
+  // d'un palier ferait tomber sous les 60 Hz. On ne bouge pas.
+  for (let i = 0; i < 3000; i++) q.update(16.7, 15);
+  assert.equal(q.tier, 0, "le palier a remonté alors qu'il n'y avait pas de marge");
+});
+
+cas("palierInitial : bas sur pointeur grossier, haut sinon, et le mémorisé prime", () => {
+  const media = globalThis.matchMedia;
+  try {
+    globalThis.matchMedia = (requete) => ({ matches: requete.includes("coarse") });
+    assert.equal(palierInitial(), 0, "un écran tactile doit démarrer en LQ");
+    assert.equal(palierInitial(2), 2, "un palier mémorisé doit primer sur la détection");
+    globalThis.matchMedia = () => ({ matches: false });
+    assert.equal(palierInitial(), 2, "une machine à pointeur fin garde HQ");
+    // Une valeur corrompue dans localStorage ne doit pas passer.
+    globalThis.matchMedia = (requete) => ({ matches: requete.includes("coarse") });
+    assert.equal(palierInitial(7), 0, "un palier hors bornes doit être ignoré");
+    assert.equal(palierInitial("2"), 0, "une chaîne n'est pas un palier");
+  } finally {
+    if (media) globalThis.matchMedia = media; else delete globalThis.matchMedia;
+  }
 });
 
 if (echecs) { console.error(`\n${echecs} échec(s)`); process.exit(1); }

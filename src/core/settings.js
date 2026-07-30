@@ -6,6 +6,10 @@ function resolveSettingsStorage() {
 
 export const DEFAULT_SETTINGS = Object.freeze({
   quality: "auto",
+  // Le palier que l'adaptation a DÉCOUVERT sur cette machine, distinct du
+  // choix manuel ci-dessus. `null` tant qu'on n'a rien mesuré : le palier de
+  // départ est alors déduit de l'appareil (voir `palierInitial`).
+  qualityAuto: null,
   cameraRoll: 0.82,
   cameraZoom: 1.18,
   reduceFlash: false,

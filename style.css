@@ -274,6 +274,25 @@ button:focus-visible{
   backdrop-filter:blur(12px) saturate(1.12);
 }
 
+/* ⚠️ PAS DE FLOU DE FOND AU-DESSUS DU JEU.
+ *
+ * Mesuré en course sur un écran de téléphone : SIX panneaux `.glass` couvrant
+ * 20,6 % de la surface, chacun demandant au compositeur de relire le fond, de
+ * le flouter sur douze pixels et de recomposer. Au-dessus d'un canvas WebGL qui
+ * se repeint à chaque image, ce résultat n'est JAMAIS réutilisable : le coût est
+ * payé soixante fois par seconde, et il est entièrement hors WebGL — il
+ * n'apparaît ni dans `renderer.info`, ni dans un chronomètre autour de la boucle
+ * de rendu. C'est le poste que les mesures du moteur ne voient pas.
+ *
+ * Et l'effet était quasi invisible : le fond de `.glass` est déjà opaque à 90 %.
+ * On floute donc à grands frais ce que l'on cache déjà. Les menus et les modales
+ * gardent le flou — là, la scène est figée derrière, le compositeur met son
+ * résultat en cache, et le coût est payé une fois. */
+#hud .glass{
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
 /* Menu principal : une console de départ, pas trois boutons flottants. */
 .menu-content{
   width:min(640px,56vw);

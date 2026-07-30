@@ -294,6 +294,25 @@ button:focus-visible{
   backdrop-filter:blur(12px) saturate(1.12);
 }
 
+/* ⚠️ PAS DE FLOU DE FOND AU-DESSUS DU JEU.
+ *
+ * Mesuré en course sur un écran de téléphone : SIX panneaux `.glass` couvrant
+ * 20,6 % de la surface, chacun demandant au compositeur de relire le fond, de
+ * le flouter sur douze pixels et de recomposer. Au-dessus d'un canvas WebGL qui
+ * se repeint à chaque image, ce résultat n'est JAMAIS réutilisable : le coût est
+ * payé soixante fois par seconde, et il est entièrement hors WebGL — il
+ * n'apparaît ni dans `renderer.info`, ni dans un chronomètre autour de la boucle
+ * de rendu. C'est le poste que les mesures du moteur ne voient pas.
+ *
+ * Et l'effet était quasi invisible : le fond de `.glass` est déjà opaque à 90 %.
+ * On floute donc à grands frais ce que l'on cache déjà. Les menus et les modales
+ * gardent le flou — là, la scène est figée derrière, le compositeur met son
+ * résultat en cache, et le coût est payé une fois. */
+#hud .glass{
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
 /* Menu principal : une console de départ, pas trois boutons flottants. */
 .menu-content{
   width:min(640px,56vw);
@@ -3026,12 +3045,47 @@ const WARMUP_SECONDS = 2.5;
 // la moyenne.
 const FRAME_SAMPLE_CAP = 100;
 
+// Coût de TRAVAIL, en ms, sous lequel on considère qu'il reste de la marge.
+//
+// ⚠️ POURQUOI PAS L'INTERVALLE ENTRE IMAGES. L'ancien seuil de remontée était
+// `frameAverage < 13.2`. Derrière une vsync à 60 Hz, l'intervalle vaut 16,7 ms
+// quoi qu'il arrive — même sur une machine qui n'utilise que 3 ms des 16,7.
+// Le seuil était donc INATTEIGNABLE : le palier ne remontait JAMAIS, sur aucun
+// appareil. Tant qu'on démarrait en HQ ça ne se voyait pas ; en démarrant en
+// LQ sur mobile, ça aurait enfermé les bons téléphones en qualité basse pour
+// toujours. On mesure donc le temps passé DANS `frame()`, pas entre deux.
+const WORK_HEADROOM_MS = 8.5;
+
+/** Le palier de départ, déduit de l'appareil.
+ *
+ * ⚠️ ON PART BAS ET ON MONTE, ET C'EST LE POINT. L'ancien code démarrait en HQ
+ * pour tout le monde (`}, 2)` en dur) et laissait l'adaptation redescendre.
+ * Les deux sens ne se valent pas : monter est indolore — le joueur gagne du
+ * détail sur un jeu déjà fluide — tandis que descendre veut dire qu'on lui a
+ * d'abord fait subir plusieurs dizaines de secondes de saccades. Mesuré sur ce
+ * jeu, HQ coûte 3,3× LQ ; commencer haut sur un téléphone, c'est garantir la
+ * mauvaise première minute à tous ceux qui n'ont pas la machine pour.
+ *
+ * `pointer: coarse` est le bon signal, et pas `maxTouchPoints` : un portable à
+ * écran tactile a les deux, mais il a aussi un vrai GPU.
+ */
+function palierInitial(memorise = null) {
+  if (Number.isInteger(memorise) && memorise >= 0 && memorise <= 2) return memorise;
+  try {
+    if (globalThis.matchMedia?.("(pointer: coarse)")?.matches) return 0;
+  } catch { /* environnement sans matchMedia : on retombe sur le défaut */ }
+  return 2;
+}
+
 class QualityManager {
   constructor(onApply, initialTier = 2) {
     this.onApply = onApply;
     this.tier = initialTier;
     this.manual = false;
     this.frameAverage = 16.7;
+    // Moyenne du temps de TRAVAIL par image, distincte de l'intervalle : c'est
+    // elle qui dit s'il reste de la marge pour remonter d'un palier.
+    this.workAverage = 16.7;
     this.highTimer = 0;
     this.lowTimer = 0;
     this.cooldown = 0;
@@ -3093,7 +3147,20 @@ class QualityManager {
     return this.tier;
   }
 
-  update(dtMs) {
+  /** @param dtMs   intervalle réel entre deux images — décide de la DESCENTE.
+   *  @param workMs temps passé dans `frame()` — décide de la MONTÉE.
+   *
+   * ⚠️ LES MINUTEURS DOIVENT AVANCER EN TEMPS RÉEL. L'appelant passait
+   * `Math.min(0.1, …) * 1000`, le dt déjà plafonné pour la simulation. Les
+   * lignes ci-dessous décrémentent warmup et cooldown avec ce dt : sur un
+   * appareil qui rend à 200 ms/image, les minuteurs de qualité avançaient donc
+   * DEUX FOIS moins vite que l'horloge, et les 17 s théoriques avant d'atteindre
+   * LQ en devenaient 34. L'inversion était complète — plus la machine souffrait,
+   * plus les secours tardaient. Le plafond utile, celui qui protège la moyenne
+   * d'un pic isolé, est `FRAME_SAMPLE_CAP` et il est appliqué ici, au bon
+   * endroit.
+   */
+  update(dtMs, workMs = dtMs) {
     if (this.warmup > 0) {
       this.warmup -= dtMs / 1000;
       // On ne se contente pas d'ignorer la décision : on n'alimente MÊME PAS la
@@ -3106,13 +3173,14 @@ class QualityManager {
     // ce plafond, une seule secousse pèse autant que soixante images normales
     // et fait chuter le palier à elle seule.
     this.frameAverage += (Math.min(dtMs, FRAME_SAMPLE_CAP) - this.frameAverage) * 0.035;
+    this.workAverage += (Math.min(workMs, FRAME_SAMPLE_CAP) - this.workAverage) * 0.035;
     this.cooldown = Math.max(0, this.cooldown - dtMs / 1000);
     if (this.manual || this.cooldown > 0) return;
 
     if (this.frameAverage > 20.5) {
       this.highTimer += dtMs / 1000;
       this.lowTimer = 0;
-    } else if (this.frameAverage < 13.2) {
+    } else if (this.workAverage < WORK_HEADROOM_MS && this.frameAverage < 20.5) {
       this.lowTimer += dtMs / 1000;
       this.highTimer = 0;
     } else {
@@ -3121,7 +3189,11 @@ class QualityManager {
     }
 
     if (this.highTimer > 3.2 && this.tier > 0) {
-      this.tier--;
+      // ⚠️ DEUX CRANS D'UN COUP QUAND LA MESURE LES JUSTIFIE. Descendre un cran
+      // à la fois imposait un cooldown de 8 s puis 3,2 s de plus pour refaire
+      // la preuve, alors qu'à 30 images/seconde ou moins la machine a déjà
+      // répondu. C'est ce trajet en escalier qui coûtait le plus de secondes.
+      this.tier = this.frameAverage > 33 ? 0 : this.tier - 1;
       this.highTimer = 0;
       this.cooldown = 8;
       this.apply();
@@ -3143,6 +3215,10 @@ function resolveSettingsStorage() {
 
 const DEFAULT_SETTINGS = Object.freeze({
   quality: "auto",
+  // Le palier que l'adaptation a DÉCOUVERT sur cette machine, distinct du
+  // choix manuel ci-dessus. `null` tant qu'on n'a rien mesuré : le palier de
+  // départ est alors déduit de l'appareil (voir `palierInitial`).
+  qualityAuto: null,
   cameraRoll: 0.82,
   cameraZoom: 1.18,
   reduceFlash: false,
@@ -4393,6 +4469,18 @@ const DEFAULT_WAVE_SET = DEFAULT_WAVES;
 // ---- src/sim/wake-grid.js ----
 const idx = (x, y, size) => y * size + x;
 
+/** Remet à zéro les seules quatre lignes de bordure d'une grille carrée. */
+function zeroBords(tableau, size) {
+  const derniere = (size - 1) * size;
+  tableau.fill(0, 0, size);                 // ligne du haut
+  tableau.fill(0, derniere, derniere + size); // ligne du bas
+  for (let y = 1; y < size - 1; y++) {
+    const ligne = y * size;
+    tableau[ligne] = 0;                     // colonne de gauche
+    tableau[ligne + size - 1] = 0;          // colonne de droite
+  }
+}
+
 /** Deterministic local height/velocity/foam simulation for wakes and impacts. */
 class WakeGrid {
   constructor({ resolution = 128, worldSize = 170 } = {}) {
@@ -4523,14 +4611,27 @@ class WakeGrid {
     const waveSpeed = 20, damping = 3.25, diffusion = 0.15;
     const heightDecay = Math.exp(-dt * 0.72);
     const foamDecay = Math.exp(-dt * 0.92);
+    // ⚠️ HISSÉ HORS DE LA BOUCLE, ET C'EST BIT-EXACT. `damping` et `dt` sont
+    // constants sur toute la passe : cette exponentielle valait donc déjà la
+    // même chose pour les 36 100 cellules, et elle était recalculée pour chacune
+    // — trente fois par seconde, à tous les paliers de qualité, y compris sur
+    // téléphone. Ses deux voisines, `heightDecay` et `foamDecay`, avaient été
+    // sorties ; celle-ci était restée. Même expression, mêmes opérandes, donc
+    // rigoureusement le même flottant : les checksums de replay ne bougent pas.
+    const dampDecay = Math.exp(-damping * dt);
     const advX = currentX * dt * this.invCellSize;
     const advY = currentZ * dt * this.invCellSize;
-    nh.fill(0); nv.fill(0); nf.fill(0);
+    // ⚠️ SEULS LES BORDS SONT REMIS À ZÉRO. La double boucle ci-dessous réécrit
+    // intégralement l'intérieur (1 ≤ x, y ≤ size-2) ; seules les quatre lignes
+    // de bordure lui échappent, et ce sont les seules que le `fill(0)` d'origine
+    // servait réellement à nettoyer. 768 écritures au lieu de 110 592 pour trois
+    // tableaux, et le contenu final est identique au bit près.
+    zeroBords(nh, size); zeroBords(nv, size); zeroBords(nf, size);
     for (let y = 1; y < size - 1; y++) {
       for (let x = 1; x < size - 1; x++) {
         const i = idx(x, y, size);
         const lap = h[i - 1] + h[i + 1] + h[i - size] + h[i + size] - 4 * h[i];
-        const nextV = (v[i] + lap * waveSpeed * dt) * Math.exp(-damping * dt);
+        const nextV = (v[i] + lap * waveSpeed * dt) * dampDecay;
         nh[i] = clamp((h[i] + nextV * dt) * heightDecay, -this.maxHeight, this.maxHeight);
         nv[i] = nextV;
         const sx = clamp(x - advX, 1, size - 2), sy = clamp(y - advY, 1, size - 2);
@@ -5966,6 +6067,41 @@ class OceanSystem {
 
     const waves = waveField.shaderData(8);
     const waveDeclarations = waves.map((_, index) => `float p${index};`).join("\n");
+
+    // ⚠️ LA DISTANCE À LA CÔTE ÉTAIT PAYÉE PAR FRAGMENT, POUR RIEN.
+    //
+    // Cette boucle tourne sur huit îles, et le `break` ne coupe jamais : le jeu
+    // en fournit toujours exactement huit (`nearestIslands(z, limit = 8)`).
+    // Chaque tour fait deux `length` et quatre divisions ; l'ensemble revient à
+    // une quarantaine de divisions et seize racines carrées PAR FRAGMENT — sur
+    // les trois quarts de l'écran, à chaque image, alors que le résultat n'est
+    // consommé qu'en deçà de 28 m d'un rivage (`shallow`) et de 2,8 m pour
+    // l'écume. Plus de 95 % des pixels payaient plein tarif pour une valeur
+    // aussitôt écrasée par un `smoothstep`.
+    //
+    // Le même code sert maintenant AUX DEUX étages : au sommet, où le clipmap
+    // compte quelques milliers de points, pour décider ; au fragment, seulement
+    // là où c'est près. La branche est cohérente par tuile — la proximité d'une
+    // côte varie continûment à l'écran — donc elle ne coûte pas sa divergence.
+    const coastDeclarations = `
+        float coastDistance(vec2 p) {
+          float best = 99.0;
+          for (int i = 0; i < 8; i++) {
+            if (i >= uIslandCount) break;
+            vec4 island = uIslands[i];
+            vec2 q = (p - island.xy) / max(island.zw, vec2(0.1));
+            float qLength = max(length(q), 0.001);
+            vec2 gradient = (p - island.xy) / max(island.zw * island.zw, vec2(0.01));
+            float distance = abs(qLength - 1.0) * qLength / max(length(gradient), 0.001);
+            best = min(best, distance);
+          }
+          return best;
+        }`;
+    // Marge au-delà du seuil de `shallow` (28 m) : le varying est interpolé
+    // linéairement entre des sommets qui peuvent être distants de plusieurs
+    // mètres sur les anneaux extérieurs du clipmap. Sans cette marge, un
+    // fragment réellement à 27 m pourrait être écarté par un voisin à 41.
+    const COAST_GATE = 52.0;
     const waveCode = waves.map((wave, index) => {
       const wavelength = Math.PI * 2 / wave.k;
       return `
@@ -6007,6 +6143,13 @@ class OceanSystem {
       transparent: false,
       vertexShader: `
         precision highp float;
+        // ⚠️ LA PRÉCISION DES ENTIERS DOIT ÊTRE DÉCLARÉE DES DEUX CÔTÉS.
+        // En GLSL ES 1.0 elle vaut highp par défaut au sommet et mediump au
+        // fragment : dès que le même uniform entier apparaît dans les deux
+        // étages, l'édition de liens échoue avec « Precisions of uniform
+        // 'uIslandCount' differ ». Le shader compile, c'est le LINK qui casse —
+        // donc rien ne le signale avant le premier rendu réel.
+        precision highp int;
         uniform float uTime;
         uniform float uStorm;
         uniform float uWaveAmplitude;
@@ -6014,6 +6157,8 @@ class OceanSystem {
         uniform vec2 uWakeCenter;
         uniform float uWakeWorldSize;
         uniform float uWakeTexel;
+        uniform int uIslandCount;
+        uniform vec4 uIslands[8];
         attribute float aGridStep;
         varying vec3 vWorld;
         varying vec3 vNormalW;
@@ -6022,6 +6167,9 @@ class OceanSystem {
         varying float vWake;
         varying float vWakeFoam;
         varying vec2 vWakeUv;
+        varying float vCoast;
+
+        ${coastDeclarations}
 
         ${waveDeclarations}
 
@@ -6070,6 +6218,23 @@ class OceanSystem {
           sz += wakeDz * wakeFade;
           world.y += h;
           vWorld = world.xyz;
+          // Quelques milliers de sommets contre plusieurs centaines de milliers
+          // de fragments : c'est ici que la distance à la côte se paie.
+          //
+          // ⚠️ ON SOUSTRAIT LE PAS DE GRILLE, et ce n'est pas de la prudence
+          // gratuite. Le varying est interpolé entre deux sommets qui, sur
+          // l'anneau extérieur du clipmap, sont distants de près de soixante-dix
+          // mètres : un fragment réellement à vingt mètres d'un rivage pourrait
+          // hériter d'une valeur bien plus grande et se voir refuser le calcul
+          // exact — la frange d'eau claire disparaîtrait autour des îles
+          // lointaines. En retranchant le pas de grille, le varying devient une
+          // BORNE INFÉRIEURE : il peut faire recalculer pour rien, jamais
+          // sauter à tort.
+          //
+          // (Et pas d'accent grave dans ce commentaire : il est à l'intérieur
+          // d'un gabarit JavaScript, un seul y refermerait la chaîne. C'est
+          // exactement ce qui vient d'arriver.)
+          vCoast = coastDistance(world.xz) - aGridStep;
           vNormalW = normalize(vec3(-sx, 1.0, -sz));
           vHeight = h;
           vCurvature = curve;
@@ -6081,6 +6246,8 @@ class OceanSystem {
       `,
       fragmentShader: `
         precision highp float;
+        // Doit correspondre au sommet : voir la note là-bas.
+        precision highp int;
         uniform float uTime;
         uniform float uStorm;
         uniform vec3 uDeep;
@@ -6101,6 +6268,7 @@ class OceanSystem {
         varying float vCurvature;
         varying float vWake;
         varying float vWakeFoam;
+        varying float vCoast;
         // Le fragment ne déclarait NI uWakeTex NI vWakeUv : vWakeUv était un
         // varying mort et la mousse n'arrivait qu'échantillonnée PAR SOMMET,
         // soit tous les 1,52 m sur l'anneau proche. Une traînée de 1 à 2 m de
@@ -6122,22 +6290,11 @@ class OceanSystem {
                      mix(hash21(i + vec2(0.0, 1.0)), hash21(i + 1.0), f.x), f.y);
         }
 
-        float coastDistance(vec2 p) {
-          float best = 99.0;
-          for (int i = 0; i < 8; i++) {
-            if (i >= uIslandCount) break;
-            vec4 island = uIslands[i];
-            vec2 q = (p - island.xy) / max(island.zw, vec2(0.1));
-            float qLength = max(length(q), 0.001);
-            vec2 gradient = (p - island.xy) / max(island.zw * island.zw, vec2(0.01));
-            float distance = abs(qLength - 1.0) * qLength / max(length(gradient), 0.001);
-            best = min(best, distance);
-          }
-          return best;
-        }
+        ${coastDeclarations}
 
         void main() {
           vec3 normal = normalize(vNormalW);
+
           vec3 viewDir = normalize(cameraPosition - vWorld);
           float viewDist = length(cameraPosition.xz - vWorld.xz);
 
@@ -6190,7 +6347,11 @@ class OceanSystem {
             detailFade
           )) * (0.42 + crestMask * 0.40);
 
-          float coast = coastDistance(vWorld.xz);
+          // Le sommet a déjà tranché : loin de tout rivage, on ne recalcule
+          // rien. Près d'un rivage, on reprend la valeur exacte par fragment —
+          // l'écume de côte est fine, un varying interpolé la ferait baver.
+          float coast = 99.0;
+          if (vCoast < ${COAST_GATE.toFixed(1)}) coast = coastDistance(vWorld.xz);
           float shallow = 1.0 - smoothstep(1.0, 28.0, coast);
           float coastFoam = (1.0 - smoothstep(0.20, 2.8, coast))
             * (0.62 + max(coarse.a, fine.a) * 0.46);
@@ -7075,7 +7236,15 @@ class ExplosionPool {
           vFade = aAge > 1.0 ? 0.0 : 1.0;
           // Billboard en espace vue : toujours face caméra, sans matrice de plus.
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          mv.xy += aCorner * aScale;
+          // ⚠️ LE QUAD MORT DOIT DISPARAÎTRE, PAS SEULEMENT S'ÉTEINDRE. Le
+          // fondu annulait la couleur, mais l'échelle gardait la valeur du
+          // dernier spawn — le quad continuait donc d'être rasterisé en pleine
+          // taille, avec sa prise de texture et son mélange additif, pour un
+          // résultat multiplié par zéro. À l'échelle du jeu, quatre-vingt-quatre
+          // emplacements ; un seul, proche, couvrait jusqu'au tiers de l'écran.
+          // En multipliant l'écart des coins par le fondu, les quatre sommets
+          // se confondent : aire nulle, zéro fragment engendré.
+          mv.xy += aCorner * aScale * vFade;
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -7252,14 +7421,23 @@ class EffectAtlasPool {
           float t = clamp(aAge, 0.0, 1.0);
           float enter = smoothstep(0.0, 0.10, t);
           float leave = 1.0 - smoothstep(0.62, 1.0, t);
-          vFade = aAge > 1.0 ? 0.0 : enter * leave;
+          // ⚠️ UN TERME À PART, ET PAS LE FONDU. Celui-ci vaut aussi zéro au
+          // tout début et à la toute fin d'une vie NORMALE : s'en servir pour
+          // dégénérer le quad ferait clignoter l'effet à ses deux extrémités.
+          // Seul l'âge dit si l'emplacement est mort.
+          float vivant = aAge > 1.0 ? 0.0 : 1.0;
+          vFade = vivant * enter * leave;
           vIntensity = aIntensity;
           float growth = mix(0.58, 1.18, smoothstep(0.0, 0.78, t));
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           float cosine = cos(aRotation);
           float sine = sin(aRotation);
           vec2 orientedCorner = mat2(cosine, sine, -sine, cosine) * aCorner;
-          mv.xy += orientedCorner * aScale * growth;
+          // Emplacement mort : les quatre coins se confondent, aire nulle, zéro
+          // fragment. Sans cela le quad restait à la taille de son dernier
+          // spawn — l'échelle n'est jamais remise à zéro — et payait sa prise
+          // de texture et son mélange additif pour un résultat nul.
+          mv.xy += orientedCorner * aScale * growth * vivant;
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -9607,6 +9785,8 @@ varying vec3 vHullWorld;`)
 
     this.crew = [];
     this.crewMaterial = null;
+    this.overboard = false;
+    this.crewCulled = false;
     const skins = CREW_SKINS;
     const zPositions = CREW_BEAMS.map((beam) => BEAM_LAYOUT[beam][0]);
     for (let crewIndex = 0; crewIndex < 6; crewIndex++) {
@@ -9769,10 +9949,26 @@ varying vec3 vHullWorld;`)
   // Chavirage : l'équipage passe par-dessus bord. PUREMENT VISUEL — on ne
   // touche pas à dynamics.activeCrew, qui entre dans le checksum de replay et
   // dont dépendent la pompe et le couple de rappel.
+  // Équipage retiré parce qu'il est trop loin pour se lire — décision de RENDU,
+  // prise chaque image par le jeu. Distincte de `overboard`, qui est un état de
+  // partie : les deux se composent dans `applyCrewVisibility`, sinon le dernier
+  // appelé écrasait l'autre et un équipage repêché au loin restait invisible.
+  setCrewCulled(value) {
+    const culled = Boolean(value);
+    if (culled === this.crewCulled) return;
+    this.crewCulled = culled;
+    this.applyCrewVisibility();
+  }
+
+  applyCrewVisibility() {
+    const visible = !this.overboard && !this.crewCulled;
+    for (const entry of this.crew) entry.visual.root.visible = visible;
+  }
+
   setOverboard(value) {
     this.overboard = Boolean(value);
+    this.applyCrewVisibility();
     for (const entry of this.crew) {
-      entry.visual.root.visible = !this.overboard;
       if (this.overboard) continue;
       // Remise à quai : l'animation de chute déplace root.position, et tant
       // qu'on est par-dessus bord update() ne repasse pas dessus. Sans ce
@@ -16559,8 +16755,22 @@ class Game {
       this.ocean.setQuality(tier);
       this.world?.setQuality(tier);
       if (this.ui.quality) this.ui.quality.textContent = profile.label;
+      // ⚠️ ON MÉMORISE CE QUE L'ADAPTATION A DÉCOUVERT. `settings.set("quality")`
+      // n'était appelé que depuis deux gestionnaires de clic : les descentes
+      // automatiques n'écrivaient rien. Chaque lancement rejouait donc la même
+      // découverte coûteuse depuis HQ, et le joueur mobile ne voyait JAMAIS le
+      // palier adapté — seulement, à chaque fois, la phase qui y mène.
+      //
+      // Clé distincte de `quality` pour que le choix MANUEL du joueur reste ce
+      // qu'il est : un choix, pas une mesure.
+      //
+      // La garde sur `this.quality` n'est pas cosmétique : `apply()` est appelé
+      // depuis le CONSTRUCTEUR du gestionnaire, donc avant que l'affectation
+      // ci-dessous ait eu lieu. Sans elle, le boot réécrirait la clé avec la
+      // valeur qu'il vient d'en lire.
+      if (this.quality && !this.quality.manual) this.settings.set("qualityAuto", tier);
       this.resize();
-    }, 2);
+    }, palierInitial(this.settings.get("qualityAuto")));
     const savedQuality = this.settings.get("quality");
     if (savedQuality === "auto") this.quality.setAutomatic();
     else if (["LQ", "MQ", "HQ"].includes(savedQuality)) this.quality.setTier(["LQ", "MQ", "HQ"].indexOf(savedQuality), true);
@@ -17385,10 +17595,26 @@ class Game {
 
 
   frame(now) {
+    const debutTravail = performance.now();
     this.renderer.info.reset?.();
     const raw = Math.min(0.1, (now - this.lastFrame) / 1000 || 0);
+    // ⚠️ DEUX HORLOGES, ET C'EST VOULU. `raw` est plafonné à 100 ms parce que la
+    // SIMULATION ne doit jamais rattraper plus de six sous-pas d'un coup. Le
+    // gestionnaire de qualité, lui, recevait ce même dt plafonné : sur un
+    // appareil à 200 ms/image ses minuteurs avançaient donc deux fois moins vite
+    // que l'horloge, et il mettait deux fois plus longtemps à baisser la
+    // qualité. Plus la machine souffrait, plus les secours tardaient. On lui
+    // passe désormais l'intervalle RÉEL.
+    //
+    // Et le second argument est le temps de TRAVAIL de l'image précédente, pas
+    // l'intervalle : derrière une vsync à 60 Hz l'intervalle vaut 16,7 ms même
+    // sur une machine qui n'en utilise que trois, si bien que l'ancien seuil de
+    // remontée (`< 13,2 ms`) était inatteignable et que le palier ne remontait
+    // jamais. Sans cette mesure-là, démarrer bas enfermerait les bons appareils
+    // en qualité basse pour toujours.
+    const intervalleReel = Math.max(0, now - this.lastFrame) || 0;
     this.lastFrame = now;
-    this.quality.update(raw * 1000);
+    this.quality.update(intervalleReel, this.frameWorkMs ?? intervalleReel);
     this.pollGamepad();
     if (this.mode === "menu") this.time += raw * 0.65;
     // Hitstop : le gel mange du temps réel, pas du temps de simulation. La
@@ -17456,9 +17682,61 @@ class Game {
     this.ui.stormVignette.style.opacity = String(clamp(weather.stormAmount * 0.62, 0, 0.74));
     this.updateSoundscape(weather);
     if (this.ui.impactFlash) this.ui.impactFlash.style.opacity = String(clamp(this.impact.flash * 0.62, 0, 0.62));
+    this.cullYoles();
     this.postFX.render(this.scene, this.camera);
     const renderInfo = this.renderer.info.render;
     this.lastRenderStats = { calls: renderInfo.calls, triangles: renderInfo.triangles };
+    // Ce que cette image a réellement coûté en travail, à distinguer de
+    // l'intervalle qui la sépare de la suivante : c'est la marge disponible, et
+    // donc la seule grandeur qui autorise à REMONTER d'un palier.
+    this.frameWorkMs = performance.now() - debutTravail;
+  }
+
+  // Une yole hors champ ne se voit pas : elle n'a pas à être soumise.
+  //
+  // ⚠️ POURQUOI THREE.JS NE LE FAIT PAS LUI-MÊME. `yole-visual.js` pose
+  // `frustumCulled = false` sur tout le rig d'équipage, et pour une bonne
+  // raison : la sphère englobante d'un SkinnedMesh est calculée en espace de
+  // bind, si bien qu'un équipier animé sur une coque qui bouge disparaissait
+  // par intermittence. Mais la conséquence est que les quatre yoles et leurs
+  // vingt-quatre équipiers partent au GPU à CHAQUE image, y compris quand ils
+  // sont derrière la caméra. Mesuré : les yoles pèsent 141 des 210 draw calls,
+  // et le palier LQ n'avait aucun levier dessus — 112 draw calls et 77 000
+  // triangles identiques en LQ et en HQ.
+  //
+  // On teste donc au niveau de la COQUE, dont la sphère est juste, et on éteint
+  // le groupe entier. Aucun contact avec la simulation : `visible` ne fait pas
+  // avancer un bateau.
+  cullYoles() {
+    const THREE = this.THREE;
+    // Les harnais de simulation tournent avec un THREE minimal, sans classes
+    // géométriques : le culling n'y a de toute façon aucun sens puisque rien
+    // n'est rasterisé. Même garde que `makeHeadKits` dans yole-visual.js.
+    if (!THREE.Frustum || !THREE.Sphere) return;
+    if (!this.cullFrustum) {
+      this.cullFrustum = new THREE.Frustum();
+      this.cullMatrix = new THREE.Matrix4();
+      this.cullSphere = new THREE.Sphere(new THREE.Vector3(), 9.5);
+    }
+    this.camera.updateMatrixWorld();
+    this.cullFrustum.setFromProjectionMatrix(
+      this.cullMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
+    // Au-delà de cette distance un équipier mesure moins d'une vingtaine de
+    // pixels : la silhouette de la coque et de la voile suffit à situer
+    // l'adversaire. Seul le palier bas y renonce — c'est précisément le levier
+    // qui manquait à LQ.
+    const porteeEquipage = this.quality.tier === 0 ? 46 : Infinity;
+    const camera = this.camera.position;
+    for (const boat of this.boats) {
+      const root = boat.visual?.root;
+      if (!root) continue;
+      // Le rayon couvre la coque, le mât et les équipiers sortis sur le bois.
+      this.cullSphere.center.copy(root.position);
+      root.visible = this.cullFrustum.intersectsSphere(this.cullSphere);
+      if (!root.visible) continue;
+      boat.visual.setCrewCulled(
+        camera.distanceTo(root.position) > porteeEquipage);
+    }
   }
 
   // Lits continus : eau selon la vitesse, Grain selon la distance, câble selon

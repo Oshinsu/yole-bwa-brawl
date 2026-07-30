@@ -1,6 +1,6 @@
 import { clamp, damp, angleDelta, formatTime, TAU } from "../core/math.js";
 import { RNG, seedFromString } from "../core/rng.js";
-import { QualityManager } from "../core/quality.js";
+import { QualityManager, palierInitial } from "../core/quality.js";
 import { WaveField } from "../sim/waves.js";
 import { ReplayRecorder, ReplayPlayer, ReplayVault, downloadReplay, checksumBoats, isReplayCompatible } from "../sim/replay.js";
 import { OceanSystem } from "../render/ocean.js";
@@ -337,8 +337,22 @@ export class Game {
       this.ocean.setQuality(tier);
       this.world?.setQuality(tier);
       if (this.ui.quality) this.ui.quality.textContent = profile.label;
+      // ⚠️ ON MÉMORISE CE QUE L'ADAPTATION A DÉCOUVERT. `settings.set("quality")`
+      // n'était appelé que depuis deux gestionnaires de clic : les descentes
+      // automatiques n'écrivaient rien. Chaque lancement rejouait donc la même
+      // découverte coûteuse depuis HQ, et le joueur mobile ne voyait JAMAIS le
+      // palier adapté — seulement, à chaque fois, la phase qui y mène.
+      //
+      // Clé distincte de `quality` pour que le choix MANUEL du joueur reste ce
+      // qu'il est : un choix, pas une mesure.
+      //
+      // La garde sur `this.quality` n'est pas cosmétique : `apply()` est appelé
+      // depuis le CONSTRUCTEUR du gestionnaire, donc avant que l'affectation
+      // ci-dessous ait eu lieu. Sans elle, le boot réécrirait la clé avec la
+      // valeur qu'il vient d'en lire.
+      if (this.quality && !this.quality.manual) this.settings.set("qualityAuto", tier);
       this.resize();
-    }, 2);
+    }, palierInitial(this.settings.get("qualityAuto")));
     const savedQuality = this.settings.get("quality");
     if (savedQuality === "auto") this.quality.setAutomatic();
     else if (["LQ", "MQ", "HQ"].includes(savedQuality)) this.quality.setTier(["LQ", "MQ", "HQ"].indexOf(savedQuality), true);
@@ -1163,10 +1177,26 @@ export class Game {
 
 
   frame(now) {
+    const debutTravail = performance.now();
     this.renderer.info.reset?.();
     const raw = Math.min(0.1, (now - this.lastFrame) / 1000 || 0);
+    // ⚠️ DEUX HORLOGES, ET C'EST VOULU. `raw` est plafonné à 100 ms parce que la
+    // SIMULATION ne doit jamais rattraper plus de six sous-pas d'un coup. Le
+    // gestionnaire de qualité, lui, recevait ce même dt plafonné : sur un
+    // appareil à 200 ms/image ses minuteurs avançaient donc deux fois moins vite
+    // que l'horloge, et il mettait deux fois plus longtemps à baisser la
+    // qualité. Plus la machine souffrait, plus les secours tardaient. On lui
+    // passe désormais l'intervalle RÉEL.
+    //
+    // Et le second argument est le temps de TRAVAIL de l'image précédente, pas
+    // l'intervalle : derrière une vsync à 60 Hz l'intervalle vaut 16,7 ms même
+    // sur une machine qui n'en utilise que trois, si bien que l'ancien seuil de
+    // remontée (`< 13,2 ms`) était inatteignable et que le palier ne remontait
+    // jamais. Sans cette mesure-là, démarrer bas enfermerait les bons appareils
+    // en qualité basse pour toujours.
+    const intervalleReel = Math.max(0, now - this.lastFrame) || 0;
     this.lastFrame = now;
-    this.quality.update(raw * 1000);
+    this.quality.update(intervalleReel, this.frameWorkMs ?? intervalleReel);
     this.pollGamepad();
     if (this.mode === "menu") this.time += raw * 0.65;
     // Hitstop : le gel mange du temps réel, pas du temps de simulation. La
@@ -1234,9 +1264,61 @@ export class Game {
     this.ui.stormVignette.style.opacity = String(clamp(weather.stormAmount * 0.62, 0, 0.74));
     this.updateSoundscape(weather);
     if (this.ui.impactFlash) this.ui.impactFlash.style.opacity = String(clamp(this.impact.flash * 0.62, 0, 0.62));
+    this.cullYoles();
     this.postFX.render(this.scene, this.camera);
     const renderInfo = this.renderer.info.render;
     this.lastRenderStats = { calls: renderInfo.calls, triangles: renderInfo.triangles };
+    // Ce que cette image a réellement coûté en travail, à distinguer de
+    // l'intervalle qui la sépare de la suivante : c'est la marge disponible, et
+    // donc la seule grandeur qui autorise à REMONTER d'un palier.
+    this.frameWorkMs = performance.now() - debutTravail;
+  }
+
+  // Une yole hors champ ne se voit pas : elle n'a pas à être soumise.
+  //
+  // ⚠️ POURQUOI THREE.JS NE LE FAIT PAS LUI-MÊME. `yole-visual.js` pose
+  // `frustumCulled = false` sur tout le rig d'équipage, et pour une bonne
+  // raison : la sphère englobante d'un SkinnedMesh est calculée en espace de
+  // bind, si bien qu'un équipier animé sur une coque qui bouge disparaissait
+  // par intermittence. Mais la conséquence est que les quatre yoles et leurs
+  // vingt-quatre équipiers partent au GPU à CHAQUE image, y compris quand ils
+  // sont derrière la caméra. Mesuré : les yoles pèsent 141 des 210 draw calls,
+  // et le palier LQ n'avait aucun levier dessus — 112 draw calls et 77 000
+  // triangles identiques en LQ et en HQ.
+  //
+  // On teste donc au niveau de la COQUE, dont la sphère est juste, et on éteint
+  // le groupe entier. Aucun contact avec la simulation : `visible` ne fait pas
+  // avancer un bateau.
+  cullYoles() {
+    const THREE = this.THREE;
+    // Les harnais de simulation tournent avec un THREE minimal, sans classes
+    // géométriques : le culling n'y a de toute façon aucun sens puisque rien
+    // n'est rasterisé. Même garde que `makeHeadKits` dans yole-visual.js.
+    if (!THREE.Frustum || !THREE.Sphere) return;
+    if (!this.cullFrustum) {
+      this.cullFrustum = new THREE.Frustum();
+      this.cullMatrix = new THREE.Matrix4();
+      this.cullSphere = new THREE.Sphere(new THREE.Vector3(), 9.5);
+    }
+    this.camera.updateMatrixWorld();
+    this.cullFrustum.setFromProjectionMatrix(
+      this.cullMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
+    // Au-delà de cette distance un équipier mesure moins d'une vingtaine de
+    // pixels : la silhouette de la coque et de la voile suffit à situer
+    // l'adversaire. Seul le palier bas y renonce — c'est précisément le levier
+    // qui manquait à LQ.
+    const porteeEquipage = this.quality.tier === 0 ? 46 : Infinity;
+    const camera = this.camera.position;
+    for (const boat of this.boats) {
+      const root = boat.visual?.root;
+      if (!root) continue;
+      // Le rayon couvre la coque, le mât et les équipiers sortis sur le bois.
+      this.cullSphere.center.copy(root.position);
+      root.visible = this.cullFrustum.intersectsSphere(this.cullSphere);
+      if (!root.visible) continue;
+      boat.visual.setCrewCulled(
+        camera.distanceTo(root.position) > porteeEquipage);
+    }
   }
 
   // Lits continus : eau selon la vitesse, Grain selon la distance, câble selon

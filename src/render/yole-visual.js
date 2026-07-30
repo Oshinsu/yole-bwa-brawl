@@ -825,6 +825,8 @@ varying vec3 vHullWorld;`)
 
     this.crew = [];
     this.crewMaterial = null;
+    this.overboard = false;
+    this.crewCulled = false;
     const skins = CREW_SKINS;
     const zPositions = CREW_BEAMS.map((beam) => BEAM_LAYOUT[beam][0]);
     for (let crewIndex = 0; crewIndex < 6; crewIndex++) {
@@ -987,10 +989,26 @@ varying vec3 vHullWorld;`)
   // Chavirage : l'équipage passe par-dessus bord. PUREMENT VISUEL — on ne
   // touche pas à dynamics.activeCrew, qui entre dans le checksum de replay et
   // dont dépendent la pompe et le couple de rappel.
+  // Équipage retiré parce qu'il est trop loin pour se lire — décision de RENDU,
+  // prise chaque image par le jeu. Distincte de `overboard`, qui est un état de
+  // partie : les deux se composent dans `applyCrewVisibility`, sinon le dernier
+  // appelé écrasait l'autre et un équipage repêché au loin restait invisible.
+  setCrewCulled(value) {
+    const culled = Boolean(value);
+    if (culled === this.crewCulled) return;
+    this.crewCulled = culled;
+    this.applyCrewVisibility();
+  }
+
+  applyCrewVisibility() {
+    const visible = !this.overboard && !this.crewCulled;
+    for (const entry of this.crew) entry.visual.root.visible = visible;
+  }
+
   setOverboard(value) {
     this.overboard = Boolean(value);
+    this.applyCrewVisibility();
     for (const entry of this.crew) {
-      entry.visual.root.visible = !this.overboard;
       if (this.overboard) continue;
       // Remise à quai : l'animation de chute déplace root.position, et tant
       // qu'on est par-dessus bord update() ne repasse pas dessus. Sans ce

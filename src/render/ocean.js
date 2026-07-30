@@ -281,6 +281,41 @@ export class OceanSystem {
 
     const waves = waveField.shaderData(8);
     const waveDeclarations = waves.map((_, index) => `float p${index};`).join("\n");
+
+    // ⚠️ LA DISTANCE À LA CÔTE ÉTAIT PAYÉE PAR FRAGMENT, POUR RIEN.
+    //
+    // Cette boucle tourne sur huit îles, et le `break` ne coupe jamais : le jeu
+    // en fournit toujours exactement huit (`nearestIslands(z, limit = 8)`).
+    // Chaque tour fait deux `length` et quatre divisions ; l'ensemble revient à
+    // une quarantaine de divisions et seize racines carrées PAR FRAGMENT — sur
+    // les trois quarts de l'écran, à chaque image, alors que le résultat n'est
+    // consommé qu'en deçà de 28 m d'un rivage (`shallow`) et de 2,8 m pour
+    // l'écume. Plus de 95 % des pixels payaient plein tarif pour une valeur
+    // aussitôt écrasée par un `smoothstep`.
+    //
+    // Le même code sert maintenant AUX DEUX étages : au sommet, où le clipmap
+    // compte quelques milliers de points, pour décider ; au fragment, seulement
+    // là où c'est près. La branche est cohérente par tuile — la proximité d'une
+    // côte varie continûment à l'écran — donc elle ne coûte pas sa divergence.
+    const coastDeclarations = `
+        float coastDistance(vec2 p) {
+          float best = 99.0;
+          for (int i = 0; i < 8; i++) {
+            if (i >= uIslandCount) break;
+            vec4 island = uIslands[i];
+            vec2 q = (p - island.xy) / max(island.zw, vec2(0.1));
+            float qLength = max(length(q), 0.001);
+            vec2 gradient = (p - island.xy) / max(island.zw * island.zw, vec2(0.01));
+            float distance = abs(qLength - 1.0) * qLength / max(length(gradient), 0.001);
+            best = min(best, distance);
+          }
+          return best;
+        }`;
+    // Marge au-delà du seuil de `shallow` (28 m) : le varying est interpolé
+    // linéairement entre des sommets qui peuvent être distants de plusieurs
+    // mètres sur les anneaux extérieurs du clipmap. Sans cette marge, un
+    // fragment réellement à 27 m pourrait être écarté par un voisin à 41.
+    const COAST_GATE = 52.0;
     const waveCode = waves.map((wave, index) => {
       const wavelength = Math.PI * 2 / wave.k;
       return `
@@ -322,6 +357,13 @@ export class OceanSystem {
       transparent: false,
       vertexShader: `
         precision highp float;
+        // ⚠️ LA PRÉCISION DES ENTIERS DOIT ÊTRE DÉCLARÉE DES DEUX CÔTÉS.
+        // En GLSL ES 1.0 elle vaut highp par défaut au sommet et mediump au
+        // fragment : dès que le même uniform entier apparaît dans les deux
+        // étages, l'édition de liens échoue avec « Precisions of uniform
+        // 'uIslandCount' differ ». Le shader compile, c'est le LINK qui casse —
+        // donc rien ne le signale avant le premier rendu réel.
+        precision highp int;
         uniform float uTime;
         uniform float uStorm;
         uniform float uWaveAmplitude;
@@ -329,6 +371,8 @@ export class OceanSystem {
         uniform vec2 uWakeCenter;
         uniform float uWakeWorldSize;
         uniform float uWakeTexel;
+        uniform int uIslandCount;
+        uniform vec4 uIslands[8];
         attribute float aGridStep;
         varying vec3 vWorld;
         varying vec3 vNormalW;
@@ -337,6 +381,9 @@ export class OceanSystem {
         varying float vWake;
         varying float vWakeFoam;
         varying vec2 vWakeUv;
+        varying float vCoast;
+
+        ${coastDeclarations}
 
         ${waveDeclarations}
 
@@ -385,6 +432,23 @@ export class OceanSystem {
           sz += wakeDz * wakeFade;
           world.y += h;
           vWorld = world.xyz;
+          // Quelques milliers de sommets contre plusieurs centaines de milliers
+          // de fragments : c'est ici que la distance à la côte se paie.
+          //
+          // ⚠️ ON SOUSTRAIT LE PAS DE GRILLE, et ce n'est pas de la prudence
+          // gratuite. Le varying est interpolé entre deux sommets qui, sur
+          // l'anneau extérieur du clipmap, sont distants de près de soixante-dix
+          // mètres : un fragment réellement à vingt mètres d'un rivage pourrait
+          // hériter d'une valeur bien plus grande et se voir refuser le calcul
+          // exact — la frange d'eau claire disparaîtrait autour des îles
+          // lointaines. En retranchant le pas de grille, le varying devient une
+          // BORNE INFÉRIEURE : il peut faire recalculer pour rien, jamais
+          // sauter à tort.
+          //
+          // (Et pas d'accent grave dans ce commentaire : il est à l'intérieur
+          // d'un gabarit JavaScript, un seul y refermerait la chaîne. C'est
+          // exactement ce qui vient d'arriver.)
+          vCoast = coastDistance(world.xz) - aGridStep;
           vNormalW = normalize(vec3(-sx, 1.0, -sz));
           vHeight = h;
           vCurvature = curve;
@@ -396,6 +460,8 @@ export class OceanSystem {
       `,
       fragmentShader: `
         precision highp float;
+        // Doit correspondre au sommet : voir la note là-bas.
+        precision highp int;
         uniform float uTime;
         uniform float uStorm;
         uniform vec3 uDeep;
@@ -416,6 +482,7 @@ export class OceanSystem {
         varying float vCurvature;
         varying float vWake;
         varying float vWakeFoam;
+        varying float vCoast;
         // Le fragment ne déclarait NI uWakeTex NI vWakeUv : vWakeUv était un
         // varying mort et la mousse n'arrivait qu'échantillonnée PAR SOMMET,
         // soit tous les 1,52 m sur l'anneau proche. Une traînée de 1 à 2 m de
@@ -437,22 +504,11 @@ export class OceanSystem {
                      mix(hash21(i + vec2(0.0, 1.0)), hash21(i + 1.0), f.x), f.y);
         }
 
-        float coastDistance(vec2 p) {
-          float best = 99.0;
-          for (int i = 0; i < 8; i++) {
-            if (i >= uIslandCount) break;
-            vec4 island = uIslands[i];
-            vec2 q = (p - island.xy) / max(island.zw, vec2(0.1));
-            float qLength = max(length(q), 0.001);
-            vec2 gradient = (p - island.xy) / max(island.zw * island.zw, vec2(0.01));
-            float distance = abs(qLength - 1.0) * qLength / max(length(gradient), 0.001);
-            best = min(best, distance);
-          }
-          return best;
-        }
+        ${coastDeclarations}
 
         void main() {
           vec3 normal = normalize(vNormalW);
+
           vec3 viewDir = normalize(cameraPosition - vWorld);
           float viewDist = length(cameraPosition.xz - vWorld.xz);
 
@@ -505,7 +561,11 @@ export class OceanSystem {
             detailFade
           )) * (0.42 + crestMask * 0.40);
 
-          float coast = coastDistance(vWorld.xz);
+          // Le sommet a déjà tranché : loin de tout rivage, on ne recalcule
+          // rien. Près d'un rivage, on reprend la valeur exacte par fragment —
+          // l'écume de côte est fine, un varying interpolé la ferait baver.
+          float coast = 99.0;
+          if (vCoast < ${COAST_GATE.toFixed(1)}) coast = coastDistance(vWorld.xz);
           float shallow = 1.0 - smoothstep(1.0, 28.0, coast);
           float coastFoam = (1.0 - smoothstep(0.20, 2.8, coast))
             * (0.62 + max(coarse.a, fine.a) * 0.46);

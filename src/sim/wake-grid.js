@@ -2,6 +2,18 @@ import { clamp, lerp } from "../core/math.js";
 
 const idx = (x, y, size) => y * size + x;
 
+/** Remet à zéro les seules quatre lignes de bordure d'une grille carrée. */
+function zeroBords(tableau, size) {
+  const derniere = (size - 1) * size;
+  tableau.fill(0, 0, size);                 // ligne du haut
+  tableau.fill(0, derniere, derniere + size); // ligne du bas
+  for (let y = 1; y < size - 1; y++) {
+    const ligne = y * size;
+    tableau[ligne] = 0;                     // colonne de gauche
+    tableau[ligne + size - 1] = 0;          // colonne de droite
+  }
+}
+
 /** Deterministic local height/velocity/foam simulation for wakes and impacts. */
 export class WakeGrid {
   constructor({ resolution = 128, worldSize = 170 } = {}) {
@@ -132,14 +144,27 @@ export class WakeGrid {
     const waveSpeed = 20, damping = 3.25, diffusion = 0.15;
     const heightDecay = Math.exp(-dt * 0.72);
     const foamDecay = Math.exp(-dt * 0.92);
+    // ⚠️ HISSÉ HORS DE LA BOUCLE, ET C'EST BIT-EXACT. `damping` et `dt` sont
+    // constants sur toute la passe : cette exponentielle valait donc déjà la
+    // même chose pour les 36 100 cellules, et elle était recalculée pour chacune
+    // — trente fois par seconde, à tous les paliers de qualité, y compris sur
+    // téléphone. Ses deux voisines, `heightDecay` et `foamDecay`, avaient été
+    // sorties ; celle-ci était restée. Même expression, mêmes opérandes, donc
+    // rigoureusement le même flottant : les checksums de replay ne bougent pas.
+    const dampDecay = Math.exp(-damping * dt);
     const advX = currentX * dt * this.invCellSize;
     const advY = currentZ * dt * this.invCellSize;
-    nh.fill(0); nv.fill(0); nf.fill(0);
+    // ⚠️ SEULS LES BORDS SONT REMIS À ZÉRO. La double boucle ci-dessous réécrit
+    // intégralement l'intérieur (1 ≤ x, y ≤ size-2) ; seules les quatre lignes
+    // de bordure lui échappent, et ce sont les seules que le `fill(0)` d'origine
+    // servait réellement à nettoyer. 768 écritures au lieu de 110 592 pour trois
+    // tableaux, et le contenu final est identique au bit près.
+    zeroBords(nh, size); zeroBords(nv, size); zeroBords(nf, size);
     for (let y = 1; y < size - 1; y++) {
       for (let x = 1; x < size - 1; x++) {
         const i = idx(x, y, size);
         const lap = h[i - 1] + h[i + 1] + h[i - size] + h[i + size] - 4 * h[i];
-        const nextV = (v[i] + lap * waveSpeed * dt) * Math.exp(-damping * dt);
+        const nextV = (v[i] + lap * waveSpeed * dt) * dampDecay;
         nh[i] = clamp((h[i] + nextV * dt) * heightDecay, -this.maxHeight, this.maxHeight);
         nv[i] = nextV;
         const sx = clamp(x - advX, 1, size - 2), sy = clamp(y - advY, 1, size - 2);

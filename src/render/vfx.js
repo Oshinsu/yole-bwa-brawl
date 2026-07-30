@@ -234,7 +234,15 @@ export class ExplosionPool {
           vFade = aAge > 1.0 ? 0.0 : 1.0;
           // Billboard en espace vue : toujours face caméra, sans matrice de plus.
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          mv.xy += aCorner * aScale;
+          // ⚠️ LE QUAD MORT DOIT DISPARAÎTRE, PAS SEULEMENT S'ÉTEINDRE. Le
+          // fondu annulait la couleur, mais l'échelle gardait la valeur du
+          // dernier spawn — le quad continuait donc d'être rasterisé en pleine
+          // taille, avec sa prise de texture et son mélange additif, pour un
+          // résultat multiplié par zéro. À l'échelle du jeu, quatre-vingt-quatre
+          // emplacements ; un seul, proche, couvrait jusqu'au tiers de l'écran.
+          // En multipliant l'écart des coins par le fondu, les quatre sommets
+          // se confondent : aire nulle, zéro fragment engendré.
+          mv.xy += aCorner * aScale * vFade;
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -411,14 +419,23 @@ export class EffectAtlasPool {
           float t = clamp(aAge, 0.0, 1.0);
           float enter = smoothstep(0.0, 0.10, t);
           float leave = 1.0 - smoothstep(0.62, 1.0, t);
-          vFade = aAge > 1.0 ? 0.0 : enter * leave;
+          // ⚠️ UN TERME À PART, ET PAS LE FONDU. Celui-ci vaut aussi zéro au
+          // tout début et à la toute fin d'une vie NORMALE : s'en servir pour
+          // dégénérer le quad ferait clignoter l'effet à ses deux extrémités.
+          // Seul l'âge dit si l'emplacement est mort.
+          float vivant = aAge > 1.0 ? 0.0 : 1.0;
+          vFade = vivant * enter * leave;
           vIntensity = aIntensity;
           float growth = mix(0.58, 1.18, smoothstep(0.0, 0.78, t));
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           float cosine = cos(aRotation);
           float sine = sin(aRotation);
           vec2 orientedCorner = mat2(cosine, sine, -sine, cosine) * aCorner;
-          mv.xy += orientedCorner * aScale * growth;
+          // Emplacement mort : les quatre coins se confondent, aire nulle, zéro
+          // fragment. Sans cela le quad restait à la taille de son dernier
+          // spawn — l'échelle n'est jamais remise à zéro — et payait sa prise
+          // de texture et son mélange additif pour un résultat nul.
+          mv.xy += orientedCorner * aScale * growth * vivant;
           gl_Position = projectionMatrix * mv;
         }
       `,
