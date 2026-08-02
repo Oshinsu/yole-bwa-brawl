@@ -1,13 +1,13 @@
 # Publication du jeu sur GitHub Pages.
 #
-# ⚠️ AUCUNE ÉTAPE DE CONSTRUCTION. Le jeu est 100 % statique : trois.js est
-# vendoré dans vendor/, il n'y a ni bundler ni transpilation. On publie la
-# racine telle quelle.
+# Le jeu reste 100 % statique, mais la publication est précédée de la même
+# suite de vérification que localement. L'artefact ne contient ensuite que les
+# fichiers publics nécessaires au runtime.
 #
 # ⚠️ `npm run stamp` EST OBLIGATOIRE avant publication. Le service worker ouvre
-# son cache sous un nom constant et l'activation ne purge que les caches dont le
-# nom diffère : publier sans ré-estampiller laisserait chaque joueur déjà venu
-# sur l'ANCIENNE version, définitivement, sans que rien ne le signale.
+# son cache sous un nom constant et l'activation ne purge que les anciennes
+# versions YOLE : publier sans ré-estampiller laisserait chaque joueur déjà venu
+# sur l'ANCIENNE version, sans que rien ne le signale.
 name: Publier sur GitHub Pages
 
 on:
@@ -41,17 +41,36 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Estampiller le service worker
-        run: python3 tools/stamp_version.py
+      - name: Vérifier l'autorisation de publication
+        run: python tools/release.py --check-readiness
 
-      - name: Vérifier que le précache est complet
-        run: python3 tools/verify_static.py
+      - name: Tester la politique de release
+        run: npm run test:release
+
+      - name: Installer les dépendances de validation
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Exécuter la suite complète
+        run: npm test
+
+      - name: Préparer uniquement les fichiers publics
+        run: |
+          mkdir -p _site
+          cp index.html style.css legal.css privacy.html support.html credits.html manifest.webmanifest service-worker.js _site/
+          cp -R src vendor assets icons zik _site/
+          touch _site/.nojekyll
+
+      - name: Re-vérifier l'autorisation avant téléversement
+        run: python tools/release.py --check-readiness
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
       - id: deploiement
         uses: actions/deploy-pages@v4

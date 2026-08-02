@@ -1,11 +1,29 @@
 {
   "title": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
-  "version": "1.2.0",
-  "builtAtUtc": "2026-07-29T00:07:03.566592+00:00",
+  "version": "3.2.0",
+  "releaseStatus": "ready",
+  "builtAtUtc": "2026-07-30T21:21:32.687564+00:00",
+  "verifiedAtUtc": "2026-07-30T21:21:32.687564+00:00",
   "verifiedCommand": "npm run verify",
-  "fileCountBeforeManifest": 284,
-  "uncompressedBytesBeforeManifest": 23499813,
+  "fileCountBeforeManifest": 332,
+  "uncompressedBytesBeforeManifest": 35586934,
   "archive": "YOLE_BWA_BRAWL_THREEJS_TROPICAL_MAYHEM_V3_2.zip",
+  "releaseAuthorization": {
+    "status": "owner-attested",
+    "authorizedAt": "2026-07-30",
+    "authorizedByRole": "project-owner",
+    "authorizerIdentityEvidence": "not-provided",
+    "scope": "publication et distribution, y compris commerciale, de la candidate 3.2.0 avec les 8 musiques et 15 effets ou lits sonores répertoriés dans AUDIO_RIGHTS.md",
+    "commercialDistributionIncluded": true,
+    "audioFiles": {
+      "musicFiles": 8,
+      "sampledEffectFiles": 15
+    },
+    "documentaryEvidence": "not-provided",
+    "independentVerification": false,
+    "register": "AUDIO_RIGHTS.md"
+  },
+  "blockers": [],
   "entrypoints": [
     "PLAY_WINDOWS.bat",
     "play.sh",

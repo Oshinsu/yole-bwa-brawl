@@ -1,5 +1,185 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 44 — élimination définitive et attente spectateur
+
+Validation finale du 30 juillet 2026 :
+
+- `npm test` : **OK** en 117,7 s sur 78 modules JavaScript et 42 fichiers
+  Python ;
+- test dédié : une yole reste éliminée pendant 15 s, au-delà de l'ancien délai
+  de repêchage de 8,5 s, et seule la manche suivante la remet en jeu ;
+- simulation déterministe : `058d13e0` sur 18 000 ticks ;
+- scénario Combat intégré : `1a74a985` sur 30 000 ticks, état final
+  `ee1766f7` ;
+- replay Combat : `95198034` ;
+- replay de la première étape du Tour : `6061a6ed` sur 4 038 ticks, comparé
+  sans divergence à chaque tick ; Tour complet sur 40 414 ticks ;
+- déterminisme 30/60/144 Hz : `067e1cd2` ;
+- cache PWA `f8e4c9953eaa`, **175 fichiers précachés** ;
+- benchmark : **146 047 pas bateau/s** pour 480 000 pas.
+
+### Règle de manche
+
+- aucun `respawn`, `updateRespawns`, timer de repêchage ou réglage
+  `BALANCE.respawn` ne subsiste dans le runtime ;
+- Combat Box et Mêlée locale : une yole éliminée attend la fin de la manche ;
+- Tour : un abandon attend la fin de l'étape ;
+- la Frappe de Sable et son bouton post-mort ont été retirés : le joueur
+  éliminé n'exécute plus aucune action de gameplay ;
+- le HUD affiche la raison réelle de l'élimination et le statut spectateur ;
+- en Mêlée, la caméra ignore l'épave, suit le dernier humain actif puis le
+  leader IA si les deux humains sont éliminés.
+
+### Déterminisme et artefacts livrés
+
+- les compteurs Brume, Sargasse, collision et avertissement sont remis à zéro
+  entre manches ;
+- la wake grid remet son origine et sa phase fixe à zéro, supprimant une
+  divergence du Tour qui apparaissait dès le tick 10 ;
+- protocole gameplay : `tropical-mayhem-v3-12-no-rescue` ;
+- le monofichier a été reconstruit et le test vérifie qu'il ne contient ni
+  ancien repêchage, ni action post-mort, ni version v3-11 ;
+- syntaxe, vérification statique, PWA, serveur, entrées, HUD, IA, shaders et
+  benchmark : **OK**. Les sondes Python Playwright et EGL restent ignorées
+  localement faute de leurs runtimes optionnels.
+
+Le statut de publication est désormais `ready` sur la base
+`owner-attested` : le propriétaire a autorisé explicitement les 8 musiques et
+15 effets MP3 le 30 juillet 2026. Les pièces individuelles restent non fournies
+et les droits ne sont pas présentés comme vérifiés indépendamment
+(`AUDIO_RIGHTS.md`).
+
+## Passe 43 — menu live, atelier 3D et sortie de pause
+
+Validation finale du 30 juillet 2026 :
+
+- `npm test` : **OK** en 118,6 s sur 77 modules JavaScript et 42 fichiers
+  Python ;
+- simulation déterministe : `058d13e0` sur 18 000 ticks ;
+- scénario intégré : `3279600a` sur 30 000 ticks, état final `4dacd0b1` ;
+- replay de partie complète : `737160a2` ;
+- replay de la première étape du Tour : `8cd4b68c` sur 4 035 ticks ; Tour
+  complet sur 40 818 ticks ;
+- déterminisme 30/60/144 Hz : `067e1cd2` ;
+- cache PWA `e0e2ee833d47`, **175 fichiers précachés** ;
+- monofichier reconstruit avec le nouveau module de personnalisation ;
+- benchmark : **141 529 pas bateau/s** pour 480 000 pas.
+
+### Menu et atelier contrôlés dans le navigateur
+
+- le menu utilise la vraie yole `YoleVisual` en mouvement et la cadre dans la
+  baie libre à droite du panneau de modes ;
+- les cartes de modes sont composées en HTML/CSS : aucun des six anciens
+  bitmaps V6 contenant une yole n'est référencé par l'UI ou le précache ;
+- l'atelier masque correctement la couche menu, ne floute pas le canvas et
+  isole J1 des trois rivaux ;
+- la caméra orbitale recadre la pièce choisie : gros plan coque/bordage,
+  bwa/bois, équipage et soute ; cadrage haut pour la voile et le gréement ;
+- les choix sont appliqués en direct puis sauvegardés, tandis qu'Annuler et
+  Échap restaurent l'instantané d'ouverture ;
+- catalogue vérifié : 6 coques, 6 bordages, 4 bois, 6 équipages, 4 livrées,
+  3 gréements et une soute de 2 armes parmi 4 ;
+- chargement propre : **0 nouvelle erreur ou avertissement console**.
+
+### Pause → menu principal
+
+- le rail `Reprendre / Recommencer / Menu principal` reste visible sans
+  parcourir tous les réglages, y compris sur l'écran étroit ;
+- la confirmation rend la pause sous-jacente `aria-hidden` et `inert` ;
+- Annuler restaure la pause et son focus ; Confirmer ferme le HUD, la pause et
+  la confirmation, puis redonne le focus à Jouer ;
+- navigation manette couverte : Back ouvre, A confirme, B annule et Start ne
+  traverse pas une confirmation.
+
+La sonde Python Playwright et la sonde EGL restent ignorées localement faute de
+leurs runtimes optionnels. Elles sont complétées ici par la QA réelle dans le
+navigateur intégré ; les tests Node couvrent la machine d'état, les mappings
+Gamepad API et tous les contrats statiques.
+
+### Assets et publication
+
+- **0 asset technique manquant** ;
+- **0 bitmap généré de yole actif** ;
+- les 6 bitmaps V6 non authentiques restent seulement sur disque comme archives
+  d'audit, hors UI, hors précache et hors paquet de release ; les 2 badges
+  joueurs V6 restent actifs ;
+- le pilote d'image généré hors dépôt n'a jamais été intégré ;
+- la publication est autorisée sur attestation explicite du propriétaire pour
+  8 musiques et 15 effets MP3 ; les preuves individuelles restent une dette
+  documentaire déclarée (`AUDIO_RIGHTS.md`).
+
+## Passe 42 — archive avant le menu live et l'atelier 3D
+
+> État historique remplacé par la Passe 43 ci-dessus.
+
+Validation du 30 juillet 2026 :
+
+- `npm test` : **OK** sur 75 modules JavaScript et 42 fichiers Python ;
+- décrément des cooldowns Mine/Rhum corrigé à un seul tick, protocole de gameplay
+  passé en `v3-10-cooldown-integrity` et test de non-régression ajouté ;
+- garde-fous Start/manette/dialogues et navigation des onglets clavier : **OK** ;
+- syntaxe, estampille PWA, monofichier et vérification statique : **OK** ;
+- cache PWA `9fddf970fff2`, **180 fichiers précachés** ;
+- simulation déterministe : `058d13e0` sur 18 000 ticks ;
+- scénario intégré : `3279600a` sur 30 000 ticks, état final `4dacd0b1` ;
+- replay de partie complète : `737160a2` ;
+- replay déterministe de la première étape du Tour : `8cd4b68c`
+  sur 4 035 ticks ; Tour complet sur 40 818 ticks ;
+- déterminisme 30/60/144 Hz : `067e1cd2` ;
+- benchmark : **139 159 pas bateau/s** pour 480 000 pas.
+
+### Ce qui est désormais réellement disponible
+
+- Grand Tour persistant en huit étapes, classement et reprise ;
+- Mêlée locale à deux pilotes et deux IA avec caméra commune ;
+- garage avec choix de deux armes parmi quatre ;
+- replayothèque locale plafonnée à huit, lecture compatible, téléchargement,
+  suppression unitaire et effacement confirmé ;
+- panneau Yole & crédits avec repères culturels, sources, installation hors
+  ligne, non-affiliation et avertissement sur les droits ;
+- réglages audio séparés, réinitialisation confirmée, aide adaptative,
+  initiation en quatre écrans et navigation clavier restaurée ;
+- intégrité des replays, récupération WebGL, serveur en allowlist, CSP, cache
+  isolé et CI renforcée.
+- relecture d'une étape du Tour dans son décor et ses règles d'origine, puis
+  relance du même replay depuis son écran de résultat ;
+- dialogues Tour, replayothèque et informations alignés sur le même contrat
+  clavier, y compris sans prise en charge native de `showModal()`.
+
+### Contrôle navigateur réel
+
+Le menu, l'initiation, le Tour, le garage, la Mêlée, les réglages, les contrôles,
+la replayothèque et Yole & crédits ont été ouverts dans le navigateur intégré
+aux formats bureau, portrait 390×844 et paysage 844×390. Les débordements des
+réglages et du lobby ont été corrigés. Le chargement final propre produit
+**0 nouvelle erreur ou avertissement console**.
+
+La sonde Python Playwright et la sonde EGL restent ignorées localement faute de
+leurs runtimes optionnels. La première a été remplacée dans cette passe par la
+QA navigateur ci-dessus ; la CI installe toujours Chromium pour son propre
+contrôle.
+
+### État des assets alors observé
+
+- **0 asset technique manquant** : tous les fichiers déclarés sont présents ;
+- cette passe comptait encore **6 bitmaps de menu à remplacer** : hero, quatre
+  cartes de mode et fond de lobby Mêlée ;
+- les fichiers V6 étaient alors actifs, mais leurs yoles n'étaient pas validées
+  culturellement ni visuellement ;
+- aucun remplacement généré n'était branché et la génération était en pause ;
+- la silhouette 3D procédurale a été corrigée sans toucher à la physique :
+  coque à 6,12 de ratio, bwa principalement au vent, équipage bas/en rappel.
+
+### Blocages alors déclarés
+
+La candidate n'est pas publiée et aucune nouvelle archive n'est déclarée :
+
+1. validation visuelle des six remplacements de menu — levé par la Passe 43,
+   qui les a retirés du runtime ;
+2. preuve de droits pour 8 musiques et 15 effets MP3
+   — blocage levé le 30 juillet 2026 par attestation propriétaire, sans
+   prétendre à une vérification documentaire (voir `AUDIO_RIGHTS.md`).
+
 ## Passe 40 — visée corrigée, turbo à 10 s, harpon renforcé
 
 `npm run verify` : **OK**. Benchmark 145 251 pas/s.
@@ -331,6 +511,9 @@ Références : [Asset Pack V7](docs/ASSET_PACK_V7.md) et
 - Raccourcis AZERTY : `& é " '` pour Coco, Harpon, Mine et Rhum.
 - Duel local : J1 + J2 + deux IA, caméra partagée, HUD dédié et replay volontairement désactivé.
 - Pack d'entrée V6 : 8 nouveaux rasters ; total V5 + V6 : **70 assets**.
+  **État historique :** les 6 images contenant une yole sont aujourd'hui
+  validées techniquement seulement, pas culturellement/visuellement ; les
+  2 badges ne sont pas concernés.
 - Simulation : checksum `cdf86f66` ; replay gameplay : `0156d406`.
 - Navigateur : 7 programmes WebGL liés, aucune erreur console/page, visée +9° et tir au relâchement validés.
 - Benchmark : **155 958 boat-steps/s**.
@@ -397,7 +580,11 @@ Elle reconstruit le monofichier, valide le graphe de modules, la PWA et l'import
 - **hitstop sans effet sur la simulation** : checksum simulation `3ebe9ca8` et checksum replay `f9a07291` **inchangés**, test unitaire `hitstopLeak: 0` et gel cumulé borné ;
 - `scenarioChecksum` `149bc2cf` ajouté au smoke : mesuré sur la simulation pure, identique avec IMPACT à TOTAL et à SANS (le checksum mesuré après les frames temps réel, lui, bouge légitimement : `fd6e55ca` sans gel, `3b364474` avec) ;
 - **bug caméra corrigé** : recul et secousse étaient réinjectés dans la pose amortie et s'intégraient au lieu de rester transitoires (horizon basculé). Roulis de pointe 5,2° sur 8 takedowns enchaînés, retour à 0,1° ;
-- **banque sonore 22 voix** synthétisée, 3 lits continus, zéro asset externe ; rendu par tranches après avoir mesuré un hoquet de 162 ms au coup d'envoi — `startMatch` retombé à ~15 ms, banque complète en < 1,5 s, zéro erreur console ;
+- **banque sonore 22 voix** synthétisée, 3 lits continus, zéro asset externe ;
+  rendu par tranches après avoir mesuré un hoquet de 162 ms au coup d'envoi —
+  `startMatch` retombé à ~15 ms, banque complète en < 1,5 s, zéro erreur
+  console. **État de la Passe 04 seulement :** le runtime charge depuis 15
+  effets MP3 et 8 musiques dont les droits ne sont pas encore établis ;
 - capture : `previews/tropical_mayhem_v3_2_impact_flash.jpeg`.
 
 ## Tour des Yoles et navigateur réel — Passe 03

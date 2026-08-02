@@ -1,43 +1,1119 @@
-YOLE: BWA BRAWL — Tropical Mayhem V3.2
-FINAL VALIDATION — 2026-07-26
 
-Command: npm run verify
-Result: PASS
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 verify
+> npm run syntax && npm run stamp && npm run build:single && npm run check:sw && npm run verify:static && npm run check:play-assets && npm run test:sim && npm run test:boost && npm run test:tour && npm run test:growth && npm run test:replay-library && npm run test:info && npm run test:customization && npm run test:elimination && npm run test:handling && npm run test:handling-feedback && npm run test:handling-render && npm run test:hud && npm run test:wake && npm run test:advanced && npm run test:combat && npm run test:juice && npm run test:services && npm run test:replay && npm run test:input && npm run test:ui && npm run test:versus && npm run test:ai && npm run test:quality && npm run test:pwason && npm run test:lanbi && npm run test:infra && npm run test:pwa && npm run test:game && npm run test:crew && npm run test:framerate && npm run test:shader && npm run test:browser && npm run benchmark
 
-Syntax
-- 48 JavaScript modules: OK
-- 17 Python files: OK
 
-Build and static verification
-- Single-file online build regenerated: OK
-- Static verification: OK
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 syntax
+> node tools/check-syntax.mjs && python tools/pycheck.py
 
-Simulation and systems
-- Determinism: 18,000 ticks, checksum d11659b4
-- Wake grid: OK
-- Advanced crew/flood/rope/AI/hitstop systems: OK
-- Runtime services and procedural asset fallbacks: OK
-- Replay compression/vault: OK
-- Pause/input regression suite: OK
-- Integrated combat: 30,000 ticks, scenario 1e95cb08, final adedae88
-- Replay: 1,800 ticks, checksum 9b9ba8e4
-- Tour: 8 stages, 35,402 ticks
-- Crew seating: OK
-- Frame-rate determinism: 30/60/144 Hz, checksum f3cf0b31
+syntax check: 82 JavaScript modules ok
+python syntax: OK (43 fichiers)
 
-Rendering and browser
-- Browser WebGL renderer: WebKit WebGL
-- Shader programs linked: 6/6
-- EGL/GLES2 smoke: skipped because the host libraries are unavailable
-- UI/game browser smoke: OK, no page or console errors
-- Functional minimap: visible, status live, luminance range 170
-- Compact HUD at 640×360: no minimap/feed overlap, minimum top-rail target 31 px
-- Fresh real-Three visual captures: 1280×720 and 844×390
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 stamp
+> python tools/stamp_version.py
 
-Benchmark
-- 480,000 boat steps
-- 3,299.17 ms
-- 145,491 boat steps/s
-- Minimum accepted: 60,000 boat steps/s
+a jour: yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-f0eb7a88651a  (193 fichiers precaches)
 
-Full command completed successfully in 83 seconds on this Windows host.
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 build:single
+> python tools/build_single_file.py
+
+C:\Users\Gary\Desktop\yole_bwa_brawl_threejs_tropical_mayhem_v3_2\YOLE_BWA_BRAWL_TROPICAL_MAYHEM_V3_2_SINGLE_FILE_ONLINE.html
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 check:sw
+> python tools/stamp_version.py --verifier
+
+a jour: yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-f0eb7a88651a  (193 fichiers precaches)
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 verify:static
+> python tools/verify_static.py
+
+static verification: OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 check:play-assets
+> node tools/check_google_play.mjs --prepared
+
+{
+  "ok": true,
+  "storeAssetsReady": true,
+  "screenshots": 2,
+  "listing": {
+    "titleCharacters": 15,
+    "shortDescriptionCharacters": 71,
+    "fullDescriptionCharacters": 938
+  },
+  "blockers": [
+    "domaine HTTPS et empreinte Play App Signing non fournis",
+    "adresse e-mail publique du dÃ©veloppeur non fournie"
+  ]
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:sim
+> node test/simulation.test.mjs
+
+{
+  "ok": true,
+  "ticksPerDeterminismRun": 18000,
+  "checksum": "058d13e0",
+  "replayCheckpoints": 30,
+  "maxSpeed": 28.720564329812053,
+  "maxRoll": 1.1032995141414357,
+  "verticalRange": [
+    -0.33275493126431793,
+    1.0729409100578797
+  ],
+  "passiveRecoveryTicks": 106,
+  "shiftedRecoveryTicks": 70,
+  "finalQualityTier": 1
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:boost
+> node test/boost-dynamics.test.mjs
+
+{
+  "ok": true,
+  "turbo": {
+    "launchGain": 3.4400000000000013,
+    "flowCost": 0.304,
+    "thrustAtOneSecond": 0.3119999999999994,
+    "forwardLeadAtOnePointFiveSeconds": 9.940008536450922
+  },
+  "dash": {
+    "lateralImpulse": 17.8,
+    "forwardNudge": 0.8499999999999996,
+    "lateralDistanceAtOnePointFiveSeconds": 8.848567791027637,
+    "forwardLeadAtOnePointFiveSeconds": 1.2553854585345974
+  },
+  "shift": {
+    "precision": 0.798119658119658,
+    "immediateBoost": 0,
+    "rollAtOneSecond": 0.25844312177024625,
+    "passiveRollAtOneSecond": 0.5499511265048063,
+    "forwardLeadAtOnePointFiveSeconds": 0.2757941511386086
+  }
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:tour
+> node test/tour-progress.test.mjs
+
+tour progress tests: OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:growth
+> node test/growth.test.mjs
+
+growth challenge tests passed
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:replay-library
+> node test/replay-library.test.mjs
+
+replay library: capped vault, compatibility, safe labels, deletion and dialog contracts OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:info
+> node test/info-hub.test.mjs
+
+info hub tests: OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:customization
+> node test/customization.test.mjs
+
+{
+  "catalogs": {
+    "hull": 6,
+    "accent": 6,
+    "wood": 4,
+    "crew": 6
+  },
+  "normalized": {
+    "hullColor": 2,
+    "accentColor": 4,
+    "woodFinish": 3,
+    "crewKit": 5,
+    "sailLivery": 3,
+    "rig": 2
+  },
+  "identitySeparated": true
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:elimination
+> node test/elimination-lockout.test.mjs
+
+elimination lockout: no rescue, no post-mort action, spectator camera and next-round reset OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:handling
+> node test/handling-feel.test.mjs
+
+{
+  "ok": true,
+  "drive": {
+    "firstTick": {
+      "drive": 0.0252048724532293,
+      "speed": 0.0034174650457559443
+    },
+    "halfSecond": {
+      "drive": 0.3922669908999401,
+      "speed": 1.022524068602517
+    },
+    "powered": {
+      "drive": 0.5786993045427872,
+      "speed": 6.885049349357661
+    },
+    "brakeFirstTick": {
+      "drive": 0.5211185971314484,
+      "speed": 6.936635989663533
+    },
+    "brakeHalfSecond": {
+      "drive": 0.09598356478630843,
+      "speed": 7.129230053540231
+    }
+  },
+  "brakingAt18Mps": {
+    "powered": {
+      "speed": 20.963318584430283,
+      "drive": 0.9769257778408247,
+      "z": 19.323447347231212
+    },
+    "feathered": {
+      "speed": 15.567334759457873,
+      "drive": 0.15228946298799725,
+      "z": 16.79418731705664
+    }
+  },
+  "lowSpeedTurn": {
+    "headingAfterOneSecond": -0.4809632534672861,
+    "yawBeforeRelease": -0.6105404012667501,
+    "yawAfterRelease": -0.03359389885222761
+  },
+  "drift": {
+    "counter": {
+      "lateral": 1.537914388239147,
+      "slip": 0.2088887031279569,
+      "grip": 1.2824538407478914,
+      "counterSteer": 0.42925114942955495,
+      "driftCommit": 0,
+      "driftRecovery": 0,
+      "flow": 0.26144162446760655,
+      "heading": 0.1402204852545833,
+      "slipAngle": 0.19463093920785693,
+      "speed": 14.32335413326487
+    },
+    "neutral": {
+      "lateral": 3.3989347437581734,
+      "slip": 0.27098421233772946,
+      "grip": 1.0447148433317865,
+      "counterSteer": 0,
+      "driftCommit": 0,
+      "driftRecovery": 0,
+      "flow": 0.2545910329602137,
+      "heading": 0,
+      "slipAngle": 0.2676404723085055,
+      "speed": 14.245631509371174
+    },
+    "committed": {
+      "lateral": 4.924883174685112,
+      "slip": 0.3280293038804548,
+      "grip": 0.834300854362427,
+      "counterSteer": 0,
+      "driftCommit": 0.7146453288994951,
+      "driftRecovery": 0,
+      "flow": 0.25458091238435065,
+      "heading": -0.11363426390974075,
+      "slipAngle": 0.32737234635066176,
+      "speed": 14.146268401239613
+    },
+    "sustained": {
+      "lateral": 5.936899124456684,
+      "slip": 0.5507901695398134,
+      "grip": 0.7751194473898922,
+      "counterSteer": 0,
+      "driftCommit": 0.9999720316719163,
+      "driftRecovery": 0.14860865295625758,
+      "flow": 0.2731627442428354,
+      "heading": -1.212694346101373,
+      "slipAngle": 0.5821368998454465,
+      "speed": 10.689555502524385
+    }
+  },
+  "dash": {
+    "corrective": {
+      "result": true,
+      "flow": 0.5885,
+      "yawRate": 0.40199999999999997,
+      "counterDash": 0.75,
+      "lateral": -11.8
+    },
+    "extending": {
+      "result": true,
+      "flow": 0.536,
+      "yawRate": 0.6,
+      "counterDash": 0,
+      "lateral": 23.8
+    },
+    "recovery": {
+      "result": {
+        "critical": false,
+        "precision": 0.6362116346222252,
+        "recovery": true
+      },
+      "forwardBefore": 15.78589569606614,
+      "forwardAfterShift": 15.78589569606614,
+      "slipBefore": 14.413337748974218,
+      "slipAfter": 4.461504130378483,
+      "z": 7.744182638540123,
+      "x": 4.270413218247488,
+      "boost": 0,
+      "arcadeBoostForward": 0,
+      "flow": 0.6437026637083667
+    },
+    "recoveryControl": {
+      "result": null,
+      "forwardBefore": 15.78589569606614,
+      "forwardAfterShift": 15.78589569606614,
+      "slipBefore": 14.413337748974218,
+      "slipAfter": 7.146217351879378,
+      "z": 7.768971649895084,
+      "x": 5.736083175104082,
+      "boost": 0,
+      "arcadeBoostForward": 0,
+      "flow": 0.5465993631722971
+    }
+  }
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:handling-feedback
+> node test/handling-feedback.test.mjs
+
+{
+  "ok": true,
+  "cues": [
+    "stable",
+    "surf",
+    "drift",
+    "recover",
+    "danger",
+    "critical"
+  ],
+  "waterMix": {
+    "calm": {
+      "gain": 0.11,
+      "rate": 0.88
+    },
+    "fast": {
+      "gain": 0.34400000000000003,
+      "rate": 1.23
+    },
+    "surfing": {
+      "gain": 0.43400000000000005,
+      "rate": 1.374
+    },
+    "recovery": {
+      "gain": 0.47600000000000003,
+      "rate": 1.4220000000000002
+    }
+  }
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:handling-render
+> node test/handling-render-feedback.test.mjs
+
+{
+  "ok": true,
+  "camera": {
+    "driftOffsetM": 2.25,
+    "surfFovGainDeg": 2.35,
+    "reduceFlashFovGainDeg": 0.423,
+    "reduceMotionAddedOffsetM": 0
+  },
+  "yole": {
+    "wakeYawDeg": 27.25,
+    "maxHullSlipM": 0.11,
+    "maxCounterRollDeg": 3.72,
+    "maxSurfLiftM": 0.065
+  },
+  "ocean": {
+    "glintAt12Legacy": 0.1359,
+    "glintAt12Fixed": 0.0295,
+    "farPathHalfWidthDeg": [
+      18.54,
+      12.7
+    ],
+    "nearPathHalfWidthDeg": [
+      14.31,
+      9.92
+    ]
+  }
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:hud
+> node test/hud-instruments.test.mjs
+
+HUD instruments: signed balance, contextual systems and V8 assets OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:wake
+> node test/wake.test.mjs
+
+{
+  "ok": true,
+  "trailInitial": 0.06264000050723553,
+  "trailAfter": 0.0426641833037138,
+  "burstNearRing": 0.2448223092556013,
+  "activeAfterDecay": 0
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:advanced
+> node test/advanced-systems.test.mjs
+
+{
+  "ok": true,
+  "crewEarlySpread": 0.26767541468143463,
+  "crewPeakShift": -0.7589522157359487,
+  "floodRolls": [
+    -0.12829303387566818,
+    0.14288895376085906
+  ],
+  "maxRopeSegment": 1.7487995567007644,
+  "aiAction": "boost_forward",
+  "hitstopLeak": 0,
+  "hitstopCapped": true
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:combat
+> node test/combat-feedback.test.mjs
+
+{
+  "ok": true,
+  "coconut": {
+    "triggerRadius": 5.4,
+    "capsuleHit": 3.35,
+    "aoeRadius": 9.5
+  },
+  "grapple": {
+    "ownerToTargetPullRatio": 12.5,
+    "life": 6.2,
+    "maxDistance": 76,
+    "tensionDamageInterval": 0.58
+  }
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:juice
+> node test/impact-juice.test.mjs
+
+{
+  "ok": true,
+  "impactTiers": {
+    "harpoon": {
+      "freeze": 0.116,
+      "kick": 1.58,
+      "roll": 0.082,
+      "flash": 0.38,
+      "shake": 0.94,
+      "fov": 3.1,
+      "aftershock": 0.3
+    },
+    "coconut": {
+      "freeze": 0.122,
+      "kick": 1.68,
+      "roll": 0.06,
+      "flash": 0.56,
+      "shake": 1.08,
+      "fov": 4.2,
+      "aftershock": 0.34
+    },
+    "mine": {
+      "freeze": 0.142,
+      "kick": 1.92,
+      "roll": 0.07,
+      "flash": 0.62,
+      "shake": 1.28,
+      "fov": 4.9,
+      "aftershock": 0.52
+    }
+  },
+  "audioLayers": {
+    "harpoon": 3,
+    "coconut": 3,
+    "mine": 3,
+    "barik": 3,
+    "chadron": 3,
+    "slam": 2,
+    "takedown": 3
+  },
+  "haptic": {
+    "fullMine": [
+      26,
+      12,
+      48,
+      16,
+      78
+    ],
+    "softMine": [
+      18,
+      12,
+      32,
+      16,
+      53
+    ]
+  },
+  "atlas": "1024x1024 Â· 2x2 Â· 1 draw call"
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:services
+> node test/runtime-services.test.mjs
+
+[assets] rig crew procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/yole_crew.glb)
+[assets] rig barik procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/barik.glb)
+[assets] rig chadron procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/chadron.glb)
+[assets] rig lanbi procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/lanbi.glb)
+[assets] rig pwason procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/pwason.glb)
+[assets] rig bouee procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/bouee.glb)
+[assets] hull procÃ©dural (Failed to parse URL from ./assets/models/absent-exprÃ¨s/yole_hull.glb)
+{
+  "ok": true,
+  "settingsPersisted": true,
+  "telemetryRetained": 50,
+  "telemetryCount": 75,
+  "broadphaseUnique": 2,
+  "finalQualityTier": 1,
+  "assetFallbackStatus": "fallback",
+  "assetPartsDeclared": 1,
+  "assetRigsDeclared": 6,
+  "crewJoints": 7
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:replay
+> node test/replay.test.mjs
+
+{
+  "ok": true,
+  "compressedFrames": 16,
+  "sourceTicks": 720,
+  "compressionRatio": 2.22,
+  "finalChecksum": "04e99ddb",
+  "checkpointCount": 1,
+  "vaultLimit": 2
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:input
+> node test/input-pause.test.mjs
+
+input pause test: ok
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:ui
+> node test/ui-microinteractions.test.mjs
+
+UI micro-interaction contracts: accessibility, touch, motion and feedback OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:versus
+> node test/versus-mode.test.mjs
+
+versus-mode contracts: deterministic J2 input, no AI, shared camera and replay isolation OK
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:ai
+> node test/ai-difficulty.test.mjs
+
+{
+  "ok": true,
+  "resultats": [
+    {
+      "niveau": "peyi",
+      "turbosJoueur": 5,
+      "turbosIA": 0,
+      "dashsIA": 0,
+      "boostsIA": 0,
+      "avanceJoueur": -98.1
+    },
+    {
+      "niveau": "tour",
+      "turbosJoueur": 4,
+      "turbosIA": 19,
+      "dashsIA": 0,
+      "boostsIA": 19,
+      "avanceJoueur": -97.3
+    },
+    {
+      "niveau": "channpyon",
+      "turbosJoueur": 5,
+      "turbosIA": 17,
+      "dashsIA": 4,
+      "boostsIA": 21,
+      "avanceJoueur": -1132.1
+    }
+  ]
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:quality
+> node test/quality-warmup.test.mjs
+
+quality-warmup
+  ok   le dÃ©marrage lent ne fait pas chuter le palier pendant la grÃ¢ce
+  ok   aprÃ¨s la grÃ¢ce, une lenteur SOUTENUE fait bien chuter le palier
+  ok   un pic isolÃ© ne suffit pas Ã  faire chuter le palier
+  ok   le plafond empÃªche un pic d'Ã©craser la moyenne
+  ok   resetWarmup redonne la grÃ¢ce pour la manche suivante
+  ok   le mode manuel reste prioritaire
+  ok   une machine trÃ¨s lente tombe directement en LQ, sans Ã©tape intermÃ©diaire
+  ok   le palier remonte quand il reste de la marge SOUS la vsync
+  ok   un intervalle de vsync SANS marge de travail ne fait pas remonter
+  ok   palierInitial : bas sur pointeur grossier, haut sinon, et le mÃ©morisÃ© prime
+quality-warmup ok
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:pwason
+> node test/pwason-torpille.test.mjs
+
+pwason-torpille
+  ok    la trajectoire monte PUIS redescend â€” la cloche existe
+  ok    le guidage horizontal ramÃ¨ne la torpille vers sa cible
+  ok    la torpille perce la coque (elle ne faisait aucun dÃ©gÃ¢t avant)
+  ok    une torpille dont la cible chavire se rabat sur une autre
+pwason-torpille ok
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:lanbi
+> node test/lanbi-controle.test.mjs
+
+lanbi-controle
+  ok    la barre coupÃ©e ignore VRAIMENT la commande du joueur
+  ok    la barre REVIENT quand le compteur expire
+  ok    deux conques PROLONGENT, elles ne cumulent pas
+  ok    le rhum protÃ¨ge de la perte de barre
+  ok    un tir de lambi coupe rÃ©ellement la barre de la cible
+  ok    un reset de manche rend la barre
+  ok    un Ã©quipage dÃ©sorganisÃ© ne prend PAS la mÃªme pose
+  ok    la cohÃ©sion pleine reste le comportement de rÃ©fÃ©rence
+lanbi-controle ok
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:infra
+> node --test test/server-security.test.mjs test/service-worker-cache.test.mjs
+
+TAP version 13
+# Subtest: l'allowlist ne publie que la coquille et les arbres runtime
+ok 1 - l'allowlist ne publie que la coquille et les arbres runtime
+  ---
+  duration_ms: 4.0969
+  ...
+# Subtest: les plages ouvertes, fermÃ©es et suffixes respectent RFC 9110
+ok 2 - les plages ouvertes, fermÃ©es et suffixes respectent RFC 9110
+  ---
+  duration_ms: 0.5969
+  ...
+# Subtest: le serveur bloque les fichiers internes et pose les en-tÃªtes de sÃ©curitÃ©
+ok 3 - le serveur bloque les fichiers internes et pose les en-tÃªtes de sÃ©curitÃ©
+  ---
+  duration_ms: 29.1126
+  ...
+# Subtest: le serveur renvoie correctement une plage suffixe et refuse les multi-ranges
+ok 4 - le serveur renvoie correctement une plage suffixe et refuse les multi-ranges
+  ---
+  duration_ms: 6.102
+  ...
+# Subtest: l'installation prÃ©cache tout CORE en une transaction et attend la prochaine ouverture
+ok 5 - l'installation prÃ©cache tout CORE en une transaction et attend la prochaine ouverture
+  ---
+  duration_ms: 12.4433
+  ...
+# Subtest: un prÃ©cache incomplet fait Ã©chouer la nouvelle installation sans purger l'ancienne
+ok 6 - un prÃ©cache incomplet fait Ã©chouer la nouvelle installation sans purger l'ancienne
+  ---
+  duration_ms: 0.7385
+  ...
+# Subtest: l'activation ne supprime que les anciens caches de YOLE
+ok 7 - l'activation ne supprime que les anciens caches de YOLE
+  ---
+  duration_ms: 0.5034
+  ...
+# Subtest: les deux modules Three critiques appartiennent Ã  CORE et donc au fingerprint
+ok 8 - les deux modules Three critiques appartiennent Ã  CORE et donc au fingerprint
+  ---
+  duration_ms: 0.0947
+  ...
+# Subtest: les huit pistes rÃ©ellement utilisÃ©es sont prÃ©sentes dans CORE et sur disque
+ok 9 - les huit pistes rÃ©ellement utilisÃ©es sont prÃ©sentes dans CORE et sur disque
+  ---
+  duration_ms: 2.9273
+  ...
+# Subtest: les surfaces secondaires et la progression sont disponibles hors ligne
+ok 10 - les surfaces secondaires et la progression sont disponibles hors ligne
+  ---
+  duration_ms: 0.6102
+  ...
+# Subtest: une piste prÃ©cachÃ©e rÃ©pond correctement aux requÃªtes Range hors ligne
+ok 11 - une piste prÃ©cachÃ©e rÃ©pond correctement aux requÃªtes Range hors ligne
+  ---
+  duration_ms: 3.5781
+  ...
+# Subtest: une plage impossible renvoie 416 avec la taille complÃ¨te
+ok 12 - une plage impossible renvoie 416 avec la taille complÃ¨te
+  ---
+  duration_ms: 0.951
+  ...
+# Subtest: une rÃ©ponse rÃ©seau 206 ne remplace jamais la piste complÃ¨te dans le cache
+ok 13 - une rÃ©ponse rÃ©seau 206 ne remplace jamais la piste complÃ¨te dans le cache
+  ---
+  duration_ms: 0.8807
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 117.5498
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:pwa
+> python -S tools/check_pwa.py --autotest
+
+  . maskable ./icons/icon-192.png : coins TRANSPARENTS
+  . ./icons/icon-192.png cumule `any` et `maskable` : la meme image ne peut pas etre bonne dans les deux roles
+  . maskable ./icons/icon-512.png : coins TRANSPARENTS
+  . ./icons/icon-512.png cumule `any` et `maskable` : la meme image ne peut pas etre bonne dans les deux roles
+  . musique hors-ligne piste-cassee.mp3 : HTTP 503, plage '', 0 octets
+  . (avertissement) aucune capture `narrow` : fiche d'installation pauvre
+  . (avertissement) theme_color #00b8c9 != meta #061a29
+  . (avertissement) apple-touch-icon a coins transparents : iOS les composera sur du noir
+
+  autotest OK : 8 defauts connus tous detectes
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:game
+> node test/full-game-smoke.mjs
+
+{
+  "ok": true,
+  "ticks": 30000,
+  "scenarioChecksum": "1a74a985",
+  "renderFrames": 240,
+  "roundsSeen": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "maxRoll": 1.7,
+  "maxSpeed": 34.4,
+  "final": {
+    "mode": "playing",
+    "versusLocal": false,
+    "seed": 2198490197,
+    "tick": 2672,
+    "round": 1,
+    "roundTime": 44.53333333333209,
+    "stormZ": 741.8046526344369,
+    "checksum": "ee1766f7",
+    "quality": "HQ",
+    "frameMs": 16.668065640633323,
+    "telemetry": {
+      "boost_forward": 9,
+      "boost_lateral": 1,
+      "bwa_shift": 5,
+      "bwa_slam": 8,
+      "coconut_hit": 6,
+      "elimination": 2,
+      "harpoon_released": 3,
+      "hull_slam": 14,
+      "match_start": 1,
+      "pickup": 3,
+      "rhum": 2,
+      "takedown": 1,
+      "weapon_barik": 1,
+      "weapon_coconut": 6,
+      "weapon_harpoon": 3
+    },
+    "settings": {
+      "quality": "auto",
+      "qualityAuto": null,
+      "cameraRoll": 0.82,
+      "cameraZoom": 1.18,
+      "reduceFlash": false,
+      "impact": 1,
+      "haptics": 1,
+      "audio": true,
+      "musicVolume": 0.8,
+      "sfxVolume": 1,
+      "leftHanded": false,
+      "showPerf": false,
+      "onboardingSeen": false,
+      "sailLivery": 0,
+      "rig": 1,
+      "hullColor": 0,
+      "accentColor": 0,
+      "woodFinish": 0,
+      "crewKit": 0,
+      "aiLevel": "tour",
+      "loadout": [
+        "wave",
+        "harpoon"
+      ]
+    },
+    "cameraZoom": 1.18,
+    "input": {
+      "steer": 0.303,
+      "trim": 0.82,
+      "aim": 0,
+      "aimPitch": 0,
+      "aimActive": false,
+      "aimPointerId": null
+    },
+    "input2": {
+      "steer": 0,
+      "trim": 0.82,
+      "actions": 0
+    },
+    "boats": [
+      {
+        "name": "BWA FATAL",
+        "x": 4.47604927308371,
+        "y": -14.838085359645827,
+        "z": 165.47459906820768,
+        "speed": 5.442436398380515,
+        "roll": -1.569999999999997,
+        "pitch": 0.004748549101250221,
+        "drive": 0.6178411918168325,
+        "slip": 0.12339660730717626,
+        "grip": 1.0160473177891491,
+        "surf": 0.28302198261157807,
+        "surfing": true,
+        "counterSteer": 0.0009772519868230373,
+        "score": 0,
+        "eliminated": true,
+        "water": 0.14715835079550743,
+        "crew": 6,
+        "structure": {
+          "hull": 1,
+          "mast": 1,
+          "sail": 1,
+          "bwa": [
+            1,
+            1,
+            1,
+            1
+          ]
+        }
+      },
+      {
+        "name": "KOLIBRI",
+        "x": -9.16488259692911,
+        "y": 0.4755575622782263,
+        "z": 852.9213537977133,
+        "speed": 21.606448183179264,
+        "roll": 0.9721692902230723,
+        "pitch": -0.14587851546785924,
+        "drive": 0.38974230415025507,
+        "slip": 0.032864633978853114,
+        "grip": 1.0047954468686318,
+        "surf": 0.4646072178250012,
+        "surfing": true,
+        "counterSteer": 0.00009046429090551885,
+        "score": 0,
+        "eliminated": false,
+        "water": 5.477346420288086,
+        "crew": 6,
+        "structure": {
+          "hull": 0.5251241993091113,
+          "mast": 1,
+          "sail": 0.9212652365613727,
+          "bwa": [
+            0.982864131801559,
+            1,
+            1,
+            1
+          ]
+        }
+      },
+      {
+        "name": "CARACOLI",
+        "x": 27.352760839546438,
+        "y": -19.875308227703062,
+        "z": 138.52858498150152,
+        "speed": 3.3734764341122276,
+        "roll": 1.5700000000000032,
+        "pitch": -0.2510470694492768,
+        "drive": 0.2743616804937073,
+        "slip": 0.05519525894285595,
+        "grip": 1.0530924705625155,
+        "surf": 0.21577349994743023,
+        "surfing": true,
+        "counterSteer": 0.014799388226561176,
+        "score": 0,
+        "eliminated": true,
+        "water": 3.706206649541855,
+        "crew": 6,
+        "structure": {
+          "hull": 0.7082919487273284,
+          "mast": 1,
+          "sail": 0.9662299750212837,
+          "bwa": [
+            0.9906252996527841,
+            1,
+            0.9934729516198008,
+            0.9053059366692582
+          ]
+        }
+      },
+      {
+        "name": "LANMÃˆ ROUGE",
+        "x": -6.867730379784,
+        "y": 0.3152833438804325,
+        "z": 872.4716682561577,
+        "speed": 16.740882734746243,
+        "roll": 0.46107684749726047,
+        "pitch": 0.03213933757056314,
+        "drive": 0.2122178616132894,
+        "slip": 0.05298998137986594,
+        "grip": 1.0038892633346703,
+        "surf": 0.4194717558261885,
+        "surfing": true,
+        "counterSteer": 0.00001824371697280557,
+        "score": 1,
+        "eliminated": false,
+        "water": 0.01926654577255249,
+        "crew": 6,
+        "structure": {
+          "hull": 0.567043896482907,
+          "mast": 1,
+          "sail": 0.9784,
+          "bwa": [
+            0.9794798261242375,
+            1,
+            0.9810498009847995,
+            0.9935948803275845
+          ]
+        }
+      }
+    ],
+    "projectiles": 0,
+    "mines": 0,
+    "grapples": 0,
+    "juiceVfx": 0,
+    "wakeEnergy": 6.612196614286455e-10,
+    "debris": 0,
+    "crewFalls": 0,
+    "drawCalls": 42,
+    "three": "185.1-mock"
+  }
+}
+{
+  "replayOk": true,
+  "replayTicks": 1800,
+  "replayFrames": 1800,
+  "replayChecksum": "95198034"
+}
+{
+  "tourOk": true,
+  "tourTicks": 40414,
+  "tourPoints": [
+    0,
+    27,
+    7,
+    10
+  ],
+  "tourChampion": "KOLIBRI"
+}
+{
+  "tourReplayOk": true,
+  "stage": 1,
+  "ticks": 4038,
+  "checksum": "6061a6ed"
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:crew
+> node test/crew-seating.test.mjs
+
+{
+  "crewSeatingOk": true,
+  "ratioCoqueLongueurLargeur": 6.12,
+  "echantillonsBwaUnilateraux": 26886,
+  "porteeBwaAuVentMin": 4.47,
+  "debordBwaSousLeVentMax": 0.85,
+  "echantillons": 32148,
+  "moyenneAbsX": 2.05,
+  "pourcentHorsCoque": 95.8,
+  "pourcentCoteHaut": 89,
+  "etalementLateralMax": 2.31,
+  "margeMinAuBoutDuBois": 1.33,
+  "echantillonsSortis": 22358,
+  "pourcentLacetCorrect": 100,
+  "echantillonsBienSortis": 11212,
+  "pourcentLacetFranc": 100,
+  "ecartAssiseMax": 0.086,
+  "pourcentTicksElimines": 25.6
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:framerate
+> node test/framerate.test.mjs
+
+{
+  "framerateOk": true,
+  "tickCommun": 1399,
+  "checksum": "067e1cd2",
+  "cadences": [
+    "30 Hz",
+    "60 Hz",
+    "144 Hz"
+  ]
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:shader
+> npm run shader:generate && python test/egl-shader-smoke.py
+
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 shader:generate
+> node test/generate-shader-smoke.mjs
+
+C:\Users\Gary\Desktop\yole_bwa_brawl_threejs_tropical_mayhem_v3_2\test\webgl-shader-smoke.html
+{"ok": true, "skipped": true, "reason": "EGL/GLES2 libraries unavailable"}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 test:browser
+> python test/browser-smoke.py
+
+{
+  "ok": true,
+  "chromium": "playwright-bundled",
+  "shader": {
+    "ok": true,
+    "renderer": "WebKit WebGL",
+    "programs": [
+      {
+        "name": "ocean",
+        "linked": true
+      },
+      {
+        "name": "sky",
+        "linked": true
+      },
+      {
+        "name": "storm-wall",
+        "linked": true
+      },
+      {
+        "name": "rain",
+        "linked": true
+      },
+      {
+        "name": "particles",
+        "linked": true
+      },
+      {
+        "name": "spell-vfx-atlas",
+        "linked": true
+      },
+      {
+        "name": "postfx",
+        "linked": true
+      },
+      {
+        "name": "bloom-prefilter",
+        "linked": true
+      },
+      {
+        "name": "bloom-blur",
+        "linked": true
+      }
+    ]
+  },
+  "game": {
+    "tick": 157,
+    "mode": "playing",
+    "quality": "HQ",
+    "three": "185.1-mock",
+    "settings": {
+      "quality": "auto",
+      "qualityAuto": null,
+      "cameraRoll": 0.82,
+      "cameraZoom": 1.18,
+      "reduceFlash": true,
+      "impact": 1,
+      "haptics": 1,
+      "audio": true,
+      "musicVolume": 0.8,
+      "sfxVolume": 1,
+      "leftHanded": false,
+      "showPerf": true,
+      "onboardingSeen": false,
+      "sailLivery": 0,
+      "rig": 1,
+      "hullColor": 0,
+      "accentColor": 0,
+      "woodFinish": 0,
+      "crewKit": 0,
+      "aiLevel": "tour",
+      "loadout": [
+        "wave",
+        "harpoon"
+      ]
+    },
+    "telemetry": {
+      "boost_forward": 4,
+      "bwa_shift": 1,
+      "coconut_hit": 1,
+      "match_start": 1,
+      "weapon_coconut": 2,
+      "weapon_select": 1
+    },
+    "aim": {
+      "held": {
+        "aim": 0.4,
+        "aimActive": true,
+        "pointerOwned": true,
+        "label": "VISÉE +2° · RELÂCHE POUR TIRER",
+        "reticleLeft": 52.4
+      },
+      "released": {
+        "aim": 0.4,
+        "aimActive": false,
+        "pointerOwned": false,
+        "waveAmmo": 0,
+        "contextMenuBlocked": true
+      },
+      "shortcut": {
+        "activeWeapon": "harpoon",
+        "activeShortcut": "harpoon",
+        "help": "VISÉE · CLIC DROIT OU 2E DOIGT · GLISSER · RELÂCHER"
+      }
+    },
+    "ui": {
+      "hudVisible": true,
+      "integrityVisible": true,
+      "quality": "HQ",
+      "perfText": "HQ · 18.4 ms · 42 DC · 12000 tris · wake 0.009 · debris 0 · 79dcae18",
+      "replayControls": true,
+      "telemetryControl": true,
+      "minimapVisible": true,
+      "minimapStatus": "POSITION 1/4 · BRUME 137 M",
+      "minimapLumaRange": 185
+    },
+    "responsive": {
+      "minimapBottom": 195,
+      "killfeedTop": 208,
+      "overlapsKillfeed": false,
+      "minTouchTarget": 31
+    },
+    "touchTargets": {
+      "pointerCoarse": true,
+      "controls": 8,
+      "minTouchTarget": 46,
+      "tooSmall": []
+    },
+    "baseAmmo": {
+      "illimitees": 2,
+      "soute": [
+        "wave",
+        "harpoon"
+      ],
+      "stockDepart": 0
+    },
+    "screenshot": "previews/tropical_mayhem_v3_2_browser_mock.png"
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}
+
+> yole-bwa-brawl-threejs-tropical-mayhem-v3-2@3.2.0 benchmark
+> node test/benchmark.mjs
+
+{
+  "ok": true,
+  "ticks": 120000,
+  "boats": 4,
+  "boatSteps": 480000,
+  "elapsedMs": 3307.49,
+  "boatStepsPerSecond": 145125
+}

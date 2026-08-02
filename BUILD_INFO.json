@@ -1,13 +1,14 @@
 {
   "title": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
-  "version": "1.2.0",
-  "referenceDate": "2026-07-27",
+  "version": "3.2.0",
+  "referenceDate": "2026-07-30",
   "renderer": "Three.js 0.185.1 / WebGL2 baseline",
   "simulationHz": 60,
   "boats": 4,
   "gameModes": [
     "Combat Box",
-    "Tour des Yoles 2026 (8 étapes)"
+    "Tour des Yoles 2026 (8 étapes)",
+    "Mêlée locale (2 joueurs + 2 IA, caméra commune)"
   ],
   "targetScore": 5,
   "buoyancyPointsPerBoat": 16,
@@ -17,13 +18,20 @@
   "oceanRings": 4,
   "wakeResolution": 192,
   "weapons": {
-    "base": [
+    "loadoutPool": [
       "Canon Coco",
       "Spider-Harpon",
       "Mine Tsunami",
       "Rhum"
     ],
+    "loadoutSize": 2,
+    "defaultLoadout": [
+      "Canon Coco",
+      "Spider-Harpon"
+    ],
     "crate": [
+      "Mine Tsunami",
+      "Rhum",
       "Barik Rhum",
       "Chadron",
       "Konk Lanbi",
@@ -36,34 +44,46 @@
     "HQ"
   ],
   "source": {
-    "runtimeModules": 33,
-    "runtimeLines": 9780,
-    "runtimeBytes": 430088
+    "runtimeModules": 42,
+    "runtimeLines": 18211,
+    "runtimeBytes": 823257
   },
   "validation": {
     "deterministicTicksPerRun": 18000,
-    "deterministicChecksum": "a9818132",
-    "scenarioChecksum": "5af0515e",
+    "deterministicChecksum": "058d13e0",
+    "scenarioChecksum": "1a74a985",
     "integratedCombatTicks": 30000,
-    "integratedChecksum": "5a2fcbcd",
-    "replayChecksum": "2fa84e5b",
-    "tourTicks": 35402,
+    "integratedChecksum": "ee1766f7",
+    "replayChecksum": "95198034",
+    "tourReplayTicks": 4038,
+    "tourReplayChecksum": "6061a6ed",
+    "tourTicks": 40414,
     "tourStages": 8,
     "eglShaderProgramsLinked": 0,
     "eglShaderSmokeSkipped": true,
     "browserUiSmoke": true,
-    "browserShaderProgramsLinked": 9,
-    "browserShaderRenderer": "WebKit WebGL",
-    "headlessBrowserWebGL": true,
+    "browserQaSurface": "Codex in-app browser",
+    "browserConsoleWarningsOrErrorsAfterCleanLoad": 0,
+    "liveMenuShowroomSmoke": true,
+    "workshopCustomizationSmoke": true,
+    "pauseReturnToMenuSmoke": true,
+    "eliminationPersistsUntilRoundEnd": true,
+    "postMortemActions": 0,
+    "spectatorCameraIgnoresEliminatedBoats": true,
+    "roundStateResetSmoke": true,
+    "wakeGridResetReplaySmoke": true,
+    "retiredYoleBitmapRuntimeRefs": 0,
     "functionalMinimapSmoke": true,
     "compactHudCollisionSmoke": true,
     "pauseInputRegressionSmoke": true,
     "benchmarkBoatSteps": 480000,
     "verifiedCommand": "npm run verify",
-    "benchmarkElapsedMs": 3203.37,
-    "benchmarkBoatStepsPerSecond": 146123,
+    "benchmarkElapsedMs": 3307.49,
+    "benchmarkBoatStepsPerSecond": 145125,
     "benchmarkMinBoatStepsPerSecond": 60000,
-    "framerateChecksum": "8156fdc2",
+    "framerateChecksum": "067e1cd2",
+    "serviceWorkerPrecachedFiles": 175,
+    "serviceWorkerCacheFingerprint": "f8e4c9953eaa",
     "colorPipeline": {
       "toneMapping": "ACES filmique dans la passe de composition",
       "outputEncoding": "sRGB explicite (three.js ne l'ajoute qu'aux materiaux integres)",
@@ -81,18 +101,18 @@
     "turboCooldownSeconds": 10.0,
     "turboRollKickRadPerSecond": 0.55,
     "playtestCompetentPilot": {
-      "meanRollRad": 0.207,
+      "sample": "3 graines x 35 s, niveau Tour, turbo à 10 s",
+      "meanRollRad": 0.214,
       "capsizes": 0,
       "eliminations": 0,
-      "meanSpeedKmh": 73.6,
-      "aiShotsPerMinute": 30.8
+      "meanSpeedKmh": 58.9
     },
     "touchTargetMinPx": {
       "coarsePointer": 46,
       "finePointer": 31,
       "contract": 44
     },
-    "playtestSeeds": 5,
+    "playtestSeeds": 3,
     "hullDamageByWeapon": {
       "mine": 0.3,
       "barik": 0.22,
@@ -102,7 +122,7 @@
       "harpoon": 0.1,
       "sargassePerSecond": 0.1,
       "chadron": 0.04,
-      "pwason": 0.0
+      "pwason": 0.15
     },
     "blastWaterOnlyRollRad": {
       "mine9m": 0.419,
@@ -116,10 +136,15 @@
     "Harpoon Slingshot",
     "Camera Zoom",
     "Support manette (Gamepad)",
-    "Tour des Yoles par étapes"
+    "Tour des Yoles par étapes",
+    "Mêlée locale à deux joueurs",
+    "Atelier 3D runtime avec personnalisation persistante",
+    "Retour Pause vers le menu avec confirmation",
+    "Élimination définitive jusqu'à la manche ou l'étape suivante",
+    "Replayothèque locale vérifiée par checksum"
   ],
   "simulationVersion": "3.7.0",
-  "gameplayVersion": "tropical-mayhem-v3-8-balistique",
+  "gameplayVersion": "tropical-mayhem-v3-12-no-rescue",
   "aiLevels": [
     "peyi",
     "tour",
@@ -140,6 +165,28 @@
     },
     "streamed": true,
     "precached": false
+  },
+  "audioRights": {
+    "musicFiles": 8,
+    "sampledEffectFiles": 15,
+    "status": "owner-attested",
+    "ownerAttested": true,
+    "ownerAttestedAt": "2026-07-30",
+    "evidenceArchived": false,
+    "rightsVerified": false,
+    "commercialReleaseBlocked": false,
+    "register": "AUDIO_RIGHTS.md"
+  },
+  "assetStatus": {
+    "technicalMissing": 0,
+    "menuYoleReplacementsPending": 0,
+    "activeGeneratedYoleBitmaps": 0,
+    "legacyMenuYoleBitmapsOnDisk": 6,
+    "legacyMenuYoleBitmapsExcludedFromRelease": true,
+    "menuUsesRuntime3D": true,
+    "generationPaused": true,
+    "replacementPilotValidated": false,
+    "visualReference": "docs/YOLE_VISUAL_REFERENCE.md"
   },
   "fonts": {
     "inter": {

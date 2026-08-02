@@ -1,31 +1,56 @@
 CONTRÔLES — TROPICAL MAYHEM V3.2
 ----------------------------------
-A / D ou flèches : direction
+Q / D sur AZERTY (codes A / D) ou flèches : direction
+Flèches haut / bas : border ou choquer la voile
 Clic droit + glisser + relâcher : viser et tirer
 Espace : utiliser l'arme active
 E : changer d'arme
-& é " ' : sélectionner Coco / Harpon / Mine / Rhum
+& é " ' ( - è _ : tirer directement les huit armes
 Shift : contre-gîte Bwa Shift / coupe un câble très tendu
-W ou F : Turbo avant
+Z sur AZERTY (code W) ou F : Turbo avant
 X ou Ctrl : Bwa Dash latéral
+C maintenu : regarder derrière
 + / - ou molette : zoom caméra
-R : vengeance après élimination
 P / Échap : pause
 F3 : overlay performance
+
+Après élimination : caméra spectateur jusqu'à la fin de la manche ou de l'étape.
 
 MOBILE
 ------
 Premier doigt / joystick : cap + voile
 Second doigt + glisser + relâcher : viser et tirer sans lâcher la barre
-Boutons droits : soute active, Turbo, Dash et contre-gîte
+Double-tap sur l'eau : Turbo
+Deux poussées rapides du joystick à gauche/droite : Bwa Dash
+Quatre boutons droits : les deux armes de soute, la caisse et la contre-gîte
+RÉTRO maintenu : regarder derrière
 Boutons − / + : zoom tactique
+En portrait ou après retour d'arrière-plan, la partie se met en pause.
 
-DUEL LOCAL
+MÊLÉE LOCALE
 -----------
 J1 : Q/D · Espace/E · Z/X · Shift
 J2 : J/L · I/O · U/M · K
 Deux pilotes humains + deux rivaux IA, caméra partagée. Replay désactivé.
 
+MANETTE STANDARD
+----------------
+Stick gauche / croix : direction et voile
+Stick droit : visée horizontale et verticale
+A / Croix : arme active
+X / Carré : changer d'arme
+Y / Triangle : arme de caisse ou seconde arme
+B / Rond : contre-gîte
+RB / R1 : Turbo · LB / L1 : Bwa Dash
+Start : pause ou CTA principal des menus/résultats
+
 BUT
 ---
-Faire chavirer les autres, ancrer une cible au harpon pour tendre l'élastique et rester devant le Mur du Grain. Premier à 5 points.
+Combat Box et Mêlée : faire chavirer les autres, tendre l'élastique du harpon et rester devant le Mur du Grain. Premier à 5 points.
+Grand Tour : franchir la ligne et cumuler 4/3/2/1 points entre finisseurs sur huit étapes (0 pour un DNF).
+
+Avant la première partie, ouvrir AIDE pour le tutoriel en quatre gestes.
+Le garage MA YOLE permet de choisir deux armes permanentes parmi quatre.
+REPLAYOTHÈQUE conserve les huit dernières courses solo compatibles sur l'appareil.
+YOLE & CRÉDITS explique la silhouette réelle, l'installation et les licences.
+Sur iPhone/iPad : Safari > Partager > Sur l'écran d'accueil.
