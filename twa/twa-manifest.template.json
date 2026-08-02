@@ -1,0 +1,46 @@
+{
+  "packageId": "com.oshinsu.yolebwabrawl",
+  "host": "REPLACE_WITH_FINAL_HTTPS_HOST",
+  "name": "YOLE: BWA BRAWL",
+  "launcherName": "BWA BRAWL",
+  "display": "fullscreen",
+  "themeColor": "#061a29",
+  "themeColorDark": "#03131e",
+  "navigationColor": "#03131e",
+  "navigationColorDark": "#03131e",
+  "backgroundColor": "#041722",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://REPLACE_WITH_FINAL_HTTPS_HOST/icons/icon-512.png",
+  "maskableIconUrl": "https://REPLACE_WITH_FINAL_HTTPS_HOST/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "orientation": "landscape",
+  "minSdkVersion": 23,
+  "targetSdkVersion": 36,
+  "appVersionName": "3.2.0",
+  "appVersionCode": 320,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://REPLACE_WITH_FINAL_HTTPS_HOST/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://REPLACE_WITH_FINAL_HTTPS_HOST/",
+  "fingerprints": [
+    {
+      "value": "REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "3.2.0"
+}

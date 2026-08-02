@@ -1,0 +1,12 @@
+{
+  "title": "YOLE: BWA BRAWL",
+  "shortDescription": "Régate-combat de yoles : tiens l’équilibre, frappe tes rivaux et gagne.",
+  "fullDescription": "Prends la barre d’une yole inspirée des régates martiniquaises et transforme chaque manche en combat nautique tropical.\n\nLa vitesse seule ne suffit pas : règle ta voile, déplace l’équipage sur les bwa et contre la gîte avant de chavirer. Utilise le turbo, le Bwa Dash et un arsenal décalé — coco explosif, harpon, mine tsunami, chadron, lanbi et pwason volan — pour rester devant la flotte et le Mur du Grain.\n\n• Combat Box : quatre yoles, des armes et des manches nerveuses.\n• Grand Tour : huit étapes et un classement persistant.\n• Mêlée locale : deux pilotes sur le même écran avec deux rivaux IA.\n• Atelier 3D : coque, voile, bwa, équipage, gréement et soute.\n• Défi du jour : même mer, même seed, résultat partageable.\n• Hors ligne : installe la PWA après une première visite et rejoue sans réseau.\n\nClavier, tactile et manette sont pris en charge. Après une élimination, tu observes la fin de la manche : aucun repêchage instantané.",
+  "websiteUrl": "https://oshinsu.github.io/yole-bwa-brawl/",
+  "privacyPolicyUrl": "https://oshinsu.github.io/yole-bwa-brawl/privacy.html",
+  "supportUrl": "https://github.com/Oshinsu/yole-bwa-brawl/issues",
+  "contactEmail": null,
+  "packageId": "com.oshinsu.yolebwabrawl",
+  "defaultLanguage": "fr-FR",
+  "category": "GAME_RACING"
+}

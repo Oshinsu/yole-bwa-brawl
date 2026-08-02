@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "pack": {
+    "id": "yole-bwa-brawl-v8-hud-instruments",
+    "version": "8.0",
+    "createdOn": "2026-07-30",
+    "category": "hud-racing-instruments",
+    "assetCount": 4,
+    "runtimeBytes": 618527,
+    "generationMode": "built-in-imagegen",
+    "promptManifest": "docs/HUD_ASSET_PROMPTS_SOTA.json",
+    "runtimeConsumer": "style.css",
+    "referencePolicy": "The two user-provided yole photographs were used only for construction authenticity; no people, logos, sponsors or liveries were copied."
+  },
+  "artDirection": {
+    "subject": "Martinique yole ronde racing instruments",
+    "materials": [
+      "weathered tropical hardwood",
+      "functional rope lashings",
+      "hammered brass and oxidized copper",
+      "restrained turquoise enamel",
+      "sun-faded carnival accents"
+    ],
+    "forbidden": [
+      "generic yacht",
+      "canoe or outrigger",
+      "catamaran",
+      "pirate or tiki",
+      "car dashboard",
+      "text, logo, sponsor or watermark"
+    ]
+  },
+  "postprocess": {
+    "sourceCanvas": [
+      1536,
+      1024
+    ],
+    "chromaKey": "#ff00ff",
+    "keyRemoval": {
+      "autoKey": "border",
+      "softMatte": true,
+      "transparentThreshold": 12,
+      "opaqueThreshold": 220,
+      "edgeContract": 1,
+      "despill": true
+    },
+    "runtimeResize": {
+      "filter": "Lanczos",
+      "maxWidth": 768,
+      "crop": "alpha bounds plus safety padding for non-frame assets",
+      "format": "PNG RGBA"
+    }
+  },
+  "assets": [
+    {
+      "id": "hud_status_frame_v8",
+      "role": "Static material bezel around the dynamic status instrument",
+      "path": "assets/textures/v8/hud/status_frame.webp",
+      "generationCall": "call_YibBGpo2czrbqYMJVspy5YR7",
+      "width": 768,
+      "height": 512,
+      "format": "WEBP",
+      "colorMode": "RGBA",
+      "alpha": true,
+      "bytes": 47508,
+      "sha256": "e9cc444f93475f3c1a6c5cbe44fb665f94744338aa67b10f4524bb20d03e0ba1",
+      "integration": ".status::after",
+      "dynamicDataBakedIn": false
+    },
+    {
+      "id": "hud_balance_track_v8",
+      "role": "Authentic bwa-inspired signed balance rail",
+      "path": "assets/textures/v8/hud/balance_track.webp",
+      "generationCall": "call_IJ2In1X95mSdhghXT6xKb3zq",
+      "width": 768,
+      "height": 90,
+      "format": "WEBP",
+      "colorMode": "RGBA",
+      "alpha": true,
+      "bytes": 16780,
+      "sha256": "6176712f8bd9232a337bda18444fac5dce43669aed4837cacbdcc7d3245c447b",
+      "integration": ".meter.balance background",
+      "dynamicDataBakedIn": false
+    },
+    {
+      "id": "hud_hull_silhouette_v8",
+      "role": "Top-down narrow yole hull texture over the live structure fill",
+      "path": "assets/textures/v8/hud/hull_silhouette.webp",
+      "generationCall": "call_vtiSezBf2qIwMB980jMeEYGQ",
+      "width": 768,
+      "height": 180,
+      "format": "WEBP",
+      "colorMode": "RGBA",
+      "alpha": true,
+      "bytes": 66882,
+      "sha256": "ab19633fc999e92267691960152ddd473960dbe43a43e7f22f9587a8e2b6d15e",
+      "integration": ".meter.hull::after",
+      "dynamicDataBakedIn": false
+    },
+    {
+      "id": "hud_flow_sail_v8",
+      "role": "Sailcloth-and-rope texture over the live turbo fill",
+      "path": "assets/textures/v8/hud/flow_sail.webp",
+      "generationCall": "call_9QaeCq8w3mfUqLEyR4CULwMH",
+      "width": 768,
+      "height": 211,
+      "format": "WEBP",
+      "colorMode": "RGBA",
+      "alpha": true,
+      "bytes": 35330,
+      "sha256": "1506cde1509f60866f702f557827792808db4fe672095c396993b328fdcc593d",
+      "integration": ".meter.flow::after",
+      "dynamicDataBakedIn": false
+    }
+  ],
+  "runtimeContract": {
+    "htmlOwns": [
+      "labels",
+      "values",
+      "accessibility semantics"
+    ],
+    "cssOwns": [
+      "team-independent colors",
+      "signed balance motion",
+      "flow and hull level clipping",
+      "danger states"
+    ],
+    "javascriptOwns": [
+      "--balance-offset",
+      "--meter-level",
+      "contextual subsystem visibility"
+    ],
+    "fallback": "The existing CSS gradients remain readable if an image fails to load."
+  },
+  "qualityAssurance": {
+    "dimensionsValidated": true,
+    "pngSignatureValidated": true,
+    "alphaValidated": true,
+    "transparentBackgroundVisuallyValidated": true,
+    "referenceAuthenticityReviewed": true,
+    "logosAndTextAbsent": true,
+    "runtimeScreenshotPending": false,
+    "runtimeViewportsValidated": [
+      "921x912 desktop",
+      "844x390 mobile landscape",
+      "390x844 portrait rotation pause"
+    ],
+    "statusActionsOverlapPx": 0
+  }
+}

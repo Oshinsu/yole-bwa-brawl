@@ -1,8 +1,11 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-d46788b70d61";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-71950ac19a25";
+const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 const CORE = [
-  "./", "./index.html", "./style.css", "./manifest.webmanifest",
-  // 65 Ko : la typographie fait partie de la coquille, contrairement aux
-  // 12 Mo de zik/ qui restent hors precache.
+  "./", "./index.html", "./style.css?v=hud-v12-2", "./legal.css", "./manifest.webmanifest",
+  "./privacy.html", "./support.html", "./credits.html",
+  // Typographie et musique font partie de l'expérience installée. Les pistes
+  // restent streamées par HTMLAudioElement à l'exécution, mais leur réponse
+  // complète est disponible dans le cache pour les lectures hors ligne.
   "./assets/fonts/inter-var.woff2", "./assets/fonts/anton-400.woff2",
   "./icons/icon-192.png", "./icons/icon-512.png",
   "./icons/icon-maskable-192.png", "./icons/icon-maskable-512.png",
@@ -10,7 +13,7 @@ const CORE = [
   // ⚠️ Les captures du manifeste ne sont PAS precachees : le navigateur ne les
   // demande qu'a l'ouverture de la fiche d'installation, et jamais ensuite.
   // 271 Ko payes a l'installation pour une image vue une fois, non merci.
-  "./src/main.js",
+  "./src/bootstrap.js?v=local-cache-v2", "./src/main.js",
   "./src/core/math.js", "./src/core/rng.js", "./src/core/quality.js",
   "./src/core/settings.js", "./src/core/telemetry.js", "./src/core/spatial-hash.js",
   "./src/core/audio.js",
@@ -18,12 +21,22 @@ const CORE = [
   "./src/sim/replay.js", "./src/sim/waves.js", "./src/sim/wake-grid.js",
   "./src/sim/yole-physics.js", "./src/sim/collision.js", "./src/sim/rope.js",
   "./src/render/ocean.js", "./src/render/sky.js", "./src/render/vfx.js",
-  "./src/render/debris.js", "./src/render/world.js", "./src/render/yole-visual.js",
-  "./src/render/impact.js", "./src/render/handling-motion.js", "./src/render/assets.js",
+  "./src/render/debris.js", "./src/render/world.js",
+  "./src/render/yole-visual.js",
+  "./src/render/impact.js", "./src/render/handling-motion.js?v=swell-v2", "./src/render/assets.js?v=crew-v2",
+  "./src/render/crew-clips.js",
   "./assets/models/yole_hull.glb", "./assets/models/yole_crew.glb", "./assets/models/barik.glb", "./assets/models/chadron.glb", "./assets/models/lanbi.glb", "./assets/models/pwason.glb", "./assets/models/bouee.glb",
   "./assets/audio/bedStorm.mp3", "./assets/audio/bedWater.mp3", "./assets/audio/buoy.mp3", "./assets/audio/bwaShift.mp3", "./assets/audio/cocoBoom.mp3", "./assets/audio/cocoFire.mp3", "./assets/audio/dash.mp3", "./assets/audio/harpoonFire.mp3", "./assets/audio/hullSlam.mp3", "./assets/audio/mineBlast.mp3", "./assets/audio/slamHeavy.mp3", "./assets/audio/splash.mp3", "./assets/audio/takedown.mp3", "./assets/audio/turbo.mp3", "./assets/audio/victory.mp3",
+  "./zik/An Nou Ay.mp3",
+  "./zik/Canoe Combat.mp3",
+  "./zik/Canot de Guerre.mp3",
+  "./zik/Carnival Apocalypse.mp3",
+  "./zik/Coconut Cannon Rush.mp3",
+  "./zik/Midnight Canoe.mp3",
+  "./zik/Oops, You Lost!.mp3",
+  "./zik/Turquoise Turbo.mp3",
   "./assets/textures/sail_djab.webp", "./assets/textures/sky_clouds.webp", "./assets/textures/spray_flipbook.webp", "./assets/textures/sargasse.webp", "./assets/textures/hull_paint.webp", "./assets/textures/wood_bwa.webp", "./assets/textures/crate_wood.webp", "./assets/textures/sail_atlas.webp", "./assets/textures/morne_rock.webp", "./assets/textures/backdrop_far.webp", "./assets/textures/backdrop_near.webp", "./assets/textures/ui_icons.webp", "./assets/textures/explosion_flipbook.webp",
-  "./src/game/balance.js", "./src/game/weapons.js", "./src/game/match.js", "./src/game/pickups.js", "./src/game/obstacles.js",
+  "./src/game/balance.js", "./src/game/customization.js", "./src/game/tour-progress.js", "./src/game/tour-hub.js", "./src/game/replay-library.js", "./src/game/info-hub.js", "./src/game/growth.js", "./src/game/weapons.js", "./src/game/match.js", "./src/game/pickups.js", "./src/game/obstacles.js",
   "./src/game/hud.js", "./src/game/input.js", "./src/game/versus.js", "./src/game/camera.js", "./src/game/handling-feedback.js", "./src/game/utility-ai.js", "./src/game/boat.js", "./src/game/game.js",
   "./assets/textures/ui_joystick_base.webp", "./assets/textures/ui_joystick_knob.webp",
   "./assets/textures/ui_bouton_idle.webp", "./assets/textures/ui_bouton_pressed.webp",
@@ -94,13 +107,8 @@ const CORE = [
   "./assets/textures/v5/vfx/bwa_dash_impact.webp",
   "./assets/textures/v5/vfx/spell_vfx_atlas.webp",
   "./assets/textures/v5/asset-pack.json",
-  // Pack V6 — entrée du jeu, cartes de modes et lobby Duel local.
-  "./assets/textures/v6/menu/menu_hero_backdrop.webp",
-  "./assets/textures/v6/menu/mode_combat_card.webp",
-  "./assets/textures/v6/menu/mode_tour_card.webp",
-  "./assets/textures/v6/menu/mode_versus_card.webp",
-  "./assets/textures/v6/menu/mode_workshop_card.webp",
-  "./assets/textures/v6/menu/versus_lobby_backdrop.webp",
+  // Pack V6 — seuls les badges sans yole restent utiles au duel local. Les six
+  // faux rendus de yoles ne sont plus affichés ni payés à l'installation.
   "./assets/textures/v6/menu/badge_player_one.webp",
   "./assets/textures/v6/menu/badge_player_two.webp",
   "./assets/textures/v6/asset-pack.json",
@@ -111,39 +119,87 @@ const CORE = [
   "./assets/textures/v7/juice/perfect_counterheel.webp",
   "./assets/textures/v7/juice/juice_vfx_atlas.webp",
   "./assets/textures/v7/asset-pack.json",
+  // Pack V8 — instruments de course authentiques, détourés et pilotés par le
+  // DOM. Les images n'embarquent aucune valeur ni aucun texte dynamique.
+  "./assets/textures/v8/hud/status_frame.webp",
+  "./assets/textures/v8/hud/balance_track.webp",
+  "./assets/textures/v8/hud/hull_silhouette.webp",
+  "./assets/textures/v8/hud/flow_sail.webp",
+  "./assets/textures/v8/asset-pack.json",
+  // Pack V9 — identite du menu : matiere de cale de course, quatre emblemes
+  // de modes et une yole ronde authentique detouree.
+  "./assets/textures/v9/menu/menu-panel-material.webp",
+  "./assets/textures/v9/menu/brand-yole.webp",
+  "./assets/textures/v9/menu/mode-combat.webp",
+  "./assets/textures/v9/menu/mode-grand-tour.webp",
+  "./assets/textures/v9/menu/mode-versus.webp",
+  "./assets/textures/v9/menu/mode-workshop.webp",
+  "./assets/textures/v9/asset-pack.json",
+  "./vendor/three.module.min.js", "./vendor/three.core.min.js",
   "./vendor/addons/GLTFLoader.js", "./vendor/addons/BufferGeometryUtils.js", "./vendor/addons/SkeletonUtils.js",
 ];
+
+function analyserPlage(entete, taille) {
+  const correspondance = /^bytes=(\d*)-(\d*)$/i.exec(entete?.trim?.() || "");
+  if (!correspondance || (!correspondance[1] && !correspondance[2])) return null;
+
+  let debut;
+  let fin;
+  if (!correspondance[1]) {
+    const suffixe = Number(correspondance[2]);
+    if (!Number.isSafeInteger(suffixe) || suffixe <= 0) return null;
+    debut = Math.max(0, taille - suffixe);
+    fin = taille - 1;
+  } else {
+    debut = Number(correspondance[1]);
+    fin = correspondance[2] ? Number(correspondance[2]) : taille - 1;
+    if (!Number.isSafeInteger(debut) || !Number.isSafeInteger(fin)) return null;
+    if (debut < 0 || fin < 0 || debut > fin || debut >= taille) return null;
+    fin = Math.min(fin, taille - 1);
+  }
+  return { debut, fin };
+}
+
+async function reponseParPlage(requete, reponseComplete) {
+  const octets = await reponseComplete.arrayBuffer();
+  const plage = analyserPlage(requete.headers.get("range"), octets.byteLength);
+  if (!plage) {
+    return new Response(null, {
+      status: 416,
+      headers: { "Content-Range": `bytes */${octets.byteLength}` }
+    });
+  }
+
+  const entetes = new Headers(reponseComplete.headers);
+  entetes.set("Accept-Ranges", "bytes");
+  entetes.set("Content-Length", String(plage.fin - plage.debut + 1));
+  entetes.set("Content-Range", `bytes ${plage.debut}-${plage.fin}/${octets.byteLength}`);
+  return new Response(octets.slice(plage.debut, plage.fin + 1), {
+    status: 206,
+    statusText: "Partial Content",
+    headers: entetes
+  });
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    const required = CORE.filter((url) =>
-      url === "./"
-      || url === "./index.html"
-      || url === "./style.css"
-      || url === "./manifest.webmanifest"
-      || url.startsWith("./src/")
-      || url.startsWith("./vendor/")
-    );
-    const optional = CORE.filter((url) => !required.includes(url));
-    // Le shell, les modules runtime et les addons GLB sont stricts : annoncer
-    // l'installation hors-ligne sans eux laisserait une PWA qui démarre avec
-    // l'ancien rendu ou sans les modèles. Audio/textures restent récupérables.
-    await Promise.all(required.map((url) => cache.add(url)));
-    await Promise.allSettled(optional.map((url) => cache.add(url)));
-    // Le cœur Three est livré avec le jeu et reste lui aussi install-critique.
-    await Promise.all([
-      cache.add("./vendor/three.module.min.js"),
-      cache.add("./vendor/three.core.min.js")
-    ]);
-    await self.skipWaiting();
+    // Cache.addAll est transactionnel : un seul 404, quota dépassé ou transfert
+    // interrompu fait échouer CETTE installation sans activer un cache partiel.
+    // L'ancien worker et son cache restent alors utilisables.
+    await cache.addAll(CORE);
+    // Pas de skipWaiting : une page déjà ouverte garde un seul couple
+    // shell/runtime. La nouvelle version prend la main à la prochaine ouverture,
+    // au lieu de mélanger l'ancien index avec de nouveaux modules ou modèles.
   })());
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+    await Promise.all(keys
+      .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+      .map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
 });
@@ -153,17 +209,20 @@ self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
   event.respondWith((async () => {
-    const cached = await caches.match(event.request);
-    if (cached) return cached;
+    const cache = await caches.open(CACHE);
+    const cached = await cache.match(event.request);
+    const plageDemandee = event.request.headers.has("range");
+    if (cached) return plageDemandee ? reponseParPlage(event.request, cached) : cached;
     try {
       const response = await fetch(event.request);
-      if (response?.ok) {
-        const cache = await caches.open(CACHE);
+      // Une réponse 206 ne doit jamais remplacer la ressource complète : les
+      // clés Cache API ne distinguent pas les plages d'un même URL.
+      if (response?.ok && !plageDemandee && response.status === 200) {
         cache.put(event.request, response.clone()).catch(() => {});
       }
       return response;
     } catch {
-      if (event.request.mode === "navigate") return (await caches.match("./index.html")) || new Response("Offline", { status: 503 });
+      if (event.request.mode === "navigate") return (await cache.match("./index.html")) || new Response("Offline", { status: 503 });
       return new Response("Offline", { status: 503, statusText: "Offline" });
     }
   })());

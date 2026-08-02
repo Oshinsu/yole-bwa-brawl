@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "pack": {
+    "id": "yole-bwa-brawl-v9-menu-sota",
+    "version": "9.0",
+    "createdOn": "2026-08-01",
+    "category": "main-menu-identity",
+    "assetCount": 6,
+    "runtimeBytes": 480622,
+    "generationMode": "built-in-imagegen",
+    "promptManifest": "art-source/generated-v9/menu/PROMPTS.md",
+    "runtimeConsumer": "style.css"
+  },
+  "artDirection": {
+    "name": "Cale de course martiniquaise",
+    "materials": [
+      "dark stretched sailcloth",
+      "carved tropical hardwood",
+      "salt-softened brass",
+      "restrained madras accents",
+      "painted maritime enamel"
+    ],
+    "authenticity": "The brand insignia uses the two user-provided photographs only as anatomical reference for a Martinique yole ronde. No logo, sponsor, face or exact livery was copied.",
+    "forbidden": [
+      "generic yacht or dinghy",
+      "catamaran or outrigger",
+      "triangular sail",
+      "pirate and tiki imagery",
+      "generic sci-fi HUD",
+      "rasterized UI text"
+    ]
+  },
+  "assets": [
+    {
+      "id": "menu_panel_material",
+      "role": "Tactile material field and frame for the main menu and active-build panel",
+      "path": "assets/textures/v9/menu/menu-panel-material.webp",
+      "source": "art-source/generated-v9/menu/menu-panel-material-source.png",
+      "generationCall": "call_UhV1Kc8FjXctTFa01BlmyzE8",
+      "width": 1024,
+      "height": 1024,
+      "format": "WEBP",
+      "alpha": false,
+      "bytes": 221858,
+      "sha256": "fbd30db79a7f81cf52c15fcac48590042adb9695e921810c0c1d070570a7f6ad"
+    },
+    {
+      "id": "menu_brand_yole",
+      "role": "Authentic yole ronde brand insignia",
+      "path": "assets/textures/v9/menu/brand-yole.webp",
+      "source": "art-source/generated-v9/menu/brand-yole-transparent.png",
+      "generationCall": "call_oe8J3QgxSWOFjMLLB7pcnlE0",
+      "width": 760,
+      "height": 500,
+      "format": "WEBP",
+      "alpha": true,
+      "bytes": 136236,
+      "sha256": "152f9175aa8fcf856445de401604145ceda6cc8a755dfc79630b955f1b11e027"
+    },
+    {
+      "id": "menu_mode_combat",
+      "role": "Combat Box mode emblem",
+      "path": "assets/textures/v9/menu/mode-combat.webp",
+      "source": "art-source/generated-v9/menu/mode-combat-source.png",
+      "generationCall": "call_kXcaOwPY76cQTf9hVc00Q8zF",
+      "width": 320,
+      "height": 320,
+      "format": "WEBP",
+      "alpha": false,
+      "bytes": 34818,
+      "sha256": "1ae72f2a790d5cc4de295db09af06b1d876c46c64cf55523cf8f8d31bf1f3ea0"
+    },
+    {
+      "id": "menu_mode_grand_tour",
+      "role": "Grand Tour mode emblem",
+      "path": "assets/textures/v9/menu/mode-grand-tour.webp",
+      "source": "art-source/generated-v9/menu/mode-grand-tour-source.png",
+      "generationCall": "call_dY3oap7oef2EXCEYYUTiSqXa",
+      "width": 320,
+      "height": 320,
+      "format": "WEBP",
+      "alpha": false,
+      "bytes": 27114,
+      "sha256": "b638de63d960fd037c19312766bb2cfa2d715d403f957dace5bfe1f8dcd1bc55"
+    },
+    {
+      "id": "menu_mode_versus",
+      "role": "Local versus mode emblem",
+      "path": "assets/textures/v9/menu/mode-versus.webp",
+      "source": "art-source/generated-v9/menu/mode-versus-source.png",
+      "generationCall": "call_RlaMXqevCKZdYVJWRVn3zjjs",
+      "width": 320,
+      "height": 320,
+      "format": "WEBP",
+      "alpha": false,
+      "bytes": 34862,
+      "sha256": "27f9b60bea2ca6117c1cc0c243b74d1d8e1df039434e98c4c73912df2ce555ea"
+    },
+    {
+      "id": "menu_mode_workshop",
+      "role": "Workshop and customization mode emblem",
+      "path": "assets/textures/v9/menu/mode-workshop.webp",
+      "source": "art-source/generated-v9/menu/mode-workshop-source.png",
+      "generationCall": "call_JNwauZCChj7vmuFKQoUIddZt",
+      "width": 320,
+      "height": 320,
+      "format": "WEBP",
+      "alpha": false,
+      "bytes": 25734,
+      "sha256": "062720e8ab1068c7b1ea0f0afb4f642754fd6d45da6c843b609284e5ce89e795"
+    }
+  ],
+  "runtimeContract": {
+    "htmlOwns": [
+      "mode names",
+      "descriptions",
+      "accessibility semantics"
+    ],
+    "cssOwns": [
+      "layout",
+      "material compositing",
+      "hover and focus states",
+      "responsive hierarchy"
+    ],
+    "fallback": "Every control keeps a readable dark CSS background if a bitmap is unavailable."
+  },
+  "qualityAssurance": {
+    "dimensionsValidated": true,
+    "webpSignatureValidated": true,
+    "alphaValidated": true,
+    "referenceAuthenticityReviewed": true,
+    "logosAndTextAbsent": true,
+    "runtimeScreenshotPending": false,
+    "runtimeViewportsValidated": [
+      "1280x720 desktop",
+      "390x844 portrait",
+      "844x390 landscape"
+    ],
+    "desktopMenuOverflowPx": 0,
+    "portraitHorizontalOverflowPx": 0
+  }
+}

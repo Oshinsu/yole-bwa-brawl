@@ -8,6 +8,21 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>YOLE: BWA BRAWL — Tropical Mayhem V3.2</title>
+  <meta name="description" content="Prends la barre d’une yole ronde, maîtrise la contre-gîte et transforme la régate en arène tropicale. Même mer, même seed : défie tes amis." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:site_name" content="YOLE: BWA BRAWL" />
+  <meta property="og:title" content="YOLE: BWA BRAWL — même mer, même seed" />
+  <meta property="og:description" content="Un combat racer tropical de yoles rondes, jouable instantanément et partageable par défi déterministe." />
+  <meta property="og:url" content="https://oshinsu.github.io/yole-bwa-brawl/" />
+  <meta property="og:image" content="https://oshinsu.github.io/yole-bwa-brawl/assets/social/og-yole-bwa-brawl.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Trois yoles rondes stylisées affrontent la houle sous le titre YOLE: BWA BRAWL." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="YOLE: BWA BRAWL — même mer, même seed" />
+  <meta name="twitter:description" content="Relève le défi sur la même mer avec la même graine de course." />
+  <meta name="twitter:image" content="https://oshinsu.github.io/yole-bwa-brawl/assets/social/og-yole-bwa-brawl.png" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" href="./icons/icon-192.png" />
   <!-- ⚠️ ICONE iOS OPAQUE, EN 180. iOS ne connait pas `maskable` : il applique
@@ -19,7 +34,7 @@
        soit un aller-retour de retard sur le premier ecran. -->
   <link rel="preload" href="./assets/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="./assets/fonts/anton-400.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./style.css?v=hud-v12-2" />
 </head>
 <body>
   <div id="viewport" aria-label="YOLE BWA BRAWL 3D"></div>
@@ -32,26 +47,36 @@
 
   <div id="menu" class="screen menu-screen hidden">
     <div class="menu-gradient"></div>
+    <div class="menu-live" aria-hidden="true"><i></i><span>SHOWROOM 3D · MODÈLE DU JEU</span></div>
     <div class="menu-content">
-      <div class="eyebrow">COMBAT RACER MARTINIQUAIS · TROPICAL MAYHEM V3.2</div>
+      <div class="menu-brand-yole" aria-hidden="true"></div>
+      <div class="eyebrow">ARCADE NAUTIQUE · MARTINIQUE · TROPICAL MAYHEM V3.2</div>
       <h1>YOLE<br><span>BWA BRAWL</span></h1>
-      <p>Soleil géant, palmiers, turbo latéral, harpon slingshot et noix de coco explosives. Le dernier à chavirer paie les bokits.</p>
+      <p class="menu-pitch">Prends la barre, place l’équipage sur les bwa et transforme la régate en arène tropicale. Ici, la vitesse ne suffit pas : il faut garder la yole debout.</p>
+      <section id="challengeBanner" class="challenge-banner hidden" aria-labelledby="challengeBannerLabel">
+        <div><small>DÉFI REÇU</small><strong id="challengeBannerLabel">DÉFI COMBAT BOX</strong><span>Même mer · même seed <b id="challengeSeed">0X00000000</b></span></div>
+        <button id="challengeStartBtn" type="button">RELEVER LE DÉFI <span aria-hidden="true">→</span></button>
+      </section>
       <div class="menu-actions" role="group" aria-label="Modes de jeu">
-        <button id="playBtn" class="primary mode-card mode-combat" type="button">
-          <span><small>MODE ARCADE</small><strong>COMBAT BOX</strong><em>4 yoles · armes · Brume</em></span>
+        <button id="playBtn" class="primary mode-card mode-combat" type="button" data-mode-index="01">
+          <i class="mode-symbol" aria-hidden="true">✦</i>
+          <span><small>ACTION IMMÉDIATE</small><strong>COMBAT BOX</strong><em>4 yoles · armes · Brume de sable</em></span>
         </button>
-        <button id="tourBtn" class="secondary mode-card mode-tour" type="button">
-          <span><small>CHAMPIONNAT</small><strong>TOUR DES YOLES</strong><em>8 étapes · classement général</em></span>
+        <button id="tourBtn" class="secondary mode-card mode-tour" type="button" data-mode-index="02">
+          <i class="mode-symbol route-symbol" aria-hidden="true">●━━●</i>
+          <span><small>CAMPAGNE</small><strong>GRAND TOUR</strong><em>8 étapes · classement persistant</em></span>
         </button>
-        <button id="versusBtn" class="secondary mode-card mode-versus" type="button" aria-haspopup="dialog" aria-controls="versusScreen" aria-expanded="false">
-          <span><small>JOUEUR CONTRE JOUEUR</small><strong>DUEL LOCAL</strong><em>2 pilotes · clavier partagé</em></span>
+        <button id="versusBtn" class="secondary mode-card mode-versus" type="button" data-mode-index="03" aria-haspopup="dialog" aria-controls="versusScreen" aria-expanded="false">
+          <i class="mode-symbol versus-symbol" aria-hidden="true">P1<br>P2</i>
+          <span><small>JOUEUR CONTRE JOUEUR</small><strong>MÊLÉE LOCALE</strong><em>2 pilotes + 2 IA · caméra commune</em></span>
         </button>
-        <button id="customBtn" class="secondary mode-card mode-workshop" type="button" aria-haspopup="dialog" aria-controls="customScreen" aria-expanded="false">
-          <span><small>ATELIER</small><strong>MA YOLE</strong><em>Gréement · livrée</em></span>
+        <button id="customBtn" class="secondary mode-card mode-workshop" type="button" data-mode-index="04" aria-haspopup="dialog" aria-controls="customScreen" aria-expanded="false">
+          <i class="mode-symbol workshop-symbol" aria-hidden="true"><b></b><b></b><b></b></i>
+          <span><small>SHOWROOM 3D</small><strong>ATELIER</strong><em>Coque · voile · bwa · équipage · soute</em></span>
         </button>
       </div>
       <div class="menu-badges">
-        <span>🥥 COCO BOUM</span><span>🕸 HARPON SLINGSHOT</span><span>💨 BWA DASH</span><span>🌊 MINE TSUNAMI</span>
+        <span>COCO BOUM</span><span>HARPON SLINGSHOT</span><span>BWA DASH</span><span>MINE TSUNAMI</span>
       </div>
       <!-- ⚠️ « Télécharger » veut dire deux choses pour un jeu navigateur, et
            les deux méritent leur bouton.
@@ -66,6 +91,21 @@
            ARCHIVE : pour qui veut le dossier complet, sans navigateur ni
            réseau. -->
       <div class="menu-liens">
+        <button id="menuSettingsBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">
+          <span aria-hidden="true">⚙</span> RÉGLAGES
+        </button>
+        <button id="controlsBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="controlsScreen" aria-expanded="false">
+          <span aria-hidden="true">?</span> AIDE &amp; CONTRÔLES
+        </button>
+        <button id="replaysBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="replayLibrary">
+          <span aria-hidden="true">▶</span> REPLAYOTHÈQUE
+        </button>
+        <button id="aboutBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="infoHub">
+          <span aria-hidden="true">ⓘ</span> YOLE &amp; CRÉDITS
+        </button>
+        <button id="dailyChallengeBtn" class="lien-menu daily-link" type="button">
+          <span aria-hidden="true">⚡</span> DÉFI DU JOUR
+        </button>
         <button id="installBtn" class="lien-menu hidden" type="button">
           <span aria-hidden="true">⬇</span> INSTALLER LE JEU
         </button>
@@ -75,22 +115,27 @@
         <a class="lien-menu discret" href="https://github.com/Oshinsu/yole-bwa-brawl" target="_blank" rel="noopener">
           <span aria-hidden="true">&lt;/&gt;</span> CODE SOURCE
         </a>
+        <a class="lien-menu discret" href="./privacy.html"><span aria-hidden="true">◌</span> CONFIDENTIALITÉ</a>
+        <a class="lien-menu discret" href="./support.html"><span aria-hidden="true">?</span> SUPPORT</a>
       </div>
       <!-- ⚠️ RACCOURCIE VOLONTAIREMENT. Cette ligne listait treize commandes en
            deux lignes de petit texte gris : le bloc le plus dense et le plus laid
            de l'écran, et personne ne mémorise treize raccourcis avant de jouer.
            La liste complète vit maintenant dans l'écran de pause, consultable en
            cours de partie, quand on en a réellement besoin. -->
-      <div class="control-copy">Glisse pour diriger · <b>Shift</b> = contre-gîte · les chiffres tirent<br><span>Liste complète : Échap → Raccourcis clavier</span></div>
+      <div class="control-copy">Glisse pour diriger · <b>Shift</b> = contre-gîte · les chiffres tirent<br><span>Besoin d’un cap ? Ouvre Aide &amp; contrôles.</span></div>
     </div>
     <div class="menu-card glass">
-      <b>40E TOUR DES YOLES · 26 JUILLET → 2 AOÛT</b>
-      <strong>8 ÉTAPES, UN CLASSEMENT GÉNÉRAL</strong>
-      <span>Sainte-Anne → Vauclin → Robert → Trinité → Saint-Pierre → Fort-de-France → Anses d'Arlet → Rivière-Pilote → retour Sainte-Anne. 4/3/2/1 points à la place, zéro si tu chavires.</span>
-      <div class="rule"><i>2,4 km</i><small>l'étape « montagne » Trinité → Saint-Pierre, la juge de paix</small></div>
-      <div class="rule"><i>60 Hz</i><small>simulation fixe et replay checksum</small></div>
+      <b>CONFIGURATION ACTIVE</b>
+      <strong id="menuBuildTitle">GRÉEMENT DROIT · KOULÈV</strong>
+      <span id="menuBuildCopy">Coque Solaire · bordage Ivoire · bwa Miel</span>
+      <div class="menu-build-swatches" aria-hidden="true"><i id="menuHullSwatch"></i><i id="menuAccentSwatch"></i><i id="menuCrewSwatch"></i></div>
+      <div class="rule"><i id="menuLoadoutIcons">🥥 · 🕸</i><small id="menuLoadoutCopy">Coco Boum + Spider Harpon en soute</small></div>
+      <div class="rule"><i>8</i><small>étapes dans le Grand Tour · progression locale</small></div>
+      <button id="menuWorkshopBtn" class="menu-build-cta" type="button">OUVRIR L’ATELIER 3D</button>
+      <small class="fiction-note">Fiction arcade librement inspirée de la yole ronde de Martinique · non affiliée à une organisation officielle.</small>
     </div>
-    <div class="version">THREE.JS 0.185.1 · BUILD 1.2 TROPICAL MAYHEM</div>
+    <div class="version">VERSION 3.2.0 · TROPICAL MAYHEM · THREE.JS 0.185.1</div>
   </div>
 
   <div id="hud" class="hidden">
@@ -116,9 +161,9 @@
         <button id="pauseBtn" class="icon-btn" data-label="PAUSE" aria-label="Pause" type="button" aria-keyshortcuts="Escape P" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">Ⅱ</button>
       </div>
     </div>
-    <div id="versusHud" class="versus-hud hidden" role="group" aria-label="État du duel local" aria-live="off">
+    <div id="versusHud" class="versus-hud hidden" role="group" aria-label="État de la mêlée locale" aria-live="off">
       <div class="versus-hud-player p1"><img src="./assets/textures/v6/menu/badge_player_one.webp" alt=""><span><small>J1 · Q/D</small><b id="versusP1Status">PRÊT</b></span></div>
-      <strong>DUEL LOCAL</strong>
+      <strong>MÊLÉE LOCALE</strong>
       <div class="versus-hud-player p2"><span><small>J2 · J/L</small><b id="versusP2Status">PRÊT</b></span><img src="./assets/textures/v6/menu/badge_player_two.webp" alt=""></div>
       <span id="versusAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></span>
     </div>
@@ -145,6 +190,7 @@
     <div id="countdown" class="countdown hidden" role="status" aria-live="assertive"><b></b><small></small></div>
     <div id="spectateur" class="spectateur hidden" role="status" aria-live="polite">
       <b>CHAVIRÉ</b><em></em><small></small>
+      <button id="skipSpectatingBtn" class="spectateur-skip hidden" type="button">PASSER AUX RÉSULTATS</button>
     </div>
     <div id="damageNumbers" class="damage-numbers" aria-hidden="true"></div>
     <div id="killfeed" class="killfeed" role="log" aria-live="polite" aria-relevant="additions" aria-label="Événements du combat"></div>
@@ -157,26 +203,30 @@
       <div id="joystick" class="joystick" aria-label="Direction">
         <div class="joy-ring"></div><div id="joyKnob" class="joy-knob"></div><span>OU GLISSE À L'ÉCRAN</span>
       </div>
-      <div class="status glass">
+      <div class="status glass" aria-label="État dynamique de la yole">
         <div class="speed"><b id="speedValue">0</b><span>KM/H</span></div>
         <div class="meter-label"><span>ÉQUILIBRE</span><b id="balanceText">STABLE</b></div>
-        <div class="meter balance"><i id="balanceBar"></i><em></em></div>
+        <div class="meter balance" role="meter" aria-label="Gîte de la yole" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0" aria-valuetext="Centré">
+          <span class="balance-side balance-port" aria-hidden="true">BÂBORD</span>
+          <i id="balanceBar" aria-hidden="true"></i><em aria-hidden="true"></em>
+          <span class="balance-side balance-starboard" aria-hidden="true">TRIBORD</span>
+        </div>
         <div class="meter-label"><span>TURBO</span><b id="flowText">0%</b></div>
-        <div class="meter flow big"><i id="flowBar"></i></div>
+        <div class="meter flow big" role="progressbar" aria-label="Réserve turbo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="flowBar"></i></div>
         <div class="meter-label"><span>COQUE</span><b id="hullText">100%</b></div>
-        <div class="meter hull big"><i id="hullBar"></i></div>
+        <div class="meter hull big" role="progressbar" aria-label="Intégrité de la coque" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="hullBar"></i></div>
         <div class="crew-mini"><span id="crewDots">● ● ● ● ● ●</span><b id="trimText">VOILE 82%</b><b id="waterText">0 KG</b></div>
         <!-- Mât, voile et bois : mesurés à -2 %, -2 % et 0 % sur la vitesse.
              Ils restent affichés, mais en second rang — la coque est la seule
              qui décide vraiment (-20,5 % à mi-vie). -->
-        <div id="systemIntegrity" class="integrity-grid" aria-label="Intégrité systémique">
+        <div id="systemIntegrity" class="integrity-grid hidden" aria-label="Intégrité systémique">
           <span>MÂT</span><i><em id="mastBar"></em></i>
           <span>VOILE</span><i><em id="sailBar"></em></i>
           <span>BWA</span><i><em id="bwaIntegrityBar"></em></i>
         </div>
       </div>
       <div class="actions">
-        <div id="weaponShortcuts" class="weapon-shortcuts" role="list" aria-label="Raccourcis physiques des quatre premières armes">
+        <div id="weaponShortcuts" class="weapon-shortcuts" role="list" aria-label="Raccourcis physiques des huit armes">
           <span data-weapon="wave" role="listitem"><kbd>&amp;</kbd>COCO</span>
           <span data-weapon="harpoon" role="listitem"><kbd>é</kbd>HARPON</span>
           <span data-weapon="mine" role="listitem"><kbd>&quot;</kbd>MINE</span>
@@ -187,9 +237,6 @@
           <span data-weapon="pwason" role="listitem"><kbd>_</kbd>PWASON</span>
         </div>
         <button id="bwaBtn" class="action bwa" type="button" aria-keyshortcuts="Shift"><span class="ico i5"></span><b>CONTRE-GÎTE</b><small>BWA SHIFT · ÉQUIPAGE OPPOSÉ</small></button>
-        <!-- Emplacement UNIQUE d'arme. L'identité passe par la COULEUR du
-             liseré (classe .w-*), pas par le libellé : à 4,8 px le texte est
-             illisible au soleil. -->
         <!-- ⚠️ TROIS TUILES D'ARME, TIR DIRECT, PAS DE SÉLECTION.
              Sur mobile, `cycleWeapon` n'existait qu'au clavier (touche E) : le
              joueur au doigt tirait ce que `activeWeapon` valait et ne pouvait
@@ -207,33 +254,89 @@
         <button id="weaponCrateBtn" class="action slot empty" type="button"><span class="ico i6"></span><b>CAISSE</b><small>VIDE</small></button>
       </div>
     </div>
-    <button id="revengeBtn" class="revenge hidden" type="button">🌪 FRAPPE DE SABLE</button>
+    <!-- Compatibilité de mise à jour PWA : un ancien main.js encore en mémoire
+         assigne directement `revengeBtn.onclick`. Cette ancre vide empêche ce
+         bundle de planter, mais reste impossible à afficher ou activer ; le
+         runtime courant ne la collecte pas et ne possède plus d'action post-mort. -->
+    <button id="revengeBtn" type="button" hidden inert disabled aria-hidden="true" tabindex="-1" data-legacy-cache-anchor></button>
   </div>
 
   <div id="customScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="customTitle">
-    <div class="modal glass">
-      <div class="modal-icon">🎨</div>
-      <h2 id="customTitle">MA YOLE</h2>
-      <p>Le gréement change ta course. La livrée ne change rien — elle te distingue.</p>
-      <div class="custom-block">
-        <b>GRÉEMENT</b>
-        <div id="rigChoices" class="custom-choices" role="group" aria-label="Choix du gréement"></div>
-        <small id="rigDetail">l'équilibre d'origine</small>
-      </div>
-      <div class="custom-block">
-        <b>LIVRÉE DE VOILE</b>
-        <div id="liveryChoices" class="custom-choices" role="group" aria-label="Choix de la livrée"></div>
-      </div>
-      <button id="customCloseBtn" class="primary" type="button" aria-keyshortcuts="Escape">C'EST BON</button>
+    <div class="workshop-shell">
+      <header class="workshop-header">
+        <div><small>CALE SÈCHE · CONFIGURATION J1</small><h2 id="customTitle">ATELIER <span>3D</span></h2></div>
+        <div class="workshop-balance"><span>IDENTITÉ DE COURSE</span><b>BWA FATAL · 01</b></div>
+        <button id="customCancelBtn" class="workshop-close" type="button" aria-label="Annuler les modifications et fermer" aria-keyshortcuts="Escape">×</button>
+      </header>
+      <nav class="workshop-tabs" aria-label="Catégories de personnalisation">
+        <button class="active" type="button" data-custom-tab="paint" aria-selected="true"><span>01</span>COQUE</button>
+        <button type="button" data-custom-tab="sail" aria-selected="false"><span>02</span>VOILE</button>
+        <button type="button" data-custom-tab="wood" aria-selected="false"><span>03</span>BWA</button>
+        <button type="button" data-custom-tab="crew" aria-selected="false"><span>04</span>ÉQUIPAGE</button>
+        <button type="button" data-custom-tab="rig" aria-selected="false"><span>05</span>GRÉEMENT</button>
+        <button type="button" data-custom-tab="loadout" aria-selected="false"><span>06</span>SOUTE</button>
+      </nav>
+      <section class="workshop-stage" aria-label="Aperçu 3D de la yole">
+        <div class="workshop-stage-label"><span>APERÇU TEMPS RÉEL</span><b id="workshopPartLabel">COQUE &amp; BORDAGE</b></div>
+        <div id="workshopOrbitZone" class="workshop-orbit-zone" role="application" tabindex="0" aria-label="Faire pivoter la yole avec les flèches ou en glissant"></div>
+        <div class="workshop-orbit-controls">
+          <button id="workshopRotateLeftBtn" type="button" aria-label="Tourner la yole vers la gauche">↶</button>
+          <span>GLISSER POUR TOURNER · FLÈCHES</span>
+          <button id="workshopRotateRightBtn" type="button" aria-label="Tourner la yole vers la droite">↷</button>
+        </div>
+        <div class="workshop-authenticity"><i></i> MODÈLE RUNTIME · AUCUN FAUX RENDER</div>
+      </section>
+      <aside class="workshop-config">
+        <section data-custom-panel="paint">
+          <small>FINITION EXTÉRIEURE</small><h3>COQUE &amp; BORDAGE</h3>
+          <p>La couleur cosmétique reste séparée de ta couleur d’identification dans le HUD.</p>
+          <div class="custom-block"><b>PEINTURE DE COQUE</b><div id="hullChoices" class="custom-choices swatch-choices" role="group" aria-label="Peinture de coque"></div></div>
+          <div class="custom-block"><b>BORDAGE &amp; ACCENTS</b><div id="accentChoices" class="custom-choices swatch-choices" role="group" aria-label="Couleur du bordage"></div></div>
+        </section>
+        <section class="hidden" data-custom-panel="sail">
+          <small>SIGNATURE VISUELLE</small><h3>LIVRÉE DE VOILE</h3>
+          <p>Les quatre motifs utilisent l’atlas du jeu et sont appliqués immédiatement à la vraie voile 3D.</p>
+          <div class="custom-block"><div id="liveryChoices" class="custom-choices livery-choices" role="group" aria-label="Choix de la livrée"></div></div>
+        </section>
+        <section class="hidden" data-custom-panel="wood">
+          <small>MATIÈRE</small><h3>BWA &amp; GRÉEMENT</h3>
+          <p>Teinte et vernis changent le rendu du bois, jamais sa forme ni le comportement de la yole.</p>
+          <div class="custom-block"><div id="woodChoices" class="custom-choices finish-choices" role="group" aria-label="Finition des bwa"></div></div>
+        </section>
+        <section class="hidden" data-custom-panel="crew">
+          <small>ÉQUIPE</small><h3>MAILLOTS</h3>
+          <p>Un équipage identifiable au premier regard, sans repeindre les carnations.</p>
+          <div class="custom-block"><div id="crewChoices" class="custom-choices swatch-choices" role="group" aria-label="Couleur des maillots"></div></div>
+        </section>
+        <section class="hidden" data-custom-panel="rig">
+          <small>COMPORTEMENT</small><h3>GRÉEMENT</h3>
+          <p>Un choix de style de pilotage : poussée ou stabilité, jamais un avantage absolu.</p>
+          <div class="custom-block"><div id="rigChoices" class="custom-choices rig-choices" role="group" aria-label="Choix du gréement"></div><small id="rigDetail">L’équilibre d’origine.</small></div>
+          <dl class="rig-stats">
+            <div><dt>POUSSÉE</dt><dd><i id="rigPowerBar"></i></dd><b id="rigPowerValue">100</b></div>
+            <div><dt>STABILITÉ</dt><dd><i id="rigStabilityBar"></i></dd><b id="rigStabilityValue">100</b></div>
+          </dl>
+        </section>
+        <section class="hidden" data-custom-panel="loadout">
+          <small>ARSENAL</small><h3>DEUX ARMES EN SOUTE</h3>
+          <p>Choisis deux armes disponibles pendant toute la manche. Leur ordre correspond aux emplacements 1 et 2.</p>
+          <div class="custom-block loadout-block"><div id="loadoutChoices" class="custom-choices loadout-choices" role="group" aria-label="Deux armes de soute parmi quatre"></div><small id="loadoutDetail">Deux armes restent disponibles pendant toute la course.</small></div>
+        </section>
+      </aside>
+      <footer class="workshop-footer">
+        <div class="workshop-summary"><small>CONFIGURATION</small><strong id="workshopSummary">GRÉEMENT DROIT · KOULÈV</strong><span id="workshopSummaryDetail">Orange Bwa · Ivoire · Bois naturel</span></div>
+        <button id="customResetBtn" class="secondary danger-soft" type="button">RÉTABLIR LA YOLE D’ORIGINE</button>
+        <button id="customCloseBtn" class="primary" type="button">SAUVEGARDER LA CONFIGURATION</button>
+      </footer>
     </div>
   </div>
 
   <div id="versusScreen" class="screen versus-screen hidden" role="dialog" aria-modal="true" aria-labelledby="versusTitle">
     <div class="versus-shell">
       <button id="versusCloseBtn" class="versus-close" type="button" aria-label="Fermer le mode versus" aria-keyshortcuts="Escape">×</button>
-      <div class="versus-kicker">JOUEUR CONTRE JOUEUR · ÉCRAN PARTAGÉ DYNAMIQUE</div>
-      <h2 id="versusTitle">DUEL <span>LOCAL</span></h2>
-      <p class="versus-intro">Deux yoles pilotées sur le même clavier, deux rivaux IA et une caméra qui garde le duel dans le cadre.</p>
+      <div class="versus-kicker">JOUEUR CONTRE JOUEUR · CAMÉRA COMMUNE DYNAMIQUE</div>
+      <h2 id="versusTitle">MÊLÉE <span>LOCALE</span></h2>
+      <p class="versus-intro">Deux yoles pilotées sur le même clavier affrontent deux rivaux IA dans une mêlée à quatre. La caméra commune garde les deux pilotes dans le cadre.</p>
       <div class="versus-roster">
         <article class="versus-player-card p1">
           <img src="./assets/textures/v6/menu/badge_player_one.webp" alt="">
@@ -258,7 +361,7 @@
         </article>
       </div>
       <div class="versus-actions">
-        <button id="versusStartBtn" class="primary" type="button">LANCER LE DUEL<small>Combat Box · 2 pilotes locaux</small></button>
+        <button id="versusStartBtn" class="primary" type="button">LANCER LA MÊLÉE<small>Combat Box · 2 pilotes locaux + 2 IA</small></button>
         <small>Les replays restent réservés au mode solo : les deux entrées locales jouent en direct à 60 Hz.</small>
       </div>
     </div>
@@ -266,34 +369,44 @@
 
   <div id="pauseScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" aria-describedby="pauseCopy">
     <div class="modal settings-modal glass">
-      <div class="modal-kicker"><span>CALE DE PILOTAGE</span><b>PAUSE</b></div>
-      <div class="modal-icon">⏸</div><h2 id="pauseTitle">MER SUSPENDUE</h2><p id="pauseCopy">La brume attend. Pas tes rivaux.</p>
+      <div class="modal-kicker"><span>CALE DE PILOTAGE</span><b id="pauseStateLabel">PAUSE</b></div>
+       <div id="pauseIcon" class="modal-icon modal-icon-pause" aria-hidden="true"></div><h2 id="pauseTitle">MER SUSPENDUE</h2><p id="pauseCopy">La mer et tes rivaux sont suspendus.</p>
+      <div class="pause-scroll">
       <div class="settings-grid">
+        <section class="settings-group audio-group" aria-labelledby="audioLabel">
+          <h3 id="audioLabel">AUDIO</h3>
+          <div class="volume-controls">
+             <label for="musicVolumeSlider"><span class="range-icon range-icon-music" aria-hidden="true"></span><b>MUSIQUE</b><output id="musicVolumeValue" for="musicVolumeSlider">80%</output></label>
+            <input id="musicVolumeSlider" type="range" min="0" max="100" step="10" value="80" />
+             <label for="sfxVolumeSlider"><span class="range-icon range-icon-sfx" aria-hidden="true"></span><b>EFFETS</b><output id="sfxVolumeValue" for="sfxVolumeSlider">100%</output></label>
+            <input id="sfxVolumeSlider" type="range" min="0" max="100" step="10" value="100" />
+          </div>
+        </section>
         <section class="settings-group" aria-labelledby="pilotageLabel">
           <h3 id="pilotageLabel">PILOTAGE</h3>
           <div>
-            <button id="hapticsToggle" class="setting-toggle" type="button"><span>📳</span><b>HAPTIQUE</b><small>ACTIF</small></button>
-            <button id="stableCameraToggle" class="setting-toggle" type="button"><span>🎥</span><b>CAMÉRA STABLE</b><small>80%</small></button>
-            <button id="leftHandedToggle" class="setting-toggle" type="button"><span>🫲</span><b>MODE GAUCHER</b><small>NON</small></button>
+             <button id="hapticsToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>HAPTIQUE</b><small>ACTIF</small></button>
+             <button id="stableCameraToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>STABILISATION</b><small>ÉQUIL.</small></button>
+             <button id="leftHandedToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>MODE GAUCHER</b><small>NON</small></button>
           </div>
         </section>
         <section class="settings-group" aria-labelledby="courseLabel">
           <h3 id="courseLabel">COURSE</h3>
           <div>
-            <button id="difficultyToggle" class="setting-toggle" type="button"><span>🏁</span><b>ADVERSAIRES</b><small>TOUR</small></button>
+             <button id="difficultyToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>ADVERSAIRES</b><small>TOUR</small></button>
           </div>
         </section>
         <section class="settings-group" aria-labelledby="visibiliteLabel">
           <h3 id="visibiliteLabel">VISIBILITÉ &amp; IMPACT</h3>
           <div>
-            <button id="flashToggle" class="setting-toggle" type="button"><span>✨</span><b>FLASH RÉDUIT</b><small>NON</small></button>
-            <button id="impactToggle" class="setting-toggle" type="button"><span>💥</span><b>IMPACT</b><small>TOTAL</small></button>
-            <button id="perfToggle" class="setting-toggle" type="button"><span>📊</span><b>PERFORMANCE</b><small>MASQUÉ</small></button>
+             <button id="flashToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>FLASH RÉDUIT</b><small>NON</small></button>
+             <button id="impactToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>IMPACT</b><small>TOTAL</small></button>
+             <button id="perfToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>PERFORMANCE</b><small>MASQUÉ</small></button>
           </div>
         </section>
         <section class="settings-group quality-group" aria-labelledby="renduLabel">
           <h3 id="renduLabel">RENDU</h3>
-          <div><button id="autoQualityToggle" class="setting-toggle" type="button"><span>⚙️</span><b>QUALITÉ AUTO</b><small>ACTIF</small></button></div>
+           <div><button id="autoQualityToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>QUALITÉ AUTO</b><small>ACTIF</small></button></div>
         </section>
       </div>
       <!-- ⚠️ <details> NATIF, ET AUCUN `id`. Un panneau replié par défaut ne
@@ -302,7 +415,7 @@
            déclarer dans `main.js`, dans les quatre listes de mock des tests,
            ni dans `verify_static` — le coût administratif d'un nouvel élément
            de HUD est ici nul. -->
-      <details class="raccourcis">
+      <details class="raccourcis input-keyboard-only">
         <summary><span aria-hidden="true">⌨</span> RACCOURCIS CLAVIER</summary>
         <div class="raccourcis-grille">
           <section>
@@ -330,7 +443,6 @@
               <div><dt>Pwason Volan</dt><dd><kbd>_</kbd></dd></div>
               <div><dt>Arme active</dt><dd><kbd>Espace</kbd></dd></div>
               <div><dt>Changer d&#39;arme</dt><dd><kbd>E</kbd></dd></div>
-              <div><dt>Frappe de Sable</dt><dd><kbd>R</kbd></dd></div>
             </dl>
           </section>
           <section>
@@ -343,7 +455,7 @@
             </dl>
           </section>
           <section>
-            <h4>DUEL LOCAL · JOUEUR 2</h4>
+            <h4>MÊLÉE LOCALE · JOUEUR 2</h4>
             <dl>
               <div><dt>Barre</dt><dd><kbd>J</kbd><kbd>L</kbd></dd></div>
               <div><dt>Contre-gîte</dt><dd><kbd>K</kbd></dd></div>
@@ -354,19 +466,135 @@
         </div>
         <p class="raccourcis-note">Les huit chiffres <strong>tirent</strong> directement — pas besoin d&#39;appuyer sur Espace ensuite.</p>
       </details>
-      <div class="modal-actions"><button id="resumeBtn" class="primary" type="button">REPRENDRE</button><button id="restartBtn" class="secondary" type="button">RECOMMENCER LE MATCH</button></div>
+      <button id="pauseControlsBtn" class="settings-help secondary" type="button" aria-haspopup="dialog" aria-controls="controlsScreen">AIDE &amp; CONTRÔLES</button>
+      <button id="resetSettingsBtn" class="settings-reset secondary danger-soft" type="button">RÉINITIALISER LES RÉGLAGES</button>
+      </div>
+      <div class="modal-actions pause-action-rail"><button id="resumeBtn" class="primary" type="button">REPRENDRE</button><button id="restartBtn" class="secondary gameplay-only" type="button">RECOMMENCER</button><button id="pauseMenuBtn" class="secondary gameplay-only danger-soft" type="button">QUITTER · MENU PRINCIPAL</button></div>
     </div>
   </div>
 
-  <div id="endScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="endTitle" aria-describedby="endCopy replayStatus">
-    <div class="modal glass"><div id="endIcon" class="modal-icon">🏆</div><h2 id="endTitle">VICTOIRE</h2><p id="endCopy">La mer a choisi son patron.</p><div class="stats-grid"><div><b id="statTakedowns">0</b><span>TAKEDOWNS</span></div><div><b id="statPerfects">0</b><span>SHIFT PARFAITS</span></div><div><b id="statSpeed">0</b><span>KM/H MAX</span></div></div><button id="rematchBtn" class="primary" type="button">🔥 REVANCHE IMMÉDIATE</button><div class="replay-actions"><button id="replayBtn" class="secondary" type="button">▶ REVOIR LE MATCH</button><button id="downloadReplayBtn" class="secondary" type="button">⇩ REPLAY JSON</button><button id="downloadTelemetryBtn" class="secondary" type="button">⇩ TÉLÉMÉTRIE</button></div><small id="replayStatus" class="replay-status">Seed et inputs déterministes sauvegardés localement.</small></div>
+  <div id="endScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="endTitle" aria-describedby="endCopy">
+    <div class="modal glass">
+       <div id="endIcon" class="modal-icon modal-icon-result" aria-hidden="true"></div>
+      <h2 id="endTitle">VICTOIRE</h2>
+      <p id="endCopy">La mer a choisi son patron.</p>
+      <div class="stats-grid">
+        <div><b id="statTakedowns">0</b><span id="statTakedownsLabel">TAKEDOWNS</span></div>
+        <div><b id="statPerfects">0</b><span id="statPerfectsLabel">SHIFT PARFAITS</span></div>
+        <div><b id="statSpeed">0</b><span id="statSpeedLabel">KM/H MAX</span></div>
+      </div>
+       <button id="rematchBtn" class="primary" type="button">REVANCHE IMMÉDIATE</button>
+      <div class="result-growth-actions">
+         <button id="shareChallengeBtn" class="secondary share-challenge hidden" type="button">DÉFIER UN AMI</button>
+         <button id="endInstallBtn" class="secondary install-after-win hidden" type="button">INSTALLER LE JEU</button>
+      </div>
+      <small id="shareStatus" class="share-status" role="status" aria-live="polite">Même mer, même seed · résultat prêt à partager.</small>
+      <div class="replay-actions">
+         <button id="replayBtn" class="secondary" type="button">REVOIR LE MATCH</button>
+         <button id="endMenuBtn" class="secondary" type="button">RETOUR AU PORT</button>
+      </div>
+      <details class="result-advanced">
+        <summary>OUTILS AVANCÉS</summary>
+        <div class="replay-actions advanced-actions">
+           <button id="downloadReplayBtn" class="secondary" type="button">REPLAY JSON</button>
+           <button id="downloadTelemetryBtn" class="secondary" type="button">TÉLÉMÉTRIE</button>
+        </div>
+        <small id="replayStatus" class="replay-status">Seed et inputs déterministes sauvegardés localement.</small>
+      </details>
+    </div>
+  </div>
+
+  <div id="controlsScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="controlsTitle">
+    <div class="modal controls-modal glass">
+      <div class="modal-kicker"><span>ÉCOLE DE BARRE</span><b>AIDE</b></div>
+      <h2 id="controlsTitle">CHOISIS TON POSTE</h2>
+      <p>L’aide suit ton dernier périphérique. Tu peux aussi changer de fiche.</p>
+      <div class="control-tabs" role="tablist" aria-label="Type de contrôles">
+        <button id="keyboardControlsTab" type="button" role="tab" data-control-device="keyboard" aria-controls="keyboardControlsPanel"><i class="device-icon device-keyboard" aria-hidden="true"></i><span>CLAVIER</span><small>AZERTY</small></button>
+        <button id="touchControlsTab" type="button" role="tab" data-control-device="touch" aria-controls="touchControlsPanel"><i class="device-icon device-touch" aria-hidden="true"></i><span>TACTILE</span><small>GESTES</small></button>
+        <button id="gamepadControlsTab" type="button" role="tab" data-control-device="gamepad" aria-controls="gamepadControlsPanel"><i class="device-icon device-gamepad" aria-hidden="true"></i><span>MANETTE</span><small>STANDARD</small></button>
+      </div>
+      <div id="keyboardControlsPanel" class="control-panel" role="tabpanel" data-control-panel="keyboard" aria-labelledby="keyboardControlsTab">
+        <div class="control-visual keyboard-visual" aria-hidden="true">
+          <div class="key-cluster key-cluster-drive"><small>PILOTER</small><kbd>Q</kbd><kbd>D</kbd><kbd>↑</kbd><kbd>↓</kbd></div>
+          <div class="key-cluster key-cluster-action"><small>MANŒUVRES</small><kbd>Z</kbd><kbd>X</kbd><kbd>Shift</kbd></div>
+          <div class="key-cluster key-cluster-weapons"><small>ARMES</small><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>…</kbd><kbd>8</kbd><kbd>Espace</kbd></div>
+        </div>
+        <dl class="control-card-grid">
+          <div><dt>BARRE &amp; VOILE</dt><dd><kbd>Q</kbd><kbd>D</kbd><span>diriger</span><kbd>↑</kbd><kbd>↓</kbd><span>régler la voile</span></dd></div>
+          <div><dt>CONTRE-GÎTE</dt><dd><kbd>Shift</kbd><span>équipage côté opposé</span></dd></div>
+          <div><dt>SOUTE &amp; TIR</dt><dd><kbd>Espace</kbd><span>tirer</span><kbd>E</kbd><span>changer</span><kbd>1—8</kbd><span>tir direct</span></dd></div>
+          <div><dt>TURBO &amp; DASH</dt><dd><kbd>Z</kbd><span>bond avant</span><kbd>X</kbd><span>écart latéral</span></dd></div>
+          <div><dt>VISÉE &amp; CAMÉRA</dt><dd><em class="mouse-chip">CLIC DROIT</em><span>viser</span><kbd>C</kbd><span>rétro</span></dd></div>
+        </dl>
+      </div>
+      <div id="touchControlsPanel" class="control-panel hidden" role="tabpanel" data-control-panel="touch" aria-labelledby="touchControlsTab">
+        <div class="control-visual touch-visual" aria-hidden="true">
+          <div class="touch-phone">
+            <i class="touch-water"></i><i class="touch-swipe touch-swipe-x"></i><i class="touch-swipe touch-swipe-y"></i>
+            <span class="touch-stick">BARRE</span><span class="touch-bwa">BWA</span><span class="touch-weapon">ARME</span>
+          </div>
+          <div class="touch-legend"><b>1 DOIGT</b><span>piloter</span><b>2 DOIGTS</b><span>viser</span><b>DOUBLE-TAP</b><span>turbo</span></div>
+        </div>
+        <dl class="control-card-grid">
+          <div><dt>BARRE &amp; VOILE</dt><dd><span>Glisse sur l’eau ou le joystick. Le mouvement vertical règle la voile.</span></dd></div>
+          <div><dt>CONTRE-GÎTE</dt><dd><span>Touche BWA au moment où la yole charge son côté.</span></dd></div>
+          <div><dt>TIR DIRECT</dt><dd><span>Touche la tuile de l’arme voulue : aucun sélecteur intermédiaire.</span></dd></div>
+          <div><dt>TURBO &amp; DASH</dt><dd><span>Double-tap sur l’eau ; double-coup latéral sur le joystick.</span></dd></div>
+          <div><dt>VISÉE</dt><dd><span>Garde un doigt à la barre, glisse avec le second puis relâche.</span></dd></div>
+        </dl>
+      </div>
+      <div id="gamepadControlsPanel" class="control-panel hidden" role="tabpanel" data-control-panel="gamepad" aria-labelledby="gamepadControlsTab">
+        <div class="control-visual gamepad-visual" aria-hidden="true">
+          <div class="gamepad-body">
+            <i class="pad-grip pad-grip-left"></i><i class="pad-grip pad-grip-right"></i>
+            <span class="pad-stick pad-stick-left">L</span><span class="pad-stick pad-stick-right">R</span>
+            <span class="pad-dpad">+</span>
+            <span class="pad-face pad-a">A</span><span class="pad-face pad-b">B</span><span class="pad-face pad-x">X</span><span class="pad-face pad-y">Y</span>
+            <span class="pad-shoulder pad-lb">LB</span><span class="pad-shoulder pad-rb">RB</span>
+          </div>
+          <div class="gamepad-callouts"><span>MENU · D-PAD / L</span><span>A · VALIDER</span><span>B · RETOUR</span></div>
+        </div>
+        <dl class="control-card-grid">
+          <div><dt>STICKS</dt><dd><em class="pad-chip">L</em><span>barre &amp; voile</span><em class="pad-chip">R</em><span>visée</span></dd></div>
+          <div><dt>ARMES</dt><dd><em class="pad-chip pad-chip-a">A</em><span>tirer</span><em class="pad-chip pad-chip-x">X</em><span>changer</span><em class="pad-chip pad-chip-y">Y</em><span>arme 2</span></dd></div>
+          <div><dt>CONTRE-GÎTE</dt><dd><em class="pad-chip pad-chip-b">B</em><span>déplacer l’équipage</span></dd></div>
+          <div><dt>TURBO &amp; DASH</dt><dd><em class="pad-chip">RB</em><span>bond avant</span><em class="pad-chip">LB</em><span>écart latéral</span></dd></div>
+          <div><dt>CAMÉRA</dt><dd><em class="pad-chip">D-PAD ↑↓</em><span>zoom</span><em class="pad-chip">START</em><span>pause</span></dd></div>
+        </dl>
+      </div>
+      <div class="modal-actions"><button id="replayOnboardingBtn" class="secondary" type="button">REVOIR L’INITIATION</button><button id="controlsCloseBtn" class="primary" type="button">FERMER</button></div>
+    </div>
+  </div>
+
+  <div id="onboardingScreen" class="screen modal-screen onboarding-screen hidden" role="dialog" aria-modal="true" aria-label="Initiation express en quatre étapes">
+    <div class="modal onboarding-modal glass">
+      <div class="modal-kicker"><span>INITIATION EXPRESS</span><b id="onboardingProgress">1 / 4</b></div>
+      <div id="onboardingSteps" class="onboarding-steps">
+        <section data-onboarding-step="0"><div class="onboarding-glyph onboarding-glyph-helm" aria-hidden="true"><i></i></div><h2 id="onboardingTitle">BARRE &amp; VOILE</h2><p><span data-device-copy="keyboard"><kbd>Q</kbd>/<kbd>D</kbd> dirigent, <kbd>↑</kbd>/<kbd>↓</kbd> règlent la voile.</span><span data-device-copy="touch">Glisse horizontalement pour barrer, verticalement pour border ou choquer.</span><span data-device-copy="gamepad">Le stick gauche dirige et règle la voile.</span></p></section>
+        <section class="hidden" data-onboarding-step="1"><div class="onboarding-glyph onboarding-glyph-bwa" aria-hidden="true"><i></i><i></i><i></i></div><h2>CONTRE-GÎTE</h2><p>Quand la yole penche, envoie l’équipage de l’autre côté. Plus ton timing est juste, plus tu gardes ta vitesse.</p></section>
+        <section class="hidden" data-onboarding-step="2"><div class="onboarding-glyph onboarding-glyph-combat" aria-hidden="true"></div><h2>DEUX ARMES EN SOUTE</h2><p><span data-device-copy="keyboard"><kbd>Espace</kbd> tire, <kbd>E</kbd> change d’arme ; les chiffres tirent directement.</span><span data-device-copy="touch">Chaque tuile tire son arme directement.</span><span data-device-copy="gamepad"><kbd>A</kbd> tire, <kbd>X</kbd> change d’arme.</span> Les caisses donnent des surprises.</p></section>
+        <section class="hidden" data-onboarding-step="3"><div class="onboarding-glyph onboarding-glyph-boost" aria-hidden="true"><i></i><i></i><i></i></div><h2>TURBO &amp; BWA DASH</h2><p><span data-device-copy="keyboard"><kbd>Z</kbd> bondit en avant, <kbd>X</kbd> esquive sur le côté.</span><span data-device-copy="touch">Double-tap sur l’eau pour le Turbo ; double-coup latéral du joystick pour le Dash.</span><span data-device-copy="gamepad"><kbd>RB</kbd> bondit, <kbd>LB</kbd> esquive.</span></p></section>
+      </div>
+      <div class="onboarding-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i></div>
+      <div class="modal-actions"><button id="onboardingSkipBtn" class="secondary" type="button">PASSER &amp; JOUER</button><button id="onboardingNextBtn" class="primary" type="button">SUIVANT</button></div>
+    </div>
+  </div>
+
+  <div id="leaveScreen" class="screen modal-screen confirm-screen hidden" role="alertdialog" aria-modal="true" aria-labelledby="leaveTitle" aria-describedby="leaveCopy">
+    <div class="modal confirm-modal glass"><div class="modal-icon modal-icon-leave" aria-hidden="true"></div><h2 id="leaveTitle">RETOUR AU PORT ?</h2><p id="leaveCopy">La manche en cours s’arrête ici. Une progression Tour déjà sauvegardée pourra être reprise.</p><div class="modal-actions"><button id="leaveCancelBtn" class="secondary" type="button">RESTER EN MER</button><button id="leaveConfirmBtn" class="primary danger-confirm" type="button">QUITTER LA SESSION</button></div></div>
   </div>
 
   <div id="fatal" class="screen fatal-screen hidden" role="alertdialog" aria-modal="true" aria-labelledby="fatalTitle" aria-describedby="fatalText">
-    <div class="modal glass"><div class="modal-icon">🌐</div><h2 id="fatalTitle">THREE.JS INTROUVABLE</h2><p id="fatalText">La librairie 3D n’a pas pu être chargée.</p><button id="retryBtn" class="primary" type="button">RÉESSAYER</button></div>
+    <div class="modal glass"><div class="modal-icon modal-icon-fatal" aria-hidden="true"></div><h2 id="fatalTitle">THREE.JS INTROUVABLE</h2><p id="fatalText">La librairie 3D n’a pas pu être chargée.</p><button id="retryBtn" class="primary" type="button">RÉESSAYER</button></div>
   </div>
 
-  <div id="rotateHint" class="rotate-hint hidden">↻ Tourne le téléphone en paysage pour le combat total.</div>
-  <script type="module" src="./src/main.js"></script>
+  <div id="menuInputLegend" class="menu-input-legend" aria-hidden="true">
+    <span><i class="pad-hint pad-hint-nav">+</i>NAVIGUER</span>
+    <span><i class="pad-hint pad-hint-a">A</i>VALIDER</span>
+    <span><i class="pad-hint pad-hint-b">B</i>RETOUR</span>
+  </div>
+  <div id="rotateHint" class="rotate-hint hidden" role="status">↻ Partie en pause · tourne le téléphone en paysage.</div>
+  <script type="module" src="./src/bootstrap.js?v=local-cache-v2"></script>
 </body>
 </html>

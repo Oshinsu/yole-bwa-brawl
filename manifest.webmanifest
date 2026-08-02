@@ -67,6 +67,21 @@
       "label": "Les commandes, au doigt comme au clavier"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Défi du jour",
+      "short_name": "Défi du jour",
+      "description": "Lancer la graine mondiale du jour.",
+      "url": "./?daily=1",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "id": "yole-bwa-brawl-tropical-mayhem-v3-2",
   "scope": "./"
 }

@@ -21,11 +21,11 @@
       "width": 1536,
       "height": 864,
       "aspectRatio": "16:9",
-      "format": "JPEG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
-      "bytes": 310192,
-      "sha256": "c084e04bd0bfaa429bb540818bc973483092e5de841e4653e0fb173fd5787676"
+      "bytes": 207826,
+      "sha256": "45c79b0073d3f28d6cda4eb6365af620df82b1ac701ec3980273edb023691db0"
     },
     {
       "id": "mode_combat_card",
@@ -35,11 +35,11 @@
       "width": 960,
       "height": 540,
       "aspectRatio": "16:9",
-      "format": "JPEG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
-      "bytes": 167919,
-      "sha256": "24bf30d331b3e1a1b7cf70558dc25aa2eaac520997efc61063ab436a926b69bd"
+      "bytes": 141260,
+      "sha256": "3c965489dc0b256982d623668b17bf9f4378e12551365bb47cf80a3b2e2d4d62"
     },
     {
       "id": "mode_tour_card",
@@ -49,11 +49,11 @@
       "width": 960,
       "height": 540,
       "aspectRatio": "16:9",
-      "format": "JPEG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
-      "bytes": 144821,
-      "sha256": "e7cb44edf9d4e7dd87e184c405254ffbedd7ba33b5177a3e4dc969f0c8491f84"
+      "bytes": 117110,
+      "sha256": "67c044a117aa41ce1437ccd1549e87bec8afb81e1700c4483f4c3c9a06b60ae9"
     },
     {
       "id": "mode_versus_card",
@@ -63,11 +63,11 @@
       "width": 960,
       "height": 540,
       "aspectRatio": "16:9",
-      "format": "JPEG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
-      "bytes": 157716,
-      "sha256": "704093126b8ed63fced7fa4a003739c004625661ca5ebfb2b167938d3dde7c70"
+      "bytes": 128976,
+      "sha256": "de1c071ddb99ee63f6839e1bd9040d0401b5278bd7bba2843b50d7fcd30b2af7"
     },
     {
       "id": "mode_workshop_card",
@@ -77,11 +77,11 @@
       "width": 960,
       "height": 540,
       "aspectRatio": "16:9",
-      "format": "JPEG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
-      "bytes": 137163,
-      "sha256": "20885300695c0f859fddc27da12ac1329b502e918ba91d2686b08f0612ed0c47"
+      "bytes": 102554,
+      "sha256": "b78bcf955ac2f10bfa718cab536b818a7a711bf7738004ed8e9362e31aaf765d"
     },
     {
       "id": "versus_lobby_backdrop",
@@ -91,11 +91,11 @@
       "width": 1536,
       "height": 864,
       "aspectRatio": "16:9",
-      "format": "JPEG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
-      "bytes": 324258,
-      "sha256": "7d6c859defb72dd7c1992a21b763fb5cdf13b96df183f91c4562a1b5dec39805"
+      "bytes": 211634,
+      "sha256": "f58a478488e1b877797c696de6eb7e1689b17044111ed3ff7fe556bd2bc26991"
     },
     {
       "id": "badge_player_one",
@@ -106,15 +106,15 @@
       "width": 512,
       "height": 512,
       "aspectRatio": "1:1",
-      "format": "PNG",
+      "format": "WEBP",
       "colorMode": "RGBA",
       "alpha": true,
       "transparentCornerCount": 4,
       "transparentPixelPercent": 50.89,
       "partialAlphaPixelPercent": 2.83,
       "opaquePixelPercent": 46.28,
-      "bytes": 313898,
-      "sha256": "72c2bc8dad4936c8c7ca6aa4043e0a01d9187e8caa8f479a7b7ae5e8f912fd6b"
+      "bytes": 61220,
+      "sha256": "726507311d8e3285521f968ae71a285106448601e769ff673baba28db6266424"
     },
     {
       "id": "badge_player_two",
@@ -125,15 +125,15 @@
       "width": 512,
       "height": 512,
       "aspectRatio": "1:1",
-      "format": "PNG",
+      "format": "WEBP",
       "colorMode": "RGBA",
       "alpha": true,
       "transparentCornerCount": 4,
       "transparentPixelPercent": 46.9,
       "partialAlphaPixelPercent": 2.11,
       "opaquePixelPercent": 50.99,
-      "bytes": 366852,
-      "sha256": "a49b2a6e65296a1bf6d80511d3ccccd26316431533cbde3267e654693ecdf0cd"
+      "bytes": 66118,
+      "sha256": "abbdea66371596b0af169fcca001f39765a12cbab39a95dec363b8abb2115a99"
     }
   ],
   "qualityAssurance": {

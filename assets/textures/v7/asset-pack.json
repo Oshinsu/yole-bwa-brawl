@@ -25,14 +25,14 @@
       "width": 512,
       "height": 512,
       "aspectRatio": "1:1",
-      "format": "PNG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
       "blendIntent": "additive",
       "blackCornersValidated": true,
       "maximumCornerChannel": 1,
-      "bytes": 304536,
-      "sha256": "76fff21d6aae5380f73e292d1fbdba57bdb44f750a0256ada9d708df7eb3bae3",
+      "bytes": 69724,
+      "sha256": "ae4e3d01cc443749cf19c639ded552aad6e535116b38cd3bfa895128e2071581",
       "atlasCell": {
         "column": 0,
         "row": 0,
@@ -40,8 +40,8 @@
         "y": 0,
         "width": 512,
         "height": 512,
-        "u0": 0.0,
-        "v0": 0.0,
+        "u0": 0,
+        "v0": 0,
         "u1": 0.5,
         "v1": 0.5
       }
@@ -54,14 +54,14 @@
       "width": 512,
       "height": 512,
       "aspectRatio": "1:1",
-      "format": "PNG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
       "blendIntent": "additive",
       "blackCornersValidated": true,
       "maximumCornerChannel": 2,
-      "bytes": 513048,
-      "sha256": "4434733eecc992c53771ef61ba71e138bd217c4f8dbb29ea490b4cc1f2f9feb6",
+      "bytes": 116838,
+      "sha256": "31d95c6fe340844c522f4939e6b0727df78878c8b21076f055b8eb2a8b5066fd",
       "atlasCell": {
         "column": 1,
         "row": 0,
@@ -70,8 +70,8 @@
         "width": 512,
         "height": 512,
         "u0": 0.5,
-        "v0": 0.0,
-        "u1": 1.0,
+        "v0": 0,
+        "u1": 1,
         "v1": 0.5
       }
     },
@@ -83,14 +83,14 @@
       "width": 512,
       "height": 512,
       "aspectRatio": "1:1",
-      "format": "PNG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
       "blendIntent": "additive",
       "blackCornersValidated": true,
       "maximumCornerChannel": 1,
-      "bytes": 379635,
-      "sha256": "8fbdb5cdd8f6551e9cf248e923a956bdd07542a90df5101a8197a97cc44949c9",
+      "bytes": 81374,
+      "sha256": "97fac7d3924b943a3122cbefb06356fb556e951a5b22ac83df729b3362ef9f06",
       "atlasCell": {
         "column": 0,
         "row": 1,
@@ -98,10 +98,10 @@
         "y": 512,
         "width": 512,
         "height": 512,
-        "u0": 0.0,
+        "u0": 0,
         "v0": 0.5,
         "u1": 0.5,
-        "v1": 1.0
+        "v1": 1
       }
     },
     {
@@ -112,14 +112,14 @@
       "width": 512,
       "height": 512,
       "aspectRatio": "1:1",
-      "format": "PNG",
+      "format": "WEBP",
       "colorMode": "RGB",
       "alpha": false,
       "blendIntent": "additive",
       "blackCornersValidated": true,
       "maximumCornerChannel": 1,
-      "bytes": 383874,
-      "sha256": "7d19a8fd89c7217ae30497aa25a615e1c98bb96c55f7330529ecfb842dbc7051",
+      "bytes": 90340,
+      "sha256": "fb5741bce66fc099ef3ad7ef83b8052f592010df3e3b89b8b3a43e4ea900ca75",
       "atlasCell": {
         "column": 1,
         "row": 1,
@@ -129,8 +129,8 @@
         "height": 512,
         "u0": 0.5,
         "v0": 0.5,
-        "u1": 1.0,
-        "v1": 1.0
+        "u1": 1,
+        "v1": 1
       }
     }
   ],
@@ -144,15 +144,15 @@
     "rows": 2,
     "cellWidth": 512,
     "cellHeight": 512,
-    "format": "PNG",
+    "format": "WEBP",
     "colorMode": "RGB",
     "alpha": false,
     "blendIntent": "additive",
     "drawCallIntent": "One atlas-backed texture batch / draw call for the four signatures.",
     "blackCornersValidated": true,
     "maximumCornerChannel": 1,
-    "bytes": 1592377,
-    "sha256": "b8b947e4b7ba106854e53b36053e26816453afd112a7b02a22be492ff6569a02",
+    "bytes": 355462,
+    "sha256": "35da3bc2905136a91e4a54853d8a6d3653c4de1d2754789a67ce664f5aa0f602",
     "mappingOrder": [
       "harpoon_anchor_tear",
       "coconut_shockwave",
@@ -162,9 +162,9 @@
     "cellComparison": [
       {
         "id": "harpoon_anchor_tear",
-        "differentPixelPercent": 0.0,
+        "differentPixelPercent": 0,
         "maximumChannelDelta": 0,
-        "meanAbsoluteChannelDelta": 0.0
+        "meanAbsoluteChannelDelta": 0
       },
       {
         "id": "coconut_shockwave",
