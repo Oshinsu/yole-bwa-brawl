@@ -32,7 +32,62 @@ const setCssVariable = (element, name, value) => {
   else element.style[name] = value;
 };
 
+// Instrument de rendu uniquement : la simulation garde son roulis exact, mais
+// l'aiguille possède sa propre masse. Le sous-pas borne l'intégration quand le
+// HUD revient après une pause ou un onglet masqué.
+export function advanceBalanceNeedle(state, target, dt = 0.08) {
+  const needle = state && typeof state === "object" ? state : {};
+  if (!Number.isFinite(needle.position)) needle.position = 0;
+  if (!Number.isFinite(needle.velocity)) needle.velocity = 0;
+  const destination = clamp(Number.isFinite(target) ? target : 0, -50, 50);
+  const elapsed = clamp(Number.isFinite(dt) ? dt : 0.08, 0, 0.16);
+  const steps = Math.max(1, Math.ceil(elapsed / 0.04));
+  const step = elapsed / steps;
+  for (let index = 0; index < steps; index++) {
+    const acceleration = (destination - needle.position) * 42 - needle.velocity * 10;
+    needle.velocity += acceleration * step;
+    needle.position += needle.velocity * step;
+  }
+  needle.position = clamp(needle.position, -52, 52);
+  needle.velocity = clamp(needle.velocity, -180, 180);
+  return needle;
+}
+
 export const HudSystems = {
+  syncAudioSettings() {
+    const volume = (key, fallback) => {
+      const value = Number(this.settings?.get?.(key));
+      return Number.isFinite(value) ? clamp(value, 0, 1) : fallback;
+    };
+    const musicVolume = volume("musicVolume", 0.8);
+    const sfxVolume = volume("sfxVolume", 1);
+    const soundEnabled = this.settings?.get?.("audio") !== false && !this.audio?.muted;
+    this.music?.setVolume?.(soundEnabled ? musicVolume : 0);
+    const parameter = this.audio?.sfxGain?.gain;
+    if (parameter && (
+      this.audioUiCache?.parameter !== parameter
+      || this.audioUiCache?.sfx !== sfxVolume
+      || this.audioUiCache?.enabled !== soundEnabled
+    )) {
+      const now = this.audio?.context?.currentTime ?? 0;
+      parameter.setTargetAtTime?.(soundEnabled ? sfxVolume : 0, now, 0.04);
+      if (!parameter.setTargetAtTime) parameter.value = soundEnabled ? sfxVolume : 0;
+    }
+    this.audioUiCache = { parameter, sfx: sfxVolume, music: musicVolume, enabled: soundEnabled };
+    if (this.ui?.musicVolume) this.ui.musicVolume.value = String(Math.round(musicVolume * 100));
+    this.ui?.musicVolume?.style?.setProperty?.("--range-level", `${Math.round(musicVolume * 100)}%`);
+    if (this.ui?.musicVolumeValue) this.ui.musicVolumeValue.textContent = `${Math.round(musicVolume * 100)}%`;
+    if (this.ui?.sfxVolume) this.ui.sfxVolume.value = String(Math.round(sfxVolume * 100));
+    this.ui?.sfxVolume?.style?.setProperty?.("--range-level", `${Math.round(sfxVolume * 100)}%`);
+    if (this.ui?.sfxVolumeValue) this.ui.sfxVolumeValue.textContent = `${Math.round(sfxVolume * 100)}%`;
+    if (this.ui?.sound) {
+      this.ui.sound.textContent = soundEnabled ? "🔊" : "🔇";
+      this.ui.sound.setAttribute?.("aria-pressed", String(soundEnabled));
+      this.ui.sound.setAttribute?.("aria-label", soundEnabled ? "Son activé" : "Son coupé");
+    }
+    return { soundEnabled, musicVolume, sfxVolume };
+  },
+
   applySettingsUI() {
     const setToggle = (element, active, text) => {
       if (!element) return;
@@ -53,7 +108,17 @@ export const HudSystems = {
       hapticsLevel > 0,
       hapticsLevel >= 1 ? "TOTAL" : hapticsLevel > 0 ? "DOUX" : "SANS"
     );
-    setToggle(this.ui.stableCameraToggle, this.settings.get("cameraRoll") >= 0.88, `${Math.round(this.settings.get("cameraRoll") * 100)}%`);
+    const cameraStability = clamp(this.settings.get("cameraRoll"), 0, 1);
+    const cameraStabilityLabel = cameraStability >= 0.9
+      ? "STABLE"
+      : cameraStability <= 0.75
+        ? "VIVANTE"
+        : "ÉQUIL.";
+    setToggle(this.ui.stableCameraToggle, cameraStability >= 0.9, cameraStabilityLabel);
+    this.ui.stableCameraToggle?.setAttribute?.(
+      "aria-label",
+      `Stabilisation caméra : ${cameraStabilityLabel.toLowerCase()}, ${Math.round(cameraStability * 100)} %`
+    );
     setToggle(this.ui.flashToggle, this.settings.get("reduceFlash"), this.settings.get("reduceFlash") ? "OUI" : "NON");
     const impactLevel = this.settings.get("impact");
     setToggle(this.ui.impactToggle, impactLevel > 0, impactLevel >= 1 ? "TOTAL" : impactLevel > 0 ? "DOUX" : "SANS");
@@ -72,12 +137,7 @@ export const HudSystems = {
     document.body?.classList.toggle("reduced-impact", impactLevel < 1);
     document.body?.classList.toggle("minimal-impact", impactLevel <= 0);
     this.postFX?.setReduceFlash(this.settings.get("reduceFlash"));
-    const soundEnabled = !this.audio?.muted;
-    // Le bouton SON gouverne les DEUX bus : couper le son en laissant la
-    // musique tourner serait une surprise désagréable.
-    this.music?.setVolume?.(soundEnabled ? 1 : 0);
-    this.ui.sound?.setAttribute?.("aria-pressed", String(soundEnabled));
-    this.ui.sound?.setAttribute?.("aria-label", soundEnabled ? "Son activé" : "Son coupé");
+    this.syncAudioSettings();
     const qualityLabel = this.qualityProfile?.label || this.ui.quality?.textContent || "HQ";
     this.ui.quality?.setAttribute?.("aria-label", `Qualité graphique : ${qualityLabel}, activer pour changer`);
     const zoomPercent = Math.round(this.cameraZoom * 100);
@@ -192,7 +252,7 @@ export const HudSystems = {
     // message ; l'oublier aurait rendu les alertes de brume visuellement
     // identiques à un message anodin, alors que ce sont les plus critiques.
     const critical = /DANGER|CHAVIR|ÉLIMIN|BRUME|SABLE|VIDE|RECHARGE/.test(normalized);
-    const positive = /VICTOIRE|PARFAIT|PRÊT|SÉLECTIONNÉ|REPÊCHÉ|TURBO/.test(normalized);
+    const positive = /VICTOIRE|PARFAIT|PRÊT|SÉLECTIONNÉ|TURBO/.test(normalized);
     this.ui.message.classList.toggle("message-critical", critical);
     this.ui.message.classList.toggle("message-positive", !critical && positive);
     this.ui.message.setAttribute?.("aria-live", critical ? "assertive" : "polite");
@@ -479,7 +539,7 @@ export const HudSystems = {
     const remaining = this.tour ? Math.max(0, this.tourCourseLength() - player.z) : 0;
     if (this.ui.minimapMode) this.ui.minimapMode.textContent = this.tour ? `ÉTAPE ${this.tour.stage + 1}/8` : `MANCHE ${this.round}`;
     if (this.ui.minimapStatus) {
-      const position = player.eliminated ? `CHAVIRÉ ${place}/${this.boats.length}` : `POSITION ${place}/${this.boats.length}`;
+      const position = player.eliminated ? `ÉLIMINÉ ${place}/${this.boats.length}` : `POSITION ${place}/${this.boats.length}`;
       this.ui.minimapStatus.textContent = this.tour
         ? `${position} · ARRIVÉE ${Math.round(remaining)} M`
         : `${position} · BRUME ${Math.round(stormDistance)} M`;
@@ -489,11 +549,20 @@ export const HudSystems = {
 
   updateUI() {
     if (this.mode !== "playing") return;
+    this.syncAudioSettings();
     const player = this.boats[0];
     const feedback = this.uiFeedback ??= {
       ammo: Object.create(null),
       weaponReady: Object.create(null)
     };
+    // Après élimination (ou arrivée du Tour), les commandes ne peuvent plus
+    // agir. Les laisser brillantes faisait croire à un bug de saisie et
+    // surchargeait la caméra spectateur. L'état visuel suit donc l'autorité de
+    // l'input : information de course conservée, commandes retirées.
+    this.ui.hud?.classList.toggle(
+      "spectator-controls-hidden",
+      Boolean(player.eliminated || player.tourFinished)
+    );
     const roundToken = this.tour
       ? `tour:${this.tour.stage}:${this.round}`
       : `${this.versusLocal ? "versus" : "combat"}:${this.round}`;
@@ -503,7 +572,7 @@ export const HudSystems = {
     }
     this.updateVersusHud?.();
     if (this.versusLocal) {
-      this.ui.roundLabel.textContent = `DUEL LOCAL · MANCHE ${this.round}`;
+      this.ui.roundLabel.textContent = `MÊLÉE LOCALE · MANCHE ${this.round}`;
       if (this.ui.roundSub) {
         this.ui.roundSub.textContent = `J1 ${this.boats[0].score} · J2 ${this.boats[1].score} · PREMIER À ${CONFIG.targetScore}`;
       }
@@ -523,7 +592,7 @@ export const HudSystems = {
         || (Number.isFinite(feedback.p2Score) && p2Score !== feedback.p2Score)
       ) {
         const announcer = this.ui.versusHud?.querySelector?.("#versusAnnouncer");
-        if (announcer) announcer.textContent = `Score du duel : joueur 1, ${p1Score}; joueur 2, ${p2Score}`;
+        if (announcer) announcer.textContent = `Score de la mêlée : joueur 1, ${p1Score}; joueur 2, ${p2Score}`;
       }
       feedback.p1Score = p1Score;
       feedback.p2Score = p2Score;
@@ -543,18 +612,46 @@ export const HudSystems = {
       if (this.ui.roundSub) this.ui.roundSub.textContent = `PREMIER À ${CONFIG.targetScore}`;
     }
     this.ui.timer.textContent = formatTime(this.roundTime);
-    this.ui.speed.textContent = Math.round(player.speed * 3.6);
+    const speedKmh = Math.round(player.speed * 3.6);
+    if (feedback.speedKmh !== speedKmh) this.ui.speed.textContent = speedKmh;
+    feedback.speedKmh = speedKmh;
     const danger = clamp(Math.abs(player.roll) / 1.15, 0, 1);
-    this.ui.balanceBar.style.width = `${danger * 100}%`;
+    // Le remplissage absolu perdait l'information la plus importante : de quel
+    // côté l'équipage doit se déplacer. Le pointeur conserve maintenant le
+    // signe de la gîte et se déplace sur la vraie bwa du pack V8.
+    const balanceTarget = clamp(player.roll / 1.15, -1, 1) * 50;
+    const balanceNeedle = advanceBalanceNeedle(
+      feedback.balanceNeedle ??= { position: 0, velocity: 0 },
+      balanceTarget,
+      0.08
+    );
+    const balanceOffset = balanceNeedle.position;
+    setCssVariable(this.ui.balanceBar, "--balance-target", `${balanceTarget}%`);
+    setCssVariable(this.ui.balanceBar, "--balance-offset", `${balanceOffset}%`);
+    const balanceLoad = clamp(Math.abs(balanceTarget - balanceOffset) / 24, 0, 1);
+    setCssVariable(this.ui.balanceBar, "--balance-load", String(balanceLoad));
+    setCssVariable(this.ui.balanceBar, "--balance-glow", `${5 + balanceLoad * 8}px`);
+    setCssVariable(this.ui.balanceBar, "--balance-trail-opacity", String(0.18 + balanceLoad * 0.56));
+    const balanceSide = balanceTarget < -3 ? "Bâbord" : balanceTarget > 3 ? "Tribord" : "Centré";
+    this.ui.balanceBar?.parentElement?.setAttribute?.("aria-valuenow", String(Math.round(balanceTarget)));
+    this.ui.balanceBar?.parentElement?.setAttribute?.("aria-valuetext", balanceSide);
     const handling = handlingCue(player.dynamics, danger);
     const handlingMode = handling.mode;
     this.ui.balanceText.textContent = handling.label;
     const statusPanel = this.ui.balanceBar?.closest?.(".status");
+    statusPanel?.classList.toggle("heel-port", balanceTarget < -3);
+    statusPanel?.classList.toggle("heel-starboard", balanceTarget > 3);
     statusPanel?.classList.toggle("status-danger", danger > 0.55);
     statusPanel?.classList.toggle("status-critical", danger > 0.82);
     statusPanel?.classList.toggle("status-surf", handlingMode === "surf");
     statusPanel?.classList.toggle("status-drift", handlingMode === "drift");
     statusPanel?.classList.toggle("status-recover", handlingMode === "recover");
+    this.ui.hud?.classList.toggle(
+      "hud-focus",
+      danger > 0.55
+        || Boolean(this.input.aimActive)
+        || (this.impact?.aftershock ?? 0) > 0.035
+    );
     if (feedback.handlingMode !== undefined && feedback.handlingMode !== handlingMode) {
       restartUiCue(statusPanel, "handling-cue");
     }
@@ -577,6 +674,12 @@ export const HudSystems = {
       // « MAINTENANT » n'est affiché que dans le vrai coeur de la fenêtre, pas
       // dès qu'elle s'ouvre : un repère qui reste allumé n'enseigne pas un timing.
       const parfait = ouverte && shiftCue.precision > 0.62;
+      const disponibilite = ouverte
+        ? clamp(0.22 + shiftCue.precision * 0.78, 0, 1)
+        : shiftCue.state === "recovery"
+          ? 0.52
+          : clamp(shiftCue.roll / 0.34, 0, 1) * 0.5;
+      setCssVariable(bwa, "--shift-meter", String(disponibilite));
       bwa.classList.toggle("shift-open", ouverte);
       bwa.classList.toggle("shift-perfect", parfait);
       bwa.classList.toggle("shift-recovery", shiftCue.state === "recovery");
@@ -595,8 +698,11 @@ export const HudSystems = {
       feedback.shiftPerfect = parfait;
     }
 
-    this.ui.flowBar.style.width = `${player.flow * 100}%`;
-    this.ui.flowText.textContent = `${Math.round(player.flow * 100)}%`;
+    const flowPercent = Math.round(clamp(player.flow, 0, 1) * 100);
+    setCssVariable(this.ui.flowBar, "--meter-level", String(clamp(player.flow, 0, 1)));
+    this.ui.flowBar?.parentElement?.setAttribute?.("aria-valuenow", String(flowPercent));
+    if (feedback.flowPercent !== flowPercent) this.ui.flowText.textContent = `${flowPercent}%`;
+    feedback.flowPercent = flowPercent;
     this.ui.crewDots.textContent = CREW_DOTS[player.activeCrew] ?? CREW_DOTS[0];
     if (this.ui.trimText) {
       // L'écoute est désormais pilotable au clavier : la jauge doit dire non
@@ -607,7 +713,10 @@ export const HudSystems = {
     }
     this.ui.waterText.textContent = `${Math.round(player.water)} KG`;
     const structure = player.dynamics.structure;
-    if (this.ui.hullBar) this.ui.hullBar.style.width = `${clamp(structure.hull, 0, 1) * 100}%`;
+    if (this.ui.hullBar) {
+      setCssVariable(this.ui.hullBar, "--meter-level", String(clamp(structure.hull, 0, 1)));
+      this.ui.hullBar.parentElement?.setAttribute?.("aria-valuenow", String(Math.round(clamp(structure.hull, 0, 1) * 100)));
+    }
     if (this.ui.hullText) {
       const coque = Math.round(clamp(structure.hull, 0, 1) * 100);
       this.ui.hullText.textContent = `${coque}%`;
@@ -615,9 +724,14 @@ export const HudSystems = {
       // moment où ça commence à coûter cher, pas quand c'est fini.
       this.ui.hullText.style.color = coque < 35 ? "#ff6b8a" : coque < 65 ? "#ffc531" : "";
     }
+    const bwaIntegrity = clamp(structure.bwa.reduce((sum, value) => sum + value, 0) / structure.bwa.length, 0, 1);
     if (this.ui.mastBar) this.ui.mastBar.style.width = `${clamp(structure.mast, 0, 1) * 100}%`;
     if (this.ui.sailBar) this.ui.sailBar.style.width = `${clamp(structure.sail, 0, 1) * 100}%`;
-    if (this.ui.bwaIntegrityBar) this.ui.bwaIntegrityBar.style.width = `${clamp(structure.bwa.reduce((sum, value) => sum + value, 0) / structure.bwa.length, 0, 1) * 100}%`;
+    if (this.ui.bwaIntegrityBar) this.ui.bwaIntegrityBar.style.width = `${bwaIntegrity * 100}%`;
+    // Les diagnostics secondaires ne prennent de place que lorsqu'ils ont
+    // quelque chose à dire. La coque garde sa jauge principale dédiée.
+    const secondarySystemsIntact = structure.mast >= 0.985 && structure.sail >= 0.985 && bwaIntegrity >= 0.985;
+    this.ui.systemIntegrity?.classList?.toggle?.("hidden", secondarySystemsIntact);
     const liveWeather = this.atmosphere.weather;
     if (this.ui.weatherChip) {
       const label = liveWeather.stormAmount > 0.72 ? "🌪 BRUME TOTALE" : liveWeather.stormAmount > 0.38 ? "🌧 MER CROISÉE" : liveWeather.windSpeed > 11 ? "💨 ALIZÉS FORTS" : "☀ ALIZÉS STABLES";
@@ -668,31 +782,38 @@ export const HudSystems = {
     // Éliminé, on se retrouvait derrière une autre yole sans rien qui l'explique.
     if (this.ui.spectateur) {
       const mort = Boolean(player.eliminated);
-      this.ui.spectateur.classList.toggle("hidden", !mort);
-      if (mort) {
+      const arrive = Boolean(this.tour && player.tourFinished);
+      const spectating = mort || arrive;
+      const tourResultReady = Boolean(this.tour && spectating && this.roundEnding > 0);
+      this.ui.spectateur.classList.toggle("hidden", !spectating);
+      this.ui.skipSpectating?.classList?.toggle?.("hidden", !tourResultReady);
+      if (spectating) {
+        const titre = this.ui.spectateur.querySelector?.("b");
+        if (titre) titre.textContent = arrive ? "ARRIVÉE FRANCHIE" : "ÉLIMINÉ";
         const suivi = this.cameraFollowName ?? null;
         const cible = this.ui.spectateur.querySelector?.("em");
-        if (cible) cible.textContent = suivi ? `CAMÉRA SUR ${suivi}` : "CAMÉRA SUR TON ÉPAVE";
+        if (cible) cible.textContent = arrive
+          ? "ÉTAPE TERMINÉE · LES RIVAUX FINISSENT"
+          : `${player.eliminatedReason || "HORS COURSE"} · ${
+              suivi ? `CAMÉRA SUR ${suivi}` : "CAMÉRA SUR TON ÉPAVE"
+            }`;
         const bas = this.ui.spectateur.querySelector?.("small");
         if (bas) {
-          // Le repêchage n'existe qu'en Combat : en Tour, une élimination est
-          // un abandon d'étape, et promettre un retour serait mentir.
-          const reste = this.tour
-            ? null
-            : Math.max(0, BALANCE.respawn.delay - (player.respawnTimer ?? 0));
-          bas.textContent = reste === null
-            ? "ÉTAPE TERMINÉE POUR TOI"
-            : reste > 0.05 ? `REPÊCHAGE DANS ${reste.toFixed(0)} s` : "ON TE REMET À FLOT…";
+          bas.textContent = tourResultReady
+            ? "RÉSULTATS PRÊTS · TU PEUX ÉCOURTER LE DÉLAI"
+            : arrive
+              ? "LES RIVAUX FINISSENT · CLASSEMENT EN COURS"
+              : this.tour
+                ? "ABANDON · ATTENDS LA FIN DE L'ÉTAPE"
+                : "ÉLIMINÉ · ATTENDS LA FIN DE LA MANCHE";
         }
       }
     }
 
     this.updateMinimap(player);
 
-    // UN SEUL emplacement d'arme. L'identite passe par la COULEUR du lisere,
-    // pas par le libelle : a 4,8 px un texte est illisible au soleil. Le code
-    // couleur (coco or, harpon turquoise, mine cramoisi) est celui que le joueur
-    // a deja appris, et docs/ART_DIRECTION.md interdit de le casser.
+    // L'arme active pilote le viseur. Les trois tuiles tactiles restent fixes :
+    // deux armes de soute et l'arme de caisse portée.
     const weapon = this.activeWeapon(player);
     // ⚠️ LA TUILE 1 MONTRE SA SOUTE, PAS L'ARME ACTIVE. Elle affichait
     // `activeWeapon`, donc elle changeait de visage dès qu'on tirait autre

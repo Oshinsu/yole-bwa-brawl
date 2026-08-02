@@ -15,7 +15,20 @@ __pycache__/
 *.pyc
 .venv/
 
+# Métadonnées/outils locaux et raccourci Windows absolu : aucun intérêt dans
+# l'image de production, même lorsqu'ils existent physiquement hors Git.
+.agents/
+.claude/
+.codex/
+.playwright-mcp/
+*.lnk
+
 # Sorties de mesure et archives de release : reproductibles, jamais servies.
 docs/ZIK_ANALYSE.json
 *.zip
 *.tar.gz
+
+# Ateliers Blender : voir docs/BLENDER_MCP.md. Le .glb livre suffit en ligne.
+*.blend
+*.blend[0-9]*
+.mcp.json

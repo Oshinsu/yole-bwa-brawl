@@ -7,15 +7,42 @@ import { clamp, damp } from "../core/math.js";
 import { routeCenter } from "../render/world.js";
 import { checksumBoats, downloadReplay } from "../sim/replay.js";
 import { BALANCE, CONFIG, TOUR_STAGES, TOUR_STAGE_POINTS, createBuoyVisual } from "./balance.js";
+import { TourProgressStore, rankTourBoats } from "./tour-progress.js";
 import { versusPilotLabel } from "./versus.js";
+
+export function resolveTourStageClassification(boats, finishOrder = []) {
+  const fleet = Array.isArray(boats) ? boats : [];
+  const fleetSet = new Set(fleet);
+  const seen = new Set();
+  const finishers = [];
+  for (const boat of finishOrder ?? []) {
+    if (!fleetSet.has(boat) || !boat?.tourFinished || seen.has(boat)) continue;
+    seen.add(boat);
+    finishers.push(boat);
+  }
+  // Filet de sécurité pour une sauvegarde ou un harnais où un finisher n'aurait
+  // pas rejoint finishOrder : son tick restaure un ordre déterministe.
+  const missingFinishers = fleet
+    .filter((boat) => boat?.tourFinished && !seen.has(boat))
+    .sort((a, b) => (a.finishTick ?? 0) - (b.finishTick ?? 0) || a.id - b.id);
+  const dnfs = fleet
+    .filter((boat) => !boat?.tourFinished)
+    .sort((a, b) => b.z - a.z || a.id - b.id);
+  const places = [...finishers, ...missingFinishers, ...dnfs];
+  const awarded = fleet.map(() => 0);
+  const finishTicks = fleet.map(() => 0);
+  places.forEach((boat, index) => {
+    awarded[boat.id] = boat.tourFinished ? (TOUR_STAGE_POINTS[index] ?? 0) : 0;
+    finishTicks[boat.id] = boat.tourFinished ? boat.finishTick : 0;
+  });
+  return { places, awarded, finishTicks };
+}
 
 export const MatchDirector = {
   resetRound(announce = true) {
     this.roundTime = 0;
     this.roundEnding = 0;
     this.stormZ = BALANCE.storm.startZ;
-    this.spiritUsed = false;
-    this.revengePending = null;
     this.resetPools();
     this.boats.forEach((boat, index) => {
       boat.reset(index);
@@ -24,37 +51,118 @@ export const MatchDirector = {
     });
     this.replay.markRound(this.tick, this.round, this.seed ^ this.round);
     if (announce) this.showMessage(`MANCHE ${this.round}`, 1.1);
-    this.ui.revenge.classList.add("hidden");
     this.updateLeaderboard();
   },
 
-  startTour() {
-    this.tour = {
+  tourStore() {
+    if (!this._tourProgressStore) {
+      this._tourProgressStore = new TourProgressStore(undefined, {
+        stageCount: TOUR_STAGES.length,
+        boatCount: this.boats.length
+      });
+    }
+    return this._tourProgressStore;
+  },
+
+  freshTour() {
+    const now = new Date().toISOString();
+    return {
       stage: 0,
       baseSeed: this.seed >>> 0,
       points: this.boats.map(() => 0),
       results: [],
       finishOrder: [],
-      champion: null
+      champion: null,
+      cumulativeStats: { takedowns: 0, perfects: 0, maxSpeed: 0, boosts: 0, slingshots: 0 },
+      startedAt: now,
+      updatedAt: now,
+      completedAt: ""
     };
-    this.startTourStage(0);
+  },
+
+  startTour(options = {}) {
+    const saved = options.resume ? this.tourStore().load() : null;
+    if (saved?.status === "active") {
+      this.tourPersistenceAvailable = true;
+      this.tour = {
+        ...saved,
+        finishOrder: [],
+        champion: null
+      };
+    } else {
+      this.tour = this.freshTour();
+    }
+    this.startTourStage(this.tour.stage);
+  },
+
+  resumeTour() {
+    this.startTour({ resume: true });
+  },
+
+  hasTourToResume() {
+    return this.tourStore().hasActive();
+  },
+
+  saveTourProgress(status = "active") {
+    if (!this.tour) return null;
+    // Un défi reçu rejoue une étape isolée. Il ne doit jamais écraser le vrai
+    // Grand Tour local du joueur qui a simplement ouvert un lien partagé.
+    if (this.tour.challenge) return { challenge: true, status };
+    const saved = this.tourStore().save({
+      ...this.tour,
+      status,
+      champion: undefined,
+      finishOrder: undefined
+    });
+    this.tourPersistenceAvailable = Boolean(saved);
+    return saved;
+  },
+
+  clearTourProgress() {
+    const cleared = this.tourStore().clear();
+    this.tourPersistenceAvailable = Boolean(cleared);
+    return cleared;
+  },
+
+  tourRanking() {
+    if (!this.tour) return [];
+    return rankTourBoats(this.tour.points, this.tour.results, this.boats.length);
+  },
+
+  skipTourSpectating() {
+    if (!this.tour || this.mode !== "playing") return false;
+    const player = this.boats[0];
+    if (!player?.eliminated && !player?.tourFinished) return false;
+    // Avant `roundEnding`, des rivaux courent encore : attribuer les points
+    // maintenant les transformerait artificiellement en DNF. Le bouton ne
+    // saute donc que le délai final, une fois l'ordre décidé ou le timeout acté.
+    if (!(this.roundEnding > 0)) return false;
+    this.roundEnding = 0;
+    this.endTourStage();
+    return true;
+  },
+
+  startNewTour() {
+    this.clearTourProgress();
+    this.startTour();
   },
 
   tourCourseLength() {
     return TOUR_STAGES[this.tour?.stage ?? 0].distance;
   },
 
-  startTourStage(index) {
+  configureTourStageEnvironment({ playback = false } = {}) {
     const tour = this.tour;
-    if (!tour) return;
-    tour.stage = index;
-    tour.finishOrder = [];
-    // Seed déterministe par étape : chaque legs a sa propre météo, rejouable à l'identique.
-    this.seed = (tour.baseSeed + Math.imul(index + 1, 0x9e3779b9)) >>> 0;
-    this.startMatch({ tourStage: true });
-    this.boats.forEach((boat, boatIndex) => { boat.score = tour.points[boatIndex]; });
+    if (!tour) return false;
+    const stage = TOUR_STAGES[tour.stage];
+    if (!stage) return false;
+    this.boats.forEach((boat, boatIndex) => { boat.score = tour.points[boatIndex] ?? 0; });
+    // Même ordre qu'en direct : startMatch a d'abord remis le streamer à zéro,
+    // puis la côte de l'étape remplace cette mer générique.
+    this.world?.setStage?.(this.seed ^ 0x77ad, stage.palette, stage.environment, stage.distance);
+    this.ocean?.setStagePalette?.(stage.environment?.water);
+    this.ocean?.setIslands?.(this.world?.nearestIslands?.(0) ?? []);
     this.createBuoys();
-    // Deux bouées vertes marquent la ligne d'arrivée de l'étape.
     const finishZ = this.tourCourseLength();
     const center = routeCenter(finishZ);
     for (const side of [-1, 1]) {
@@ -63,8 +171,45 @@ export const MatchDirector = {
       this.buoys.push({ x: center + side * 14, z: finishZ, mesh, phase: side * 1.3 });
     }
     this.updateLeaderboard();
-    this.showMessage(`ÉTAPE ${index + 1}/8 · ${TOUR_STAGES[index].name}`, 2.2);
-    this.telemetry.track("tour_stage_start", { stage: index }, 0);
+    const root = globalThis.document?.documentElement;
+    if (root) {
+      root.dataset.tourStage = stage.slug;
+      root.style.setProperty("--tour-accent", stage.accent);
+    }
+    if (playback) return true;
+    // Métadonnées nécessaires pour reconstruire exactement cette côte depuis
+    // la replayothèque, sans toucher à la progression réellement sauvegardée.
+    this.replay.metadata = {
+      ...this.replay.metadata,
+      tourStage: tour.stage,
+      stage: stage.name,
+      tourPoints: [...tour.points]
+    };
+    const progressSaved = this.saveTourProgress("active");
+    this.showMessage(
+      progressSaved
+        ? `ÉTAPE ${tour.stage + 1}/8 · ${stage.short}`
+        : `ÉTAPE ${tour.stage + 1}/8 · ${stage.short} · ⚠ TOUR EN SESSION SEULEMENT`,
+      progressSaved ? 2.2 : 3.2
+    );
+    this.telemetry.track("tour_stage_start", {
+      stage: tour.stage,
+      slug: stage.slug,
+      landmark: stage.landmark,
+      weather: stage.weatherLabel
+    }, 0);
+    return true;
+  },
+
+  startTourStage(index) {
+    const tour = this.tour;
+    if (!tour) return;
+    tour.stage = Math.max(0, Math.min(TOUR_STAGES.length - 1, index | 0));
+    tour.finishOrder = [];
+    // Seed déterministe par étape : chaque legs a sa propre météo, rejouable à l'identique.
+    this.seed = (tour.baseSeed + Math.imul(tour.stage + 1, 0x9e3779b9)) >>> 0;
+    this.startMatch({ tourStage: true });
+    this.configureTourStageEnvironment();
   },
 
   updateTourStage(dt) {
@@ -79,6 +224,7 @@ export const MatchDirector = {
         tour.finishOrder.push(boat);
         const place = tour.finishOrder.length;
         if (boat.isPlayer) {
+          this.clearLiveInput?.();
           this.showMessage(place === 1 ? "🚩 LIGNE ! 1RE DE L'ÉTAPE" : `🚩 LIGNE ! ${place}E DE L'ÉTAPE`, 1.4);
           this.postFX.pulse(0.5);
           this.haptic?.("checkpoint");
@@ -98,47 +244,92 @@ export const MatchDirector = {
   endTourStage() {
     const tour = this.tour;
     if (!tour) return;
+    if (tour.results.some((result) => result.stage === tour.stage)) return;
     const stage = TOUR_STAGES[tour.stage];
     // Classement de l'étape : arrivés dans l'ordre, puis non-finisseurs par z décroissant.
-    const dnfs = this.boats.filter((boat) => !boat.tourFinished);
-    dnfs.sort((a, b) => b.z - a.z);
-    const places = [...tour.finishOrder, ...dnfs];
+    const { places, awarded, finishTicks } = resolveTourStageClassification(this.boats, tour.finishOrder);
     const lines = [];
     places.forEach((boat, index) => {
-      const points = boat.tourFinished ? (TOUR_STAGE_POINTS[index] ?? 0) : 0;
+      const points = awarded[boat.id];
       tour.points[boat.id] += points;
       boat.score = tour.points[boat.id];
       lines.push(`${index + 1}. ${boat.name} +${points}`);
     });
-    tour.results.push({ stage: tour.stage, places: places.map((boat) => boat.id) });
+    tour.cumulativeStats ??= { takedowns: 0, perfects: 0, maxSpeed: 0, boosts: 0, slingshots: 0 };
+    tour.cumulativeStats.takedowns += this.stats.takedowns;
+    tour.cumulativeStats.perfects += this.stats.perfects;
+    tour.cumulativeStats.maxSpeed = Math.max(tour.cumulativeStats.maxSpeed, this.stats.maxSpeed);
+    tour.cumulativeStats.boosts += this.stats.boosts;
+    tour.cumulativeStats.slingshots += this.stats.slingshots;
+    tour.results.push({
+      stage: tour.stage,
+      places: places.map((boat) => boat.id),
+      points: awarded,
+      finishTicks,
+      completedAt: new Date().toISOString()
+    });
     this.telemetry.track("tour_stage_end", { stage: tour.stage, places: places.map((boat) => boat.id) }, this.time);
     this.replay.finish(this.dynamicsList(), { tick: this.tick, tourStage: tour.stage, stage: stage.name });
     this.latestReplay = this.replay.export();
-    this.replayVault.save(this.latestReplay, this.latestReplay.metadata);
+    const replayStored = Boolean(this.replayVault.save(this.latestReplay, this.latestReplay.metadata));
     this.mode = "ended";
     this.ui.hud.classList.add("hidden");
     this.ui.end.classList.remove("hidden");
-    const last = tour.stage >= TOUR_STAGES.length - 1;
+    const challengeStage = Boolean(tour.challenge);
+    const last = challengeStage || tour.stage >= TOUR_STAGES.length - 1;
     const playerPlace = places.findIndex((boat) => boat.isPlayer) + 1;
-    const general = this.boats.slice().sort((a, b) => b.score - a.score || b.z - a.z)
-      .map((boat) => `${boat.name} ${boat.score}`).join(" · ");
-    this.ui.endIcon.textContent = last ? "🏆" : "🚩";
+    const ranking = this.tourRanking();
+    const general = ranking
+      .map((entry) => `${this.boats[entry.id].name} ${entry.points}`).join(" · ");
+    this.ui.endIcon.textContent = "";
+    if (this.ui.endIcon.dataset) this.ui.endIcon.dataset.result = last ? "champion" : "stage";
     this.ui.endTitle.textContent = last ? "PODIUM DU TOUR" : `ÉTAPE ${tour.stage + 1}/8 · ${playerPlace === 1 ? "1RE" : `${playerPlace}E`} À L'ÉTAPE`;
     this.ui.endCopy.textContent = `${stage.name} — ${lines.join(" · ")} — GÉNÉRAL : ${general}`;
+    let progressStored = false;
     if (last) {
-      const champion = this.boats.slice().sort((a, b) => b.score - a.score || b.z - a.z)[0];
+      const champion = this.boats[ranking[0].id];
       tour.champion = champion;
-      this.ui.endTitle.textContent = champion.isPlayer ? "ROI DU TOUR 🏆" : `🏆 ${champion.name} CHAMPION`;
+      tour.completedAt = new Date().toISOString();
+      this.ui.endTitle.textContent = challengeStage
+        ? (playerPlace === 1 ? "DÉFI DOMPTÉ" : "DÉFI TERMINÉ")
+        : champion.isPlayer ? "ROI DU TOUR" : `${champion.name} CHAMPION`;
       this.telemetry.track("tour_end", { champion: champion.id, playerWon: champion.isPlayer }, this.time);
+      progressStored = Boolean(this.saveTourProgress("completed"));
+    } else {
+      tour.stage += 1;
+      progressStored = Boolean(this.saveTourProgress("active"));
+      // L'écran de fin montre l'étape qui vient d'être courue, même si la
+      // sauvegarde pointe déjà vers la prochaine.
+      tour.stage -= 1;
     }
-    this.ui.statTakedowns.textContent = this.stats.takedowns;
-    this.ui.statPerfects.textContent = this.stats.perfects;
-    this.ui.statSpeed.textContent = Math.round(this.stats.maxSpeed);
-    if (this.ui.rematch) this.ui.rematch.textContent = last ? "⛵ REJOUER LE TOUR" : "⛵ ÉTAPE SUIVANTE";
+    if (!progressStored) {
+      this.ui.endCopy.textContent += " — ⚠ STOCKAGE LOCAL INDISPONIBLE : TOUR CONSERVÉ POUR CETTE SESSION SEULEMENT";
+    }
+    this.ui.statTakedowns.textContent = tour.cumulativeStats.takedowns;
+    this.ui.statPerfects.textContent = tour.cumulativeStats.perfects;
+    this.ui.statSpeed.textContent = Math.round(tour.cumulativeStats.maxSpeed);
+    if (this.ui.statTakedownsLabel) this.ui.statTakedownsLabel.textContent = "TAKEDOWNS · TOUR";
+    if (this.ui.statPerfectsLabel) this.ui.statPerfectsLabel.textContent = "SHIFTS · TOUR";
+    if (this.ui.statSpeedLabel) this.ui.statSpeedLabel.textContent = "KM/H MAX · TOUR";
+    if (this.ui.rematch) {
+      this.ui.rematch.textContent = challengeStage
+        ? "⚡ REJOUER LE DÉFI"
+        : last ? "⛵ REJOUER LE TOUR" : "⛵ ÉTAPE SUIVANTE";
+    }
     // Rejouer une étape dans la session du Tour risquerait de re-scorer : on désactive.
     if (this.ui.replay) this.ui.replay.disabled = true;
     if (this.ui.downloadReplay) this.ui.downloadReplay.disabled = !this.latestReplay;
-    if (this.ui.replayStatus) this.ui.replayStatus.textContent = `Replay d'étape sauvegardé · checksum ${this.latestReplay?.finalChecksum ?? "—"}`;
+    if (this.ui.replayStatus) {
+      this.ui.replayStatus.textContent = replayStored
+        ? `Replay d'étape sauvegardé · checksum ${this.latestReplay?.finalChecksum ?? "—"}`
+        : `Replay d'étape prêt à télécharger · stockage local indisponible · checksum ${this.latestReplay?.finalChecksum ?? "—"}`;
+    }
+    this.noteRunCompleted?.({
+      shareable: !this.playback,
+      mode: "tour",
+      stage: tour.stage,
+      won: playerPlace === 1
+    });
     this.audio.play(playerPlace === 1 ? "victory" : "buoy", { gain: playerPlace === 1 ? 0.5 : 0.34, gap: 0.3 });
   },
 
@@ -230,7 +421,9 @@ export const MatchDirector = {
     //
     // `overboard` est purement visuel : il vide l'équipage affiché sans toucher
     // à dynamics.activeCrew, qui entre dans le checksum de replay.
-    const overboard = boat.activeCrew;
+    // Les six dresseurs simulés ne sont pas seuls à bord : l'homme d'écoute et
+    // le patron visible doivent eux aussi partir à l'eau lors d'un chavirage.
+    const overboard = Math.min(6, boat.activeCrew) + 2;
     boat.visual.setOverboard?.(true);
     for (let index = 0; index < overboard; index++) {
       // Tout le monde part du bord au vent, comme quand la yole se couche, et
@@ -245,7 +438,13 @@ export const MatchDirector = {
           z: boat.z + forward.x * side * 1.7 + forward.z * along
         },
         { x: boat.dynamics.vx * 0.18, z: boat.dynamics.vz * 0.18 },
-        side
+        side,
+        {
+          color: boat.color,
+          accent: boat.accent,
+          boatId: boat.id,
+          crewIndex: index
+        }
       );
     }
     this.addKill(`${boat.name} — ${reason}`);
@@ -260,7 +459,6 @@ export const MatchDirector = {
       this.telemetry.track("takedown", { attacker: attacker.id, victim: boat.id }, this.time);
     }
 
-    if (boat.isPlayer && !this.spiritUsed && !this.tour && !this.versusLocal) this.ui.revenge.classList.remove("hidden");
     this.postFX.pulse(1.0);
     this.audio.playImpact?.("takedown", {
       intensity: boat.isPlayer ? 1.12 : 0.84,
@@ -278,72 +476,11 @@ export const MatchDirector = {
     }
   },
 
-  // Repêchage. Une yole chavirée est remise à flot au bout de quelques
-  // secondes, à sa position, avarie comprise — au lieu de laisser le joueur
-  // spectateur jusqu'à la fin de la manche.
-  //
-  // Combat UNIQUEMENT : en Tour, une élimination est un abandon d'étape et le
-  // classement général en dépend.
-  updateRespawns(dt) {
-    if (this.tour || this.roundEnding > 0) return;
-    for (const boat of this.boats) {
-      if (!boat.eliminated) { boat.respawnTimer = 0; continue; }
-      boat.respawnTimer = (boat.respawnTimer ?? 0) + dt;
-      if (boat.respawnTimer < BALANCE.respawn.delay) continue;
-      boat.respawnTimer = 0;
-      this.respawn(boat);
-    }
-  },
-
-  respawn(boat) {
-    const dynamics = boat.dynamics;
-    const settings = BALANCE.respawn;
-    boat.eliminated = false;
-    boat.eliminatedReason = "";
-    boat.finishOrder = 0;
-    dynamics.sink = 0;
-    dynamics.y = 0.48;
-    dynamics.vy = 0;
-    dynamics.roll = 0;
-    dynamics.rollVel = 0;
-    dynamics.pitch = 0;
-    dynamics.pitchVel = 0;
-    dynamics.capsizeTimer = 0;
-    // On vide la yole : elle vient d'être retournée et écopée.
-    dynamics.flooding.fill(0);
-    dynamics.updateWaterMass();
-    // La coque garde ses avaries, seulement relevée à un plancher jouable : le
-    // repêchage n'est pas une remise à neuf, sinon chavirer devient rentable.
-    dynamics.structure.hull = Math.max(dynamics.structure.hull, settings.hull);
-    dynamics.flow = settings.flow;
-    dynamics.boostCooldown = 0;
-    dynamics.cohesion = Math.max(dynamics.cohesion, 0.5);
-    // Quelques secondes d'immunité, sinon on rechavire dans le paquet qu'on
-    // vient de quitter. Le rhum est déjà exactement ce verrou dans applyHit.
-    dynamics.rhum = Math.max(dynamics.rhum, settings.invulnerable);
-    // ⚠️ BOUCLE DE MORT CORRIGÉE. `respawn` ne touchait JAMAIS à `dynamics.z`.
-    // Or `fixedStep` gèle la position d'une yole éliminée pendant que le mur du
-    // Grain, lui, continue d'avancer : on était donc repêché DERRIÈRE lui, à la
-    // même seconde absorbé, éliminé, repêché derrière, absorbé — jusqu'à la fin
-    // de la manche, sans aucune action possible.
-    //
-    // On replace la yole devant le mur avec une marge. Déterministe : aucun
-    // tirage, valeur dérivée de `stormZ`, identique en relecture.
-    const margeGrain = this.stormZ + BALANCE.storm.cohesionGap + settings.aheadOfStorm;
-    if (dynamics.z < margeGrain) dynamics.z = margeGrain;
-    boat.visual.setOverboard?.(false);
-    boat.visual.root.visible = true;
-    this.addKill(`${boat.name} — REPÊCHÉ`);
-    if (boat.isPlayer) this.showMessage("REPÊCHÉ — REPARS !", 1.1);
-    this.telemetry.track("respawn", { boat: boat.id }, this.time);
-  },
-
   updateRound(dt) {
     if (this.tour) {
       this.updateTourStage(dt);
       return;
     }
-    this.updateRespawns(dt);
     const alive = this.collectAlive();
     if (alive.length <= 1 && !this.roundEnding) {
       if (alive[0]) {
@@ -398,18 +535,29 @@ export const MatchDirector = {
     if (versus) {
       const label = champion.id === 0 ? "J1" : champion.id === 1 ? "J2" : `IA · ${champion.name}`;
       const humanWinner = champion.id <= 1;
-      this.ui.endIcon.textContent = humanWinner ? "🏆" : "🤖";
+      this.ui.endIcon.textContent = "";
+      if (this.ui.endIcon.dataset) this.ui.endIcon.dataset.result = humanWinner ? "champion" : "rival";
       this.ui.endTitle.textContent = `${label} REMPORTE LE DUEL`;
       this.ui.endCopy.textContent = `Score final · J1 ${this.boats[0].score} · J2 ${this.boats[1].score} · ${this.boats[2].name} ${this.boats[2].score} · ${this.boats[3].name} ${this.boats[3].score}`;
       this.ui.statTakedowns.textContent = `${this.boats[0].stats.takedowns}/${this.boats[1].stats.takedowns}`;
+      this.ui.statPerfects.textContent = `${this.boats[0].score}/${this.boats[1].score}`;
+      this.ui.statSpeed.textContent = label;
+      if (this.ui.statTakedownsLabel) this.ui.statTakedownsLabel.textContent = "TAKEDOWNS J1/J2";
+      if (this.ui.statPerfectsLabel) this.ui.statPerfectsLabel.textContent = "SCORE J1/J2";
+      if (this.ui.statSpeedLabel) this.ui.statSpeedLabel.textContent = "VAINQUEUR";
     } else {
-      this.ui.endIcon.textContent = win ? "🏆" : "🌊";
+      this.ui.endIcon.textContent = "";
+      if (this.ui.endIcon.dataset) this.ui.endIcon.dataset.result = win ? "champion" : "defeat";
       this.ui.endTitle.textContent = win ? "ROI DE LA LANMÈ" : "LA BRUME T’A EU";
       this.ui.endCopy.textContent = win ? "La dernière yole debout porte tes couleurs." : `${champion.name} règne sur la Combat Box.`;
       this.ui.statTakedowns.textContent = this.stats.takedowns;
+      this.ui.statPerfects.textContent = this.stats.perfects;
+      this.ui.statSpeed.textContent = Math.round(this.stats.maxSpeed);
+      if (this.ui.statTakedownsLabel) this.ui.statTakedownsLabel.textContent = "TAKEDOWNS";
+      if (this.ui.statPerfectsLabel) this.ui.statPerfectsLabel.textContent = "SHIFT PARFAITS";
+      if (this.ui.statSpeedLabel) this.ui.statSpeedLabel.textContent = "KM/H MAX";
     }
-    this.ui.statPerfects.textContent = this.stats.perfects;
-    this.ui.statSpeed.textContent = Math.round(this.stats.maxSpeed);
+    let replayStored = false;
     if (!this.playback && !versus) {
       this.replay.finish(this.dynamicsList(), {
         tick: this.tick,
@@ -420,18 +568,26 @@ export const MatchDirector = {
         maxSpeed: this.stats.maxSpeed
       });
       this.latestReplay = this.replay.export();
-      this.replayVault.save(this.latestReplay, this.latestReplay.metadata);
+      replayStored = Boolean(this.replayVault.save(this.latestReplay, this.latestReplay.metadata));
     }
-    if (this.ui.rematch) this.ui.rematch.textContent = versus ? "⚔ REVANCHE DUEL LOCAL" : "🔥 REVANCHE IMMÉDIATE";
+    if (this.ui.rematch) this.ui.rematch.textContent = versus ? "⚔ REVANCHE MÊLÉE LOCALE" : "🔥 REVANCHE IMMÉDIATE";
     if (this.ui.replay) this.ui.replay.disabled = versus || !this.latestReplay;
     if (this.ui.downloadReplay) this.ui.downloadReplay.disabled = versus || !this.latestReplay;
     if (this.ui.replayStatus) {
       this.ui.replayStatus.textContent = versus
-        ? "Replay désactivé en Duel local · les deux flux humains restent indépendants"
+        ? "Replay désactivé en Mêlée locale · les deux flux humains restent indépendants"
         : this.playback
           ? `Replay terminé · checksum ${checksumBoats(this.dynamicsList())}`
-          : `Replay sauvegardé · ${this.latestReplay?.inputs?.length ?? 0} trames compressées · checksum ${this.latestReplay?.finalChecksum ?? "—"}`;
+          : replayStored
+            ? `Replay sauvegardé · ${this.latestReplay?.inputs?.length ?? 0} trames compressées · checksum ${this.latestReplay?.finalChecksum ?? "—"}`
+            : `Replay prêt à télécharger · stockage local indisponible · checksum ${this.latestReplay?.finalChecksum ?? "—"}`;
     }
+    this.noteRunCompleted?.({
+      shareable: !versus && !this.playback,
+      mode: "combat",
+      stage: 0,
+      won: win
+    });
     const versusHumanWin = versus && champion.id <= 1;
     this.audio.play(versus ? (versusHumanWin ? "victory" : "defeat") : (win ? "victory" : "defeat"), { gain: 0.55, gap: 0.4 });
   }

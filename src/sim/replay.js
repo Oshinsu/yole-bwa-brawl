@@ -34,15 +34,84 @@ function quantize(value, precision = 1000) {
 }
 
 export const REPLAY_SCHEMA_VERSION = 2;
-export const SIMULATION_VERSION = "3.7.0";
-export const GAMEPLAY_VERSION = "tropical-mayhem-v3-8-balistique";
+// 4.0.0 — 2 août 2026. Les seize points de flottabilité ont été recalés sur la
+// coque VISIBLE : ils en débordaient jusqu'à 18 cm au maître-bau, le bateau
+// flottant sur des points qu'aucun joueur ne voyait. `HULL_STATIONS` change,
+// donc les trajectoires changent, donc tout enregistrement antérieur diverge.
+//
+// Majeure, pas mineure : les replays 3.x sont REFUSÉS à la lecture plutôt que
+// rejoués faux. Un replay qui se lance et dérive silencieusement est pire qu'un
+// replay qui s'annonce incompatible.
+export const SIMULATION_VERSION = "4.0.0";
+// Une élimination est désormais définitive pendant la manche. Refuser les
+// anciennes lectures évite de rejouer un enregistrement avec l'ancien
+// repêchage automatique et de faire diverger les checksums.
+export const GAMEPLAY_VERSION = "tropical-mayhem-v3-12-no-rescue";
+
+function isReplayChecksum(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}$/i.test(value);
+}
+
+function areReplayCheckpointsValid(checkpoints, finalTick) {
+  if (!Array.isArray(checkpoints)) return false;
+  let previousTick = -1;
+  for (const checkpoint of checkpoints) {
+    if (
+      !checkpoint
+      || !Number.isInteger(checkpoint.tick)
+      || checkpoint.tick < 0
+      || checkpoint.tick > finalTick
+      || checkpoint.tick <= previousTick
+      || !isReplayChecksum(checkpoint.checksum)
+    ) return false;
+    previousTick = checkpoint.tick;
+  }
+  return true;
+}
+
+function isFiniteInRange(value, minimum, maximum) {
+  return Number.isFinite(value) && value >= minimum && value <= maximum;
+}
+
+function areReplayInputsValid(inputs, finalTick) {
+  if (!Array.isArray(inputs)) return false;
+  let previousTick = -1;
+  for (const frame of inputs) {
+    if (
+      !frame
+      || typeof frame !== "object"
+      || Array.isArray(frame)
+      || !Number.isInteger(frame.tick)
+      || frame.tick < 0
+      || frame.tick > finalTick
+      || frame.tick <= previousTick
+      || !isFiniteInRange(frame.steer, -1, 1)
+      || !isFiniteInRange(frame.trim, 0, 1)
+      || !isFiniteInRange(frame.aim, -1, 1)
+      || !isFiniteInRange(frame.aimPitch, -1, 1)
+      || typeof frame.aimActive !== "boolean"
+      || !Number.isInteger(frame.actions)
+      || frame.actions < 0
+      || frame.actions > 0xffffffff
+    ) return false;
+    previousTick = frame.tick;
+  }
+  return true;
+}
 
 export function isReplayCompatible(replay) {
   return Boolean(
     replay
     && replay.schemaVersion === REPLAY_SCHEMA_VERSION
     && replay.simulationVersion === SIMULATION_VERSION
+    && replay.gameplayVersion === GAMEPLAY_VERSION
     && replay.fixedHz === 60
+    && Array.isArray(replay.inputs)
+    && Number.isInteger(replay.finalTick)
+    && replay.finalTick >= 0
+    && isReplayChecksum(replay.finalChecksum)
+    && areReplayInputsValid(replay.inputs, replay.finalTick)
+    && areReplayCheckpointsValid(replay.checkpoints, replay.finalTick)
   );
 }
 
@@ -132,6 +201,9 @@ export class ReplayRecorder {
       // paramètre de partie survit à une relecture. Mesuré avant : un réglage lu
       // depuis un magasin externe changeait le checksum final en silence.
       rig: this.rig ?? 1,
+      // Snapshot purement visuel. Il ne participe pas au checksum, mais une
+      // relecture doit montrer la yole enregistrée, pas celle équipée aujourd'hui.
+      customization: this.customization ?? null,
       // Même raison que `rig` : les IA d'un CHANNPYON ne jouent pas comme celles
       // d'un PEYI, donc relire un fichier avec un autre réglage donnerait un
       // autre checksum sans rien dire.
@@ -156,12 +228,18 @@ export class ReplayPlayer {
     if (!replay || !Array.isArray(replay.inputs)) throw new TypeError("Invalid replay payload");
     this.replay = replay;
     this.cursor = 0;
-    this.current = { steer: 0, trim: 0.82, aim: 0, aimActive: false, actions: 0 };
+    this.current = { steer: 0, trim: 0.82, aim: 0, aimPitch: 0, aimActive: false, actions: 0 };
+    this.checkpointCursor = 0;
+    this.finalValidated = false;
+    this.validationError = null;
   }
 
   reset() {
     this.cursor = 0;
-    this.current = { steer: 0, trim: 0.82, aim: 0, aimActive: false, actions: 0 };
+    this.current = { steer: 0, trim: 0.82, aim: 0, aimPitch: 0, aimActive: false, actions: 0 };
+    this.checkpointCursor = 0;
+    this.finalValidated = false;
+    this.validationError = null;
   }
 
   inputAt(tick, out = {}) {
@@ -171,15 +249,119 @@ export class ReplayPlayer {
       this.current.steer = frame.steer;
       this.current.trim = frame.trim ?? 0.82;
       this.current.aim = frame.aim ?? 0;
+      this.current.aimPitch = frame.aimPitch ?? 0;
       this.current.aimActive = Boolean(frame.aimActive);
       if (frame.tick === tick) actions |= frame.actions >>> 0;
     }
     out.steer = this.current.steer;
     out.trim = this.current.trim;
     out.aim = this.current.aim;
+    out.aimPitch = this.current.aimPitch;
     out.aimActive = this.current.aimActive;
     out.actions = actions;
     return out;
+  }
+
+  /**
+   * Vérifie l'état autoritaire au moment exact où il a été signé.
+   *
+   * Cette méthode est volontairement incrémentale : un checkpoint sauté est
+   * lui-même une divergence, car comparer son checksum à un état ultérieur
+   * donnerait un diagnostic trompeur. Le premier écart est conservé afin que
+   * l'interface puisse arrêter la lecture sans perdre sa cause.
+   */
+  validateState(tick, boats, { ended = false } = {}) {
+    if (this.validationError) {
+      return {
+        // L'échec reste un état actif : si l'appelant tente de reprendre une
+        // lecture divergente, il doit continuer à la bloquer.
+        checked: true,
+        ok: false,
+        checks: [],
+        error: this.validationError,
+        complete: this.finalValidated
+      };
+    }
+
+    const currentTick = Math.max(0, Math.trunc(Number(tick) || 0));
+    const checkpoints = Array.isArray(this.replay.checkpoints) ? this.replay.checkpoints : [];
+    const checks = [];
+    let actualChecksum = null;
+    const actual = () => actualChecksum ?? (actualChecksum = checksumBoats(boats));
+
+    while (this.checkpointCursor < checkpoints.length) {
+      const checkpoint = checkpoints[this.checkpointCursor];
+      if (!checkpoint || !Number.isInteger(checkpoint.tick) || !isReplayChecksum(checkpoint.checksum)) {
+        this.validationError = {
+          kind: "checkpoint-invalid",
+          tick: currentTick,
+          checkpointIndex: this.checkpointCursor
+        };
+        break;
+      }
+      if (checkpoint.tick > currentTick) break;
+      if (checkpoint.tick < currentTick) {
+        this.validationError = {
+          kind: "checkpoint-missed",
+          tick: currentTick,
+          expectedTick: checkpoint.tick,
+          expected: checkpoint.checksum
+        };
+        break;
+      }
+
+      const observed = actual();
+      const check = {
+        kind: "checkpoint",
+        tick: currentTick,
+        expected: checkpoint.checksum,
+        actual: observed,
+        ok: observed === checkpoint.checksum
+      };
+      checks.push(check);
+      this.checkpointCursor++;
+      if (!check.ok) {
+        this.validationError = check;
+        break;
+      }
+    }
+
+    const finalTick = Number.isInteger(this.replay.finalTick) ? this.replay.finalTick : null;
+    const finalDue = !this.validationError
+      && !this.finalValidated
+      && finalTick !== null
+      && isReplayChecksum(this.replay.finalChecksum)
+      && (currentTick >= finalTick || ended);
+    if (finalDue) {
+      if (currentTick !== finalTick) {
+        this.validationError = {
+          kind: "final-tick",
+          tick: currentTick,
+          expectedTick: finalTick,
+          expected: this.replay.finalChecksum
+        };
+      } else {
+        const observed = actual();
+        const check = {
+          kind: "final",
+          tick: currentTick,
+          expected: this.replay.finalChecksum,
+          actual: observed,
+          ok: observed === this.replay.finalChecksum
+        };
+        checks.push(check);
+        this.finalValidated = check.ok;
+        if (!check.ok) this.validationError = check;
+      }
+    }
+
+    return {
+      checked: checks.length > 0 || Boolean(this.validationError),
+      ok: !this.validationError,
+      checks,
+      error: this.validationError,
+      complete: this.finalValidated
+    };
   }
 
   get complete() {
@@ -216,13 +398,16 @@ export class ReplayVault {
       summary,
       replay
     };
+    if (typeof this.storage?.setItem !== "function") return null;
     try {
       const items = [item, ...this.list()].slice(0, this.limit);
-      this.storage?.setItem(VAULT_KEY, JSON.stringify(items));
+      this.storage.setItem(VAULT_KEY, JSON.stringify(items));
+      return item;
     } catch {
-      // Storage can be unavailable or full; replay remains downloadable in memory.
+      // Le replay reste téléchargeable via Game.latestReplay, mais n'est pas
+      // annoncé comme sauvegardé si le stockage privé/plein l'a refusé.
+      return null;
     }
-    return item;
   }
 
   latest() {
@@ -233,8 +418,28 @@ export class ReplayVault {
     return this.list().find((item) => item.id === id) ?? null;
   }
 
+  remove(id) {
+    if (typeof id !== "string" && typeof id !== "number") return false;
+    try {
+      const items = this.list();
+      const remaining = items.filter((item) => item?.id !== id);
+      if (remaining.length === items.length) return false;
+      if (remaining.length) this.storage?.setItem(VAULT_KEY, JSON.stringify(remaining.slice(0, this.limit)));
+      else this.storage?.removeItem(VAULT_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   clear() {
-    try { this.storage?.removeItem(VAULT_KEY); } catch { /* ignored */ }
+    if (typeof this.storage?.removeItem !== "function") return false;
+    try {
+      this.storage.removeItem(VAULT_KEY);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

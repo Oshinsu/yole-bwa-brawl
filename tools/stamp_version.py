@@ -6,9 +6,10 @@
 
     const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0";
 
-L'activation supprime tous les caches dont le nom differe, puis `skipWaiting` et
-`clients.claim` prennent la main immediatement. Le mecanisme de mise a jour est
-donc correct — mais il est entierement suspendu a UN changement de cette chaine.
+L'activation supprime les anciennes versions qui portent le prefixe YOLE, puis
+`skipWaiting` et `clients.claim` prennent la main immediatement. Le mecanisme de
+mise a jour est donc correct — mais il est entierement suspendu a UN changement
+de cette chaine.
 
 Deployer sans la changer, c'est laisser chaque joueur deja venu sur l'ANCIENNE
 version, definitivement : son service worker sert son cache, ne voit aucune
@@ -32,6 +33,10 @@ from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent
 SW = RACINE / "service-worker.js"
+FICHIERS_INSTALL_CRITIQUES = {
+    "./vendor/three.module.min.js",
+    "./vendor/three.core.min.js",
+}
 
 
 def fichiers_precaches(source: str) -> list[str]:
@@ -80,6 +85,19 @@ def main() -> int:
     actuel = re.search(r'const CACHE = "([^"]+)"', source)
     if not actuel:
         print("ECHEC: constante CACHE introuvable dans service-worker.js")
+        return 1
+    prefixe = re.search(r'const CACHE_PREFIX = "([^"]+)"', source)
+    if not prefixe or not actuel.group(1).startswith(prefixe.group(1)):
+        print("ECHEC: CACHE doit commencer par CACHE_PREFIX pour etre purgeable.")
+        return 1
+
+    precaches = set(fichiers_precaches(source))
+    critiques_oublies = sorted(FICHIERS_INSTALL_CRITIQUES - precaches)
+    if critiques_oublies:
+        print("ECHEC: fichier(s) install-critique(s) absent(s) de CORE :")
+        for absent in critiques_oublies:
+            print(f"   {absent}")
+        print("   -> leur contenu ne participerait pas a la version du cache.")
         return 1
 
     signature, compte, manquants = empreinte(source)

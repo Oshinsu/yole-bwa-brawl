@@ -29,6 +29,7 @@ const settings = {
 };
 const director = new ImpactDirector(new RNG(20260727), settings);
 director.trigger("mine", { dirX: 1, dirZ: 0, intensity: 1 });
+assert.equal(director.serial, 1, "chaque frappe doit pouvoir relancer son cartouche graphique");
 assert.ok(director.freeze <= 0.16, "hitstop dépasse le budget de contrôle");
 assert.ok(director.aftershock >= 0.5, "queue basse fréquence absente");
 assert.ok(director.flash <= 0.16, "FLASH RÉDUIT laisse un pic trop lumineux");

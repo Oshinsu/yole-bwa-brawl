@@ -664,6 +664,7 @@ export class PostFX {
     this.capsize = 0;
     this.damage = 0;
     this.bloom = 0.35;
+    this.graphicStyle = false;
     this.reduceFlash = false;
     // MSAA sur la cible de rendu : `antialias` du contexte ne s'applique qu'au
     // framebuffer par defaut, jamais a un WebGLRenderTarget. Sans `samples`,
@@ -753,6 +754,8 @@ export class PostFX {
         uDamage: { value: 0 },
         uBloom: { value: 0.35 },
         uStreak: { value: 0.30 },
+        uFastComposite: { value: 0 },
+        uGraphicStyle: { value: 0 },
         // Exposition scène. Le seul bouton global de luminosité maintenant que
         // la passe fait vraiment tone mapping + encodage sRGB. 0,90 est mesuré,
         // pas choisi à l'œil : balayage 0,55 -> 1,25 sur une frame gelée
@@ -778,6 +781,8 @@ export class PostFX {
         uniform float uDamage;
         uniform float uBloom;
         uniform float uStreak;
+        uniform float uFastComposite;
+        uniform float uGraphicStyle;
         uniform float uExposure;
         uniform float uBlack;
         varying vec2 vUv;
@@ -803,6 +808,76 @@ export class PostFX {
         void main() {
           vec2 p = vUv - 0.5;
           float distanceFromCenter = length(p);
+
+          // Chemin mobile : une seule lecture de scène. On conserve le tone
+          // mapping, la palette tropicale, le danger et le tramage qui font la
+          // DA ; on retire seulement les lectures radiales/chromatiques, les
+          // gouttes procédurales et les contours plein écran. Sur un GPU mobile
+          // ces lectures plein écran coûtent bien plus que quelques triangles.
+          if (uFastComposite > 0.5) {
+            vec3 color = texture2D(tDiffuse, vUv).rgb;
+            float vignette = smoothstep(0.92, 0.28, distanceFromCenter);
+            color *= mix(0.76 - uDamage * 0.10, 1.0, vignette);
+            float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+            color = mix(color, vec3(luminance) * vec3(0.78, 0.86, 1.0), uStorm * 0.20);
+            color += vec3(0.035, 0.012, 0.06) * uStorm * (1.0 - vignette);
+            color = mix(color, color * vec3(0.80, 0.93, 1.06), uCapsize * 0.16);
+            color += vec3(0.10, 0.0, 0.012) * uDamage * (1.0 - vignette);
+            // Flash radial arithmétique : aucune prise de texture ajoutée, mais
+            // les impacts restent spectaculaires même sans aberration chromatique.
+            float impactPulse = exp(-distanceFromCenter * 4.8)
+              * (0.52 + abs(sin(distanceFromCenter * 25.0 - uTime * 14.0)) * 0.48);
+            color += vec3(0.18, 0.10, 0.035)
+              * impactPulse * (uImpact * 0.72 + uImpactTail * 0.24);
+
+            color *= uExposure;
+            vec3 aces = (color * (2.51 * color + 0.03))
+              / (color * (2.43 * color + 0.59) + 0.14);
+            color = clamp(aces, 0.0, 1.0);
+            vec3 lo = color * 12.92;
+            vec3 hi = 1.055 * pow(max(color, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
+            color = mix(hi, lo, step(color, vec3(0.0031308)));
+            color = clamp((color - uBlack) / max(1e-3, 1.0 - uBlack), 0.0, 1.0);
+
+            float gradeLum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+            color = mix(
+              color * vec3(0.965, 1.015, 1.045),
+              color * vec3(1.045, 1.0, 0.935),
+              smoothstep(0.26, 0.82, gradeLum)
+            );
+            color += vec3(0.006, 0.019, 0.027)
+              * (1.0 - smoothstep(0.0, 0.34, gradeLum));
+            color = mix(
+              color,
+              color * vec3(1.04, 1.005, 0.93),
+              smoothstep(0.70, 1.0, gradeLum)
+            );
+
+            float edge = 1.0 - vignette;
+            color = mix(
+              color,
+              vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))),
+              edge * 0.13
+            );
+            color *= 1.0 - edge * 0.09;
+
+            // Le mode « Gravure Alizé » garde ses aplats, mais pas ses quatre
+            // prises de contour : la silhouette 3D des yoles reste encrée par
+            // son mesh de coque dédié.
+            if (uGraphicStyle > 0.5) {
+              float posterLum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+              float posterBand = floor(clamp(posterLum, 0.0, 0.999) * 6.0) / 5.0;
+              color = mix(
+                color,
+                clamp(color * (posterBand / max(0.055, posterLum)), 0.0, 1.0),
+                0.46
+              );
+            }
+            color += (hash21(gl_FragCoord.xy) - 0.5) * (1.0 / 255.0);
+            gl_FragColor = vec4(color, 1.0);
+            return;
+          }
+
           float wave = sin(distanceFromCenter * 42.0 - uTime * 17.0) * exp(-distanceFromCenter * 7.0);
           float afterWave = sin(distanceFromCenter * 23.0 - uTime * 9.0) * exp(-distanceFromCenter * 5.2);
           vec2 impactOffset = normalize(p + 0.0001)
@@ -918,6 +993,32 @@ export class PostFX {
           color = mix(color, vec3(dot(color, vec3(0.2126, 0.7152, 0.0722))), edge * 0.16);
           color *= 1.0 - edge * 0.11;
 
+          if (uGraphicStyle > 0.5) {
+            // Aplats en espace d'affichage : on conserve la teinte locale et on
+            // réduit seulement le nombre de valeurs. La scène reste donc
+            // martiniquaise, pas recolorée avec la palette d'un jeu tiers.
+            float posterLum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+            float posterBand = floor(clamp(posterLum, 0.0, 0.999) * 6.0) / 5.0;
+            float posterScale = posterBand / max(0.055, posterLum);
+            vec3 posterColor = clamp(color * posterScale, 0.0, 1.0);
+            color = mix(color, posterColor, 0.52);
+
+            // Encrage sélectif : quatre prises seulement, uniquement dans le
+            // prototype. Le seuil haut ignore le détail de l'eau ; les grandes
+            // silhouettes de yole, de voile et d'île portent l'encre.
+            vec2 texel = 1.0 / max(uResolution, vec2(1.0));
+            float lumaL = dot(texture2D(tDiffuse, vUv - vec2(texel.x, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722));
+            float lumaR = dot(texture2D(tDiffuse, vUv + vec2(texel.x, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722));
+            float lumaD = dot(texture2D(tDiffuse, vUv - vec2(0.0, texel.y)).rgb, vec3(0.2126, 0.7152, 0.0722));
+            float lumaU = dot(texture2D(tDiffuse, vUv + vec2(0.0, texel.y)).rgb, vec3(0.2126, 0.7152, 0.0722));
+            float inkEdge = smoothstep(0.16, 0.40, length(vec2(lumaR - lumaL, lumaU - lumaD)));
+            color = mix(color, vec3(0.025, 0.075, 0.12), inkEdge * 0.56);
+
+            // Grain fin de sérigraphie, sous le seuil d'un contour et sans
+            // texture supplémentaire.
+            color += (hash21(gl_FragCoord.xy * 0.73) - 0.5) * (2.2 / 255.0);
+          }
+
           // Tramage sur 8 bits, appliqué APRÈS l'encodage — c'est là que se fait
           // la quantification. Le ciel et la brume d'horizon sont des dégradés
           // quasi purs sur plus de mille pixels de haut : sans bruit, ils sortent
@@ -968,11 +1069,29 @@ export class PostFX {
   }
 
   setQuality(tier, profile = {}) {
-    this.bloom = profile.bloom ?? [0, 0.22, 0.52][tier] ?? 0.22;
+    this.material.uniforms.uFastComposite.value = profile.fastComposite ? 1 : 0;
+    const requestedBloom = profile.bloom ?? [0, 0.22, 0.52][tier] ?? 0.22;
+    this.bloom = this.graphicStyle ? Math.min(requestedBloom, 0.14) : requestedBloom;
     this.material.uniforms.uBloom.value = this.bloom;
     // La traînée anamorphique coûte quatre prises supplémentaires : réservée aux
     // paliers qui ont déjà du bloom, et discrète en MQ.
-    this.material.uniforms.uStreak.value = profile.streak ?? [0, 0.18, 0.34][tier] ?? 0.18;
+    const requestedStreak = profile.streak ?? [0, 0.18, 0.34][tier] ?? 0.18;
+    this.material.uniforms.uStreak.value = this.graphicStyle
+      ? Math.min(requestedStreak, 0.08)
+      : requestedStreak;
+  }
+
+  setGraphicStyle(enabled) {
+    this.graphicStyle = Boolean(enabled);
+    this.material.uniforms.uGraphicStyle.value = this.graphicStyle ? 1 : 0;
+    if (this.graphicStyle) {
+      this.bloom = Math.min(this.bloom, 0.14);
+      this.material.uniforms.uBloom.value = this.bloom;
+      this.material.uniforms.uStreak.value = Math.min(
+        this.material.uniforms.uStreak.value,
+        0.08
+      );
+    }
   }
 
   setReduceFlash(enabled) {

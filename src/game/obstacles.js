@@ -17,15 +17,18 @@ import { routeCenter } from "../render/world.js";
 // épais qu'un grand, seule son emprise change.
 const SARGASSE_SUBDIVISIONS = 14;
 const SARGASSE_RELIEF = 0.62;
+const SARGASSE_CLUMPS = 6;
+const SARGASSE_COLORS = [0x9f7b22, 0x697128, 0xc08a24, 0x4f6126];
 
 export const SARGASSE = {
   spacing: 137,       // décalé du pas des caisses (88) pour éviter la répétition
   slots: [-31, 4, 27],
   rows: 5,
   radius: 7.4,
-  // ⚠️ 0,62/s ne se sentait pas : traversé à pleine vitesse, un radeau ne coûtait
-  // qu'une fraction de seconde de vitesse. À 1,85 la yole s'enlise vraiment, et
-  // les sargasses deviennent un obstacle qu'on contourne au lieu d'un décor.
+  // Coup de frein immédiat demandé au franchissement : 65 % de l'erre part au
+  // premier contact. La traînée continue évite ensuite de retrouver aussitôt la
+  // pleine vitesse au milieu de la nappe.
+  entryBrake: 0.65,
   slowPerSecond: 1.15,
   rollPerSecond: 0.62,
   waterPerSecond: 6.4,
@@ -54,6 +57,7 @@ export const ObstacleSystems = {
     // l'eau sur ses bords. Toujours UNE seule instance de géométrie, donc
     // toujours un seul draw call.
     this.sargasseMesh = null;
+    this.sargasseClumps = null;
     if (texture && THREE.InstancedMesh) {
       const geometry = new THREE.PlaneGeometry(1, 1, SARGASSE_SUBDIVISIONS, SARGASSE_SUBDIVISIONS);
       geometry.rotateX(-Math.PI / 2);
@@ -81,18 +85,35 @@ export const ObstacleSystems = {
       // la silhouette dans la texture, et permet d'écrire la profondeur.
       const material = new THREE.MeshStandardMaterial({
         map: texture,
-        alphaTest: 0.24,
-        roughness: 0.88,
+        alphaTest: 0.14,
+        roughness: 0.92,
         metalness: 0.0,
-        // Un rien plus chaud que la texture : la sargasse échouée brunit.
-        color: 0xd8c08a
+        color: 0xffffff
       });
       this.sargasseMesh = new THREE.InstancedMesh(geometry, material, count);
       this.sargasseMesh.frustumCulled = false;
       this.sargasseMesh.renderOrder = 2;
       this.sargasseMesh.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
-      this.scene.add(this.sargasseMesh);
+      // Six volumes irréguliers par nappe cassent la lecture « autocollant »
+      // sans multiplier les draw calls : tous partagent une seule géométrie et
+      // un seul matériau. Leur couleur alterne or/olive comme les vraies algues.
+      const clumpGeometry = new THREE.SphereGeometry(1, 7, 5);
+      const clumpMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.96,
+        metalness: 0
+      });
+      this.sargasseClumps = new THREE.InstancedMesh(
+        clumpGeometry,
+        clumpMaterial,
+        count * SARGASSE_CLUMPS
+      );
+      this.sargasseClumps.frustumCulled = false;
+      this.sargasseClumps.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
+      this.scene.add(this.sargasseMesh, this.sargasseClumps);
       this.sargasseDummy = new THREE.Object3D();
+      this.sargasseWaterScratch = {};
+      this.sargasseColorScratch = new THREE.Color();
     }
 
     this.sargasses = [];
@@ -111,14 +132,72 @@ export const ObstacleSystems = {
     patch.z = z;
     // Taille dérivée de l'indice : variée mais totalement déterministe.
     patch.size = SARGASSE.radius * (0.78 + ((row * 3 + slot) % 5) * 0.11);
-    if (!this.sargasseMesh) return;
+    patch.phase = ((row * 7 + slot * 3) % 12) * 0.5236;
+    if (this.sargasseClumps?.setColorAt && this.sargasseColorScratch) {
+      for (let clump = 0; clump < SARGASSE_CLUMPS; clump++) {
+        const color = SARGASSE_COLORS[(row + slot * 2 + clump) % SARGASSE_COLORS.length];
+        this.sargasseClumps.setColorAt(
+          patch.index * SARGASSE_CLUMPS + clump,
+          this.sargasseColorScratch.setHex(color)
+        );
+      }
+      if (this.sargasseClumps.instanceColor) {
+        this.sargasseClumps.instanceColor.needsUpdate = true;
+      }
+    }
+  },
+
+  refreshSargasseVisuals() {
+    if (!this.sargasseMesh || !this.sargasseDummy) return;
     const dummy = this.sargasseDummy;
-    dummy.position.set(patch.x, 0.16, patch.z);
-    dummy.rotation.set(0, ((row * 7 + slot * 3) % 12) * 0.5236, 0);
-    dummy.scale.set(patch.size * 2, 1, patch.size * 2);
-    dummy.updateMatrix();
-    this.sargasseMesh.setMatrixAt(patch.index, dummy.matrix);
+    for (const patch of this.sargasses) {
+      const water = this.waveField?.sample?.(
+        patch.x,
+        patch.z,
+        this.time,
+        this.sargasseWaterScratch
+      ) ?? { height: 0, slopeX: 0, slopeZ: 0 };
+      dummy.position.set(patch.x, water.height + 0.035, patch.z);
+      dummy.rotation.set(
+        (water.slopeZ ?? 0) * 0.24,
+        patch.phase,
+        -(water.slopeX ?? 0) * 0.24
+      );
+      dummy.scale.set(patch.size * 2, 1, patch.size * 2);
+      dummy.updateMatrix();
+      this.sargasseMesh.setMatrixAt(patch.index, dummy.matrix);
+
+      if (!this.sargasseClumps) continue;
+      for (let clump = 0; clump < SARGASSE_CLUMPS; clump++) {
+        const hash = patch.row * 17 + patch.slot * 11 + clump * 7;
+        const angle = patch.phase + hash * 1.618;
+        const radius = patch.size * (0.14 + (hash % 5) * 0.085);
+        const x = patch.x + Math.cos(angle) * radius;
+        const z = patch.z + Math.sin(angle) * radius;
+        dummy.position.set(
+          x,
+          water.height + 0.10 + (hash % 3) * 0.035,
+          z
+        );
+        dummy.rotation.set(
+          hash * 0.17,
+          angle,
+          (hash % 4 - 1.5) * 0.12
+        );
+        dummy.scale.set(
+          patch.size * (0.055 + (hash % 4) * 0.012),
+          0.055 + (hash % 3) * 0.018,
+          patch.size * (0.045 + ((hash + 2) % 4) * 0.011)
+        );
+        dummy.updateMatrix();
+        this.sargasseClumps.setMatrixAt(
+          patch.index * SARGASSE_CLUMPS + clump,
+          dummy.matrix
+        );
+      }
+    }
     this.sargasseMesh.instanceMatrix.needsUpdate = true;
+    if (this.sargasseClumps) this.sargasseClumps.instanceMatrix.needsUpdate = true;
   },
 
   resetObstacles() {
@@ -129,6 +208,7 @@ export const ObstacleSystems = {
       const row = this.sargasseFirstRow + Math.floor(index / SARGASSE.slots.length);
       this.placeSargasse(this.sargasses[index], row, slot);
     }
+    this.refreshSargasseVisuals();
   },
 
   updateObstacles(dt) {
@@ -146,6 +226,7 @@ export const ObstacleSystems = {
         if (patch.row === recycled) this.placeSargasse(patch, lastRow + 1, patch.slot);
       }
     }
+    this.refreshSargasseVisuals();
 
     for (const boat of alive) {
       let deepest = 0;
@@ -160,6 +241,12 @@ export const ObstacleSystems = {
         boat.inSargasse = 0;
         continue;
       }
+      const wasIn = boat.inSargasse ?? 0;
+      if (wasIn <= 0) {
+        const remaining = 1 - SARGASSE.entryBrake;
+        boat.dynamics.vx *= remaining;
+        boat.dynamics.vz *= remaining;
+      }
       // Englué : on freine, on gîte, on embarque un peu d'eau. Proportionnel à
       // la pénétration, donc contourner par le bord coûte peu.
       const bite = deepest * dt;
@@ -171,12 +258,42 @@ export const ObstacleSystems = {
       // Elles ne faisaient jusqu'ici que freiner et embarquer de l'eau.
       boat.dynamics.structure.hull = Math.max(0, boat.dynamics.structure.hull - SARGASSE.hullPerSecond * bite);
 
-      const wasIn = boat.inSargasse ?? 0;
       boat.inSargasse = deepest;
+      if (this.time - (boat.lastSargasseFxAt ?? -99) > 0.14) {
+        boat.lastSargasseFxAt = this.time;
+        const water = this.waveField.sample(boat.x, boat.z, this.time, this.waterScratch);
+        const fxPosition = {
+          x: boat.x,
+          y: water.height + 0.14,
+          z: boat.z
+        };
+        this.particles.emitBurst(
+          this.obstacleVfxRng ?? this.visualRng,
+          fxPosition,
+          deepest > 0.55 ? 0xc79a2b : 0x7f8b2d,
+          Math.floor(3 + deepest * 7),
+          {
+            speed: 0.9 + deepest * 1.3,
+            upward: 0.45 + deepest * 0.65,
+            sizeMin: 0.08,
+            sizeMax: 0.24,
+            lifeMin: 0.28,
+            lifeMax: 0.72,
+            gravity: 1.7,
+            drag: 2.1
+          }
+        );
+      }
       if (wasIn <= 0 && boat.isPlayer) {
-        this.showMessage("🌿 SARGASSES !", 0.7);
-        this.audio.play("splash", { gain: 0.3, rate: 0.7, gap: 0.4 });
-        this.telemetry.track("sargasse_entry", { boat: boat.id }, this.time);
+        this.showMessage("🌿 SARGASSES · ERRE −65 % !", 0.82);
+        this.audio.play("sargasseHit", { gain: 0.48, rate: 0.82, gap: 0.4 });
+        this.audio.play("splash", { gain: 0.16, rate: 0.66, gap: 0.4, delay: 0.035 });
+        const water = this.waveField.sample(boat.x, boat.z, this.time, this.waterScratch);
+        this.rings?.burst?.(boat.x, water.height + 0.02, boat.z, 0xb58b28, 1.25, 0.62);
+        this.telemetry.track("sargasse_entry", {
+          boat: boat.id,
+          entryBrake: SARGASSE.entryBrake
+        }, this.time);
       }
     }
   }

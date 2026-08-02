@@ -53,7 +53,14 @@ ORDER = [
     "src/render/yole-visual.js",
     "src/render/impact.js",
     "src/render/assets.js",
+    "src/render/crew-clips.js",
     "src/game/balance.js",
+    "src/game/customization.js",
+    "src/game/tour-progress.js",
+    "src/game/tour-hub.js",
+    "src/game/replay-library.js",
+    "src/game/info-hub.js",
+    "src/game/growth.js",
     "src/game/versus.js",
     "src/game/weapons.js",
     "src/game/match.js",
@@ -138,7 +145,7 @@ for relative in ORDER:
 bundle = "\n\n".join(pieces)
 
 index = re.sub(
-    r'\s*<script type="module" src="\./src/main\.js"></script>',
+    r'\s*<script type="module" src="\./src/(?:bootstrap|main)\.js(?:\?[^"]*)?"></script>',
     lambda _match: f'\n<script type="module">\n{bundle}\n</script>',
     index,
 )

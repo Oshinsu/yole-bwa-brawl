@@ -15,6 +15,26 @@ globalThis.document = { createElement: () => new FakeCanvas() };
 
 const THREE = await import('./mock-three.module.js');
 const { PersistentWakeField } = await import('../src/render/ocean.js');
+const { WakeGrid } = await import('../src/sim/wake-grid.js');
+
+{
+  const grid = new WakeGrid({ resolution: 32, worldSize: 64 });
+  grid.centerX = 37;
+  grid.centerZ = -18;
+  grid.accumulator = 0.021;
+  grid.height[5] = 1;
+  grid.velocity[5] = 2;
+  grid.foam[5] = 3;
+  grid.clear();
+  assert.equal(grid.centerX, 0, 'clear must reset the inherited wake origin');
+  assert.equal(grid.centerZ, 0, 'clear must reset the inherited wake origin');
+  assert.equal(grid.accumulator, 0, 'clear must reset the inherited fixed-step phase');
+  assert.equal(grid.height[5] + grid.velocity[5] + grid.foam[5], 0);
+
+  grid.recenter(500, -400);
+  assert.equal(grid.centerX, 500, 'a large recenter must preserve its requested new origin');
+  assert.equal(grid.centerZ, -400, 'a large recenter must preserve its requested new origin');
+}
 
 const wake = new PersistentWakeField(THREE, { resolution: 128, worldSize: 120, maxStamps: 16 });
 wake.trail(0, 0, 0, 18, 1.2);

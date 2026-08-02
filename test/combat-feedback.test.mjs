@@ -118,6 +118,40 @@ assert.ok(IMPACT_TIERS.mine.aftershock > IMPACT_TIERS.coconut.aftershock);
   assert.equal(mine.active, false);
 }
 
+// Un harpon raté est un projectile de rendu : son splash doit rester visible
+// sans écrire dans la WakeGrid autoritaire échantillonnée par la physique.
+{
+  const calls = { wakes: [], rings: [], particles: [] };
+  const miss = {
+    life: 1,
+    x: 2,
+    y: -0.2,
+    z: 3,
+    vx: 0,
+    vy: -1,
+    vz: 0,
+    line: { visible: true }
+  };
+  const game = {
+    harpoonMisses: [miss],
+    waveField: { sample: () => ({ height: 0 }) },
+    waterScratch: {},
+    time: 0,
+    ocean: { wake: { burst(...args) { calls.wakes.push(args); } } },
+    rings: { burst(...args) { calls.rings.push(args); } },
+    particles: { emitBurst(...args) { calls.particles.push(args); } },
+    visualRng: {}
+  };
+
+  WeaponSystems.updateHarpoonMisses.call(game, 1 / 60);
+
+  assert.equal(miss.life, 0);
+  assert.equal(miss.line.visible, false);
+  assert.equal(calls.wakes.length, 0, "un VFX cadencé par le rendu ne doit pas perturber la physique");
+  assert.equal(calls.rings.length, 1, "le splash visuel du harpon raté doit rester lisible");
+  assert.equal(calls.particles.length, 1);
+}
+
 function makeGrapple() {
   return {
     active: true,
@@ -156,7 +190,6 @@ function makeCableGame(owner, target, grapple, calls) {
     postFX: { pulse() {} },
     impact: { trigger() {} },
     stats: { slingshots: 0 },
-    revengePending: null,
     time: 0,
     cutGrapple: WeaponSystems.cutGrapple,
     vfxScreenRotation: () => 0

@@ -1,5 +1,5 @@
 import { clamp, damp, angleDelta, formatTime, TAU } from "../core/math.js";
-import { RNG, seedFromString } from "../core/rng.js";
+import { RNG } from "../core/rng.js";
 import { QualityManager, palierInitial } from "../core/quality.js";
 import { WaveField } from "../sim/waves.js";
 import { ReplayRecorder, ReplayPlayer, ReplayVault, downloadReplay, checksumBoats, isReplayCompatible } from "../sim/replay.js";
@@ -27,8 +27,10 @@ import { VersusSystems, createVersusInput, quantizeVersusInput, versusCameraFram
 import { PickupSystems } from "./pickups.js";
 import { ObstacleSystems } from "./obstacles.js";
 import { handlingWaterMix } from "./handling-feedback.js";
+import { normalizeCustomization } from "./customization.js";
+import { GrowthSystems, seedFromUrl } from "./growth.js";
 import {
-  ACTION_WAVE, ACTION_HARPOON, ACTION_MINE, ACTION_SHIFT, ACTION_REVENGE,
+  ACTION_WAVE, ACTION_HARPOON, ACTION_MINE, ACTION_SHIFT,
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, RIGS, AI_LEVELS,
   CONFIG, BALANCE, ZOOM_MIN, ZOOM_MAX, CREW_DOTS, TOUR_STAGES, TOUR_STAGE_POINTS,
   vibrate, createBuoyVisual, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS } from "./balance.js";
@@ -104,8 +106,6 @@ export class Game {
     this.roundTime = 0;
     this.roundEnding = 0;
     this.stormZ = BALANCE.storm.startZ;
-    this.spiritUsed = false;
-    this.revengePending = null;
     this.messageTimer = 0;
     this.damageFlash = 0;
     this.shake = 0;
@@ -135,10 +135,20 @@ export class Game {
     this.gamepadTrim = null;
 
     const params = new URLSearchParams(location.search);
-    this.seed = params.has("seed") ? seedFromString(params.get("seed")) : 0x0b0a2026;
+    this.seed = seedFromUrl(params.get("seed"), 0x0b0a2026);
+    // Vertical slice purement visuel. Aucun état de simulation ni replay ne
+    // dépend de cette option : elle peut donc être comparée en A/B avec le même
+    // seed sans changer la course.
+    this.graphicStyle = params.get("da") === "gravure";
+    this.initGrowth(params);
     this.gameRng = new RNG(this.seed);
     this.weatherRng = new RNG(this.seed ^ 0x09e3779b);
     this.visualRng = new RNG(this.seed ^ 0xa5a5f00d);
+    // Les gerbes de caisse et de sargasses ont leurs propres flux. Elles sont
+    // déclenchées dans le pas fixe mais ne doivent ni consommer le RNG gameplay,
+    // ni dépendre du nombre d'images rendues entre deux événements.
+    this.pickupVfxRng = new RNG(this.seed ^ 0x70c8a7e1);
+    this.obstacleVfxRng = new RNG(this.seed ^ 0x5a26b94d);
     this.audio = new AudioEngine(new RNG(this.seed ^ 0x51f15e));
     // La musique vit à côté du moteur d'effets, sur son propre bus. Elle est
     // entièrement optionnelle : fichiers absents = jeu silencieux, pas d'erreur.
@@ -153,9 +163,10 @@ export class Game {
     this.latestReplay = this.replayVault.list()
       .find((item) => isReplayCompatible(item?.replay))?.replay ?? null;
     this.playback = null;
+    this.replayValidation = null;
     this.tour = null;
     this.versusLocal = false;
-    this.playbackInput = { steer: 0, trim: 0.82, aim: 0, aimActive: false, actions: 0 };
+    this.playbackInput = { steer: 0, trim: 0.82, aim: 0, aimPitch: 0, aimActive: false, actions: 0 };
     this.isApplyingReplay = false;
     this.input = {
       steer: 0,
@@ -167,6 +178,7 @@ export class Game {
       joyCenterX: 0,
       joyCenterY: 0,
       aim: 0,
+      aimPitch: 0,
       aimActive: false,
       aimPointerId: null,
       actions: 0
@@ -177,7 +189,10 @@ export class Game {
     this.initWorld();
     this.bindUI();
     this.resize();
-    this.renderer.setAnimationLoop((now) => this.frame(now));
+    // Une perte de contexte peut survenir pendant l'initialisation des assets
+    // GPU. Son handler a déjà stoppé la boucle : ne la réarme pas avant
+    // l'événement webglcontextrestored.
+    if (!this.webglContextLost) this.renderer.setAnimationLoop((now) => this.frame(now));
     window.addEventListener("resize", () => this.resize(), { passive: true });
     window.addEventListener("error", (event) => console.error("Runtime error", event.error || event.message));
     // Crochets de debug : seulement avec ?debug ou un harnais de test explicite.
@@ -302,7 +317,11 @@ export class Game {
     this.scene.add(this.sun, this.sun.target);
 
     this.atmosphere = new AtmosphereSystem(THREE, this.scene, this.weatherRng, this.visualRng);
-    this.ocean = new OceanSystem(THREE, this.scene, this.waveField, { quality: 2 });
+    this.atmosphere.setGraphicStyle?.(this.graphicStyle);
+    this.ocean = new OceanSystem(THREE, this.scene, this.waveField, {
+      quality: 2,
+      graphicStyle: this.graphicStyle
+    });
     // ⚠️ Il y a DEUX soleils, et ce n'était pas voulu. `sun.position` est
     // réécrite CHAQUE frame par la caméra (camera.js) ; `uSunDir` était copiée
     // ICI une seule fois au boot et n'a jamais resuivi. Les deux ont divergé
@@ -314,17 +333,29 @@ export class Game {
     // une caméra qui regarde vers +Z : le disque solaire et le chemin de lumière
     // sur l'eau étaient derrière l'objectif 100 % du temps de jeu — le glint,
     // le sun-road et le SSS de crête ne produisaient aucun pixel.
-    const sunDirection = new THREE.Vector3(-0.30, 0.40, 0.87).normalize();
+    // La caméra de course est inclinée vers l'eau. En mode graphique, un soleil
+    // à y=0.40 tombait au-dessus de son cadre et n'existait donc jamais dans la
+    // composition. On le descend dans le tiers supérieur, loin du HUD central.
+    const sunDirection = this.graphicStyle
+      ? new THREE.Vector3(-0.10, 0.10, 0.99).normalize()
+      : new THREE.Vector3(-0.30, 0.40, 0.87).normalize();
     this.ocean.uniforms.uSunDir.value.copy(sunDirection);
     this.atmosphere.uniforms.uSunDir.value.copy(sunDirection);
     this.particles = new ParticlePool(THREE, this.scene, 1700);
     this.rings = new ImpactRingPool(THREE, this.scene, 32);
     this.debris = new DebrisPool(THREE, this.scene, 72);
-    // 4 yoles × 6 équipiers : « FIN DU CHRONO » couche trois yoles dans la même
-    // frame, et les hommes flottent maintenant 5,2 s au lieu de 0,85 — le
-    // curseur circulaire recyclait des nageurs encore à l'écran.
-    this.crewFalls = new CrewFallPool(THREE, this.scene, CONFIG.colors, 26);
+    // Trois yoles éliminées × huit hommes visibles = 24 corps simultanés :
+    // « FIN DU CHRONO » peut les coucher dans la même frame, et les nageurs
+    // restent 5,2 s. Deux places de marge évitent de recycler le premier.
+    this.crewFalls = new CrewFallPool(
+      THREE,
+      this.scene,
+      CONFIG.colors,
+      26,
+      this.assets
+    );
     this.postFX = new PostFX(THREE, this.renderer, innerWidth, innerHeight);
+    this.postFX.setGraphicStyle?.(this.graphicStyle);
 
     this.quality = new QualityManager((profile, tier) => {
       this.qualityProfile = profile;
@@ -357,6 +388,38 @@ export class Game {
     if (savedQuality === "auto") this.quality.setAutomatic();
     else if (["LQ", "MQ", "HQ"].includes(savedQuality)) this.quality.setTier(["LQ", "MQ", "HQ"].indexOf(savedQuality), true);
     this.applySettingsUI();
+    this.bindWebGLContextLifecycle();
+  }
+
+  bindWebGLContextLifecycle() {
+    const canvas = this.renderer?.domElement;
+    if (!canvas?.addEventListener) return;
+
+    canvas.addEventListener("webglcontextlost", (event) => {
+      event.preventDefault?.();
+      if (this.webglContextLost) return;
+      this.webglContextLost = true;
+      this.pausedBeforeContextLoss = this.paused;
+      this.paused = true;
+      this.renderer?.setAnimationLoop?.(null);
+      this.ui.loading?.classList?.add("hidden");
+      this.ui.fatal?.classList?.remove("hidden");
+      if (this.ui.fatalText) {
+        this.ui.fatalText.textContent = "Le contexte graphique a été perdu. Le jeu reprendra automatiquement s’il revient, sinon recharge la page.";
+      }
+      if (this.ui.retry) this.ui.retry.onclick = () => location.reload();
+    });
+
+    canvas.addEventListener("webglcontextrestored", () => {
+      if (!this.webglContextLost) return;
+      this.webglContextLost = false;
+      this.paused = Boolean(this.pausedBeforeContextLoss);
+      this.accumulator = 0;
+      this.lastFrame = performance.now();
+      this.ui.fatal?.classList?.add("hidden");
+      this.resize();
+      this.renderer?.setAnimationLoop?.((now) => this.frame(now));
+    });
   }
 
 
@@ -370,12 +433,23 @@ export class Game {
       accent: CONFIG.accents[index],
       isPlayer: index === 0
     }));
+    this.boats[0]?.visual?.applyCustomization?.(
+      normalizeCustomization(this.settings?.snapshot?.() ?? {})
+    );
     this.buoys = [];
     // Explosions texturées : uniquement si la texture est là, sinon on garde
     // les particules seules — aucune régression si l'asset manque.
     this.atmosphere.setClouds(this.assets?.texture("clouds"));
-    this.atmosphere.setBackdrop(this.assets?.texture("backdrop"));
-    this.atmosphere.setNearBackdrop?.(this.assets?.texture("backdropNear"));
+    this.atmosphere.setBackdrop(
+      this.graphicStyle
+        ? (this.assets?.texture("backdropGraphic") ?? this.assets?.texture("backdrop"))
+        : this.assets?.texture("backdrop")
+    );
+    // Le panorama pilote porte déjà trois profondeurs gravées. Superposer le
+    // ruban proche réaliste brouillerait précisément l'A/B que ce test mesure.
+    if (!this.graphicStyle) {
+      this.atmosphere.setNearBackdrop?.(this.assets?.texture("backdropNear"));
+    }
     const explosionTexture = this.assets?.texture("explosion");
     if (explosionTexture) this.explosions = new ExplosionPool(this.THREE, this.scene, explosionTexture);
     // Pool distinct pour les gerbes : plus nombreuses, plus courtes, plus petites.
@@ -441,21 +515,41 @@ export class Game {
     // voir. Deux anneaux concentriques, une gerbe de bois et un éclat coloré à
     // la teinte de l'arme.
     const teinte = pickup.color ?? 0xffc531;
-    this.rings.burst(pickup.x, 0.6, pickup.z, teinte, 2.6, 0.78);
-    this.rings.burst(pickup.x, 0.66, pickup.z, 0xffffff, 1.4, 0.46);
-    this.particles.emitBurst(this.visualRng, { x: pickup.x, y: 0.9, z: pickup.z }, 0xffd76a, 46, {
-      speed: 3.4, upward: 4.1, sizeMax: 0.62, gravity: 5.4
+    const water = this.waveField.sample(pickup.x, pickup.z, this.time, this.waterScratch);
+    const surface = water.height + 0.04;
+    this.rings.burst(pickup.x, surface, pickup.z, teinte, 3.2, 0.86);
+    this.rings.burst(pickup.x, surface + 0.03, pickup.z, 0xffffff, 1.75, 0.52);
+    this.rings.burst(pickup.x, surface + 0.06, pickup.z, 0x5ff4ff, 0.92, 0.38);
+    this.particles.emitBurst(this.pickupVfxRng, {
+      x: pickup.x,
+      y: water.height + 1.0,
+      z: pickup.z
+    }, teinte, 32, {
+      speed: 3.8, upward: 4.8, sizeMin: 0.12, sizeMax: 0.68,
+      lifeMin: 0.36, lifeMax: 0.92, gravity: 5.0
     });
-    // ⚠️ PAS DE `debris.spawnBurst` ICI, ET CE N'EST PAS UN CHOIX ESTHÉTIQUE.
-    //
-    // `onPickupTaken` est appelée depuis le PAS FIXE (`updatePickups`), et
-    // `spawnBurst` puise dans `visualRng` — le même flux que la boucle de
-    // rendu, dont la cadence varie. Mesuré : avec ces éclats, la simulation à
-    // 144 Hz divergeait de celle à 60 Hz au tick 1400. Sans eux, les deux
-    // cadences restent identiques.
-    //
-    // `explosions.spawn` ne prend aucun générateur : elle est sûre ici.
-    this.explosions?.spawn(pickup.x, 1.5, pickup.z, 2.9, 0.46);
+    this.particles.emitBurst(this.pickupVfxRng, {
+      x: pickup.x,
+      y: water.height + 0.82,
+      z: pickup.z
+    }, 0xffe9a2, 18, {
+      speed: 2.4, upward: 3.6, sizeMin: 0.08, sizeMax: 0.36,
+      lifeMin: 0.28, lifeMax: 0.68, gravity: 4.2
+    });
+    // Les planches viennent d'un RNG exclusivement visuel et dédié aux caisses :
+    // elles peuvent éclater sans déplacer le flux gameplay ou celui du décor
+    // météo entre 60 et 144 Hz.
+    this.debris.spawnBurst(this.pickupVfxRng, {
+      x: pickup.x,
+      y: water.height + 0.72,
+      z: pickup.z
+    }, 12, {
+      speed: 4.6,
+      upward: 5.4,
+      scale: 0.68,
+      typeOffset: 0
+    });
+    this.explosions?.spawn(pickup.x, water.height + 1.55, pickup.z, 3.6, 0.54);
     if (!boat.isPlayer) return;
     const label = {
       wave: "🥥 COCO", harpoon: "🕸 HARPON", mine: "🌋 MINE", rhum: "🥃 RHUM",
@@ -510,6 +604,13 @@ export class Game {
       : this.playerRig();
     this.matchRig = rigIndex;
     if (this.replay) this.replay.rig = rigIndex;
+    const customization = normalizeCustomization({
+      ...(options.replay?.customization ?? this.settings?.snapshot?.() ?? {}),
+      rig: rigIndex
+    });
+    this.matchCustomization = customization;
+    this.boats?.[0]?.visual?.applyCustomization?.(customization);
+    if (this.replay) this.replay.customization = customization;
     // Le niveau d'IA emprunte exactement la même route que le gréement : figé
     // ici pour toute la partie, restauré depuis le payload en relecture.
     const aiLevel = options.replay
@@ -542,14 +643,19 @@ export class Game {
     this.gameRng = new RNG(this.seed);
     this.weatherRng = new RNG(this.seed ^ 0x09e3779b);
     this.visualRng = new RNG(this.seed ^ 0xa5a5f00d);
+    this.pickupVfxRng = new RNG(this.seed ^ 0x70c8a7e1);
+    this.obstacleVfxRng = new RNG(this.seed ^ 0x5a26b94d);
     this.audio.rng = new RNG(this.seed ^ 0x51f15e);
     this.impact.rng = new RNG(this.seed ^ 0x1d9a7c3);
     this.impact.reset();
+    this.uiFeedback = null;
+    this.lastImpactPresentationSerial = 0;
     this.cameraBase = null;
     this.cameraRollBase = null;
     this.cameraFovBase = null;
     this.atmosphere.resetRng(this.weatherRng, this.visualRng);
-    this.world.reset();
+    this.world.setStage(this.seed ^ 0x77ad, null, null);
+    this.ocean.setStagePalette();
     this.ocean.setIslands(this.world.nearestIslands(0));
     this.ocean.wake.grid.clear();
     this.particles.clear();
@@ -562,22 +668,17 @@ export class Game {
     this.crewFalls.clear();
     this.replay.enabled = !this.playback && !this.versusLocal;
     this.replay.reset(this.seed);
+    this.replayValidation = null;
     this.playbackInput.steer = 0;
     this.playbackInput.trim = 0.82;
     this.playbackInput.aim = 0;
+    this.playbackInput.aimPitch = 0;
     this.playbackInput.aimActive = false;
     this.playbackInput.actions = 0;
-    this.input.steer = 0;
-    this.input.trim = 0.82;
-    this.input.left = false;
-    this.input.right = false;
-    this.input.joy = false;
-    this.input.joyId = null;
-    this.input.aim = 0;
-    this.input.aimActive = false;
-    this.input.aimPointerId = null;
-    this.input.actions = 0;
-    this.clearVersusInput();
+    // Un seul reset couvre clavier, tactile, visée verticale et états dérivés
+    // de manette. La copie manuelle précédente oubliait notamment aimPitch,
+    // trimUp/trimDown, lookBack et les drapeaux hadGamepad*.
+    this.clearLiveInput();
     this.ui.killfeed.innerHTML = "";
     this.boats.forEach((boat) => {
       boat.score = 0;
@@ -599,13 +700,13 @@ export class Game {
     if (this.ui.replay) this.ui.replay.disabled = this.versusLocal;
     if (this.ui.downloadReplay) this.ui.downloadReplay.disabled = this.versusLocal;
     if (this.ui.replayStatus && this.versusLocal) {
-      this.ui.replayStatus.textContent = "Replay désactivé en Duel local · 2 flux humains à 60 Hz";
+      this.ui.replayStatus.textContent = "Replay désactivé en Mêlée locale · 2 flux humains à 60 Hz";
     }
     this.showMessage(
       this.playback
         ? "REPLAY · MÊME MER, MÊME SEED"
         : this.versusLocal
-          ? "DUEL LOCAL · J1 + J2 CONTRE 2 RIVAUX"
+          ? "MÊLÉE LOCALE · J1 + J2 CONTRE 2 RIVAUX"
           : "PRÉPARE LA CONTRE-GÎTE",
       1.35
     );
@@ -621,56 +722,74 @@ export class Game {
 
   startReplay(replay) {
     if (!isReplayCompatible(replay)) {
-      if (this.ui.replayStatus) this.ui.replayStatus.textContent = "Replay ancien incompatible · nouvelle physique 3.6";
+      if (this.ui.replayStatus) this.ui.replayStatus.textContent = "Replay incompatible · simulation ou équilibrage mis à jour";
       return false;
     }
-    this.startMatch({ replay });
+    const tourStage = replay.metadata?.tourStage;
+    if (Number.isInteger(tourStage) && tourStage >= 0 && tourStage < TOUR_STAGES.length) {
+      const tourPoints = Array.from(
+        { length: this.boats.length },
+        (_, index) => Math.max(0, Math.trunc(Number(replay.metadata?.tourPoints?.[index]) || 0))
+      );
+      this.tour = {
+        ...this.freshTour(),
+        stage: tourStage,
+        baseSeed: replay.seed >>> 0,
+        points: tourPoints,
+        finishOrder: []
+      };
+      this.startMatch({ replay, tourStage: true });
+      this.configureTourStageEnvironment({ playback: true });
+    } else {
+      this.startMatch({ replay });
+    }
+    this.latestReplay = replay;
     return true;
   }
 
-
-  executeRevenge(target) {
-    if (!target || target.eliminated) return;
-    const water = this.waveField.sample(target.x, target.z, this.time, this.waterScratch);
-    this.ocean.wake.burst(target.x, target.z, 7.5, 2.2);
-    this.rings.burst(target.x, water.height, target.z, 0xc36cff, 2.0, 0.9);
-    this.particles.emitBurst(this.visualRng, { x: target.x, y: water.height + 0.4, z: target.z }, 0xeab8ff, 52, { speed: 2.3, upward: 2.8, sizeMax: 0.8 });
-    target.applyHit(this.boats[0], {
-      rollImpulse: (this.gameRng.chance(0.5) ? 1 : -1) * 1.05,
-      yawImpulse: 0.28,
-      waterKg: 38,
-      cohesionDamage: 0.18,
-      hitLateral: this.gameRng.signed(),
-      hitLongitudinal: -0.2,
-      crewImpulse: 0.75
-    });
-    this.postFX.pulse(1.0);
-    this.audio.playImpact?.("mine", { intensity: 1.1, pan: this.panFor(target.x) });
-    this.impact.trigger("blast", { dirX: target.x - this.boats[0].x, dirZ: target.z - this.boats[0].z, intensity: 1.1 });
+  completeReplayPlayback() {
+    const replay = this.playback?.replay;
+    if (!replay || this.mode !== "playing") return false;
+    this.mode = "ended";
+    this.paused = false;
+    this.clearLiveInput();
+    this.music?.setScene?.(null);
+    this.ui.hud?.classList?.add?.("hidden");
+    this.ui.end?.classList?.remove?.("hidden");
+    if (this.ui.endIcon) {
+      this.ui.endIcon.textContent = "";
+      if (this.ui.endIcon.dataset) this.ui.endIcon.dataset.result = "verified";
+    }
+    if (this.ui.endTitle) this.ui.endTitle.textContent = "REPLAY VALIDÉ";
+    if (this.ui.endCopy) {
+      const stage = replay.metadata?.stage;
+      this.ui.endCopy.textContent = stage
+        ? `${stage} relue sans divergence · checksum ${replay.finalChecksum}`
+        : `Partie relue sans divergence · checksum ${replay.finalChecksum}`;
+    }
+    if (this.ui.statTakedowns) this.ui.statTakedowns.textContent = replay.finalTick;
+    if (this.ui.statPerfects) this.ui.statPerfects.textContent = replay.inputs.length;
+    if (this.ui.statSpeed) this.ui.statSpeed.textContent = replay.finalChecksum;
+    if (this.ui.statTakedownsLabel) this.ui.statTakedownsLabel.textContent = "TICKS";
+    if (this.ui.statPerfectsLabel) this.ui.statPerfectsLabel.textContent = "TRAMES";
+    if (this.ui.statSpeedLabel) this.ui.statSpeedLabel.textContent = "CHECKSUM";
+    if (this.ui.rematch) this.ui.rematch.textContent = "▶ REVOIR LE REPLAY";
+    if (this.ui.replay) this.ui.replay.disabled = true;
+    if (this.ui.downloadReplay) this.ui.downloadReplay.disabled = false;
+    return true;
   }
+
 
   onPerfectShift(boat, precision) {
     if (boat.isPlayer) {
       this.stats.perfects++;
       this.showMessage(precision > 0.65 ? "CONTRE-GÎTE PARFAITE" : "RATTRAPAGE", 0.62);
-      this.shake += 0.12;
-      this.postFX.pulse(0.22 + precision * 0.16);
-      if (precision > 0.65) {
-        const water = this.waveField.sample(boat.x, boat.z, this.time, this.waterScratch);
-        this.juiceVfx?.spawn(
-          boat.x,
-          water.height + 1.45,
-          boat.z,
-          JUICE_VFX.PERFECT_COUNTERHEEL,
-          5.4 + precision * 1.4,
-          0.72,
-          { intensity: this.settings.get("reduceFlash") ? 0.34 : 0.86 }
-        );
-      }
-      this.haptic("perfectShift");
+      // Le bouton donne un petit clic immédiat ; le choc, le grave, la caméra
+      // et la gerbe attendent CREW_LOADED, quand les corps ont réellement pris
+      // charge sur les bwa. C'est ce retard court qui donne du poids au geste.
+      this.postFX.pulse(0.06 + precision * 0.05);
       this.cutGrapplesFor(boat, precision);
-      this.audio.play("bwaShift", { gain: 0.30 + precision * 0.20, rate: 1 + precision * 0.18, gap: 0.03 });
-      this.impact.trigger("graze", { dirX: -Math.sin(boat.dynamics.heading), dirZ: -Math.cos(boat.dynamics.heading), intensity: 0.5 + precision * 0.5 });
+      this.audio.play("bwaShift", { gain: 0.11 + precision * 0.07, rate: 1.18 + precision * 0.08, gap: 0.025 });
     } else if (this.visualRng.chance(0.15)) {
       this.particles.emitBurst(this.visualRng, { x: boat.x, y: boat.y, z: boat.z }, boat.color, 7, { speed: 0.5, upward: 0.6, gravity: 1.8 });
     }
@@ -699,10 +818,47 @@ export class Game {
       }, {
         x: boat.dynamics.vx * 0.24,
         z: boat.dynamics.vz * 0.24
-      }, side);
+      }, side, {
+        color: boat.color,
+        accent: boat.accent,
+        boatId: boat.id,
+        crewIndex: Math.max(0, boat.activeCrew + index)
+      });
+    }
+    const nearby = this.proximity(boat.x, boat.z, 54);
+    if (nearby > 0.02) {
+      this.audio.play("crewYelp", {
+        gain: 0.14 + nearby * 0.24,
+        rate: 0.88 + (boat.id % 4) * 0.07,
+        pan: this.panFor(boat.x),
+        gap: 0.045
+      });
+      this.audio.play("splash", {
+        gain: 0.10 + nearby * 0.19,
+        rate: 0.92 + (boat.id % 3) * 0.08,
+        pan: this.panFor(boat.x),
+        gap: 0.055,
+        delay: 0.13
+      });
+      if (payload.fromWeapon) {
+        this.audio.play("sailSnap", {
+          gain: 0.08 + nearby * 0.14,
+          rate: 0.82 + Math.abs(payload.rollImpulse ?? 0) * 0.12,
+          pan: this.panFor(boat.x),
+          gap: 0.05,
+          delay: 0.025
+        });
+      }
     }
     this.telemetry.track("crew_lost", { boat: boat.id, count, source: boat.lastAggressor?.id ?? -1 }, this.time);
-    if (boat.isPlayer) this.showMessage("⚠️ ÉQUIPIER À L’EAU", 0.72);
+    if (boat.isPlayer) {
+      this.showMessage(
+        boat.activeCrew > 0
+          ? `🤣 YOLEUR À L’EAU · ${boat.activeCrew} À BORD`
+          : "🤣 PLUS PERSONNE SUR LES BWA !",
+        0.78
+      );
+    }
   }
 
   onPlayerHit(payload) {
@@ -758,6 +914,65 @@ export class Game {
     }
     if ((event.mask & YoleEventMask.CREW_CROSSED) && boat.isPlayer) {
       this.telemetry.track("crew_crossed", { speed: event.shiftCrossing }, this.time);
+    }
+    if (event.mask & YoleEventMask.CREW_LOADED) {
+      const precision = clamp(event.shiftCatch ?? 0, 0, 1);
+      const isCriticalCounterHeel = event.shiftKind === 2;
+      const side = Math.sign(event.shiftSide || boat.dynamics.crewTarget || 1);
+      const forward = boat.forward(this.counterHeelForwardScratch || (this.counterHeelForwardScratch = { x: 0, z: 0 }));
+      const loadX = boat.x + forward.z * side * (1.55 + precision * 0.55);
+      const loadZ = boat.z - forward.x * side * (1.55 + precision * 0.55);
+      const water = this.waveField.sample(loadX, loadZ, this.time, this.waterScratch);
+
+      // Le bwa se charge au-dessus de l'eau, tandis que la coque répond par une
+      // nappe d'écume sur le bord opposé. Deux points d'effet racontent donc la
+      // mécanique au lieu d'un flash magique centré sur le bateau.
+      this.particles.emitBurst(
+        this.visualRng,
+        { x: loadX, y: water.height + 0.20, z: loadZ },
+        0xe9ffff,
+        Math.floor((9 + precision * 9) * this.particleBudget),
+        {
+          speed: 0.75 + precision * 0.55,
+          upward: 0.85 + precision * 0.45,
+          lifeMin: 0.18,
+          lifeMax: 0.48,
+          sizeMin: 0.12,
+          sizeMax: 0.38,
+          gravity: 5.2
+        }
+      );
+      this.ocean.wake.burst(loadX, loadZ, 1.45 + precision * 0.85, 0.28 + precision * 0.42);
+      this.rings.burst(loadX, water.height + 0.03, loadZ, 0xcffcff, 0.42 + precision * 0.30, 0.34);
+
+      if (isCriticalCounterHeel && precision > 0.65) {
+        this.juiceVfx?.spawn(
+          boat.x,
+          water.height + 1.35,
+          boat.z,
+          JUICE_VFX.PERFECT_COUNTERHEEL,
+          4.2 + precision * 1.15,
+          0.56,
+          { intensity: this.settings.get("reduceFlash") ? 0.28 : 0.72, flipX: side < 0 }
+        );
+      }
+
+      if (boat.isPlayer) {
+        this.shake += 0.07 + precision * 0.10;
+        this.postFX.pulse(0.13 + precision * 0.13);
+        if (isCriticalCounterHeel) this.haptic("perfectShift");
+        this.audio.play("bwaShift", {
+          gain: 0.28 + precision * 0.18,
+          rate: 0.78 + precision * 0.10,
+          gap: 0.08
+        });
+        this.impact.trigger("graze", {
+          dirX: forward.z * side,
+          dirZ: -forward.x * side,
+          intensity: 0.42 + precision * 0.48
+        });
+        this.telemetry.track("bwa_loaded", { precision, side, kind: event.shiftKind }, this.time);
+      }
     }
   }
 
@@ -944,6 +1159,35 @@ export class Game {
     return list;
   }
 
+  validateReplayState() {
+    if (!this.playback) return null;
+    const result = this.playback.validateState(
+      this.tick,
+      this.dynamicsList(),
+      { ended: this.mode !== "playing" }
+    );
+    this.replayValidation = result;
+    if (!result?.checked) return result;
+
+    if (!result.ok) {
+      const error = result.error ?? {};
+      const expected = error.expected ?? `tick ${error.expectedTick ?? "?"}`;
+      const actual = error.actual ?? `tick ${error.tick ?? this.tick}`;
+      const detail = `${error.kind ?? "checksum"} · attendu ${expected} · obtenu ${actual}`;
+      console.error(`[replay] divergence au tick ${this.tick}: ${detail}`);
+      if (this.mode === "playing") this.paused = true;
+      if (this.ui.replayStatus) this.ui.replayStatus.textContent = `Replay divergent · ${detail}`;
+      this.showMessage("REPLAY DIVERGENT · LECTURE ARRÊTÉE", 4);
+      return result;
+    }
+
+    if (result.complete && this.ui.replayStatus) {
+      this.ui.replayStatus.textContent = `Replay validé · checksum ${this.playback.replay.finalChecksum}`;
+    }
+    if (result.complete && this.mode === "playing") this.completeReplayPlayback();
+    return result;
+  }
+
 
   fixedUpdate(dt) {
     if (this.mode !== "playing" || this.paused) return;
@@ -983,7 +1227,7 @@ export class Game {
     // Mesuré sur le code d'origine : il suffisait que le joueur ait une
     // munition de coco au bon moment pour que le replay diverge au tick 455.
     // Sans munition l'appel était un no-op et le défaut restait invisible.
-    this.applyActionMask(this.input.actions);
+    this.applyPendingPlayerActions();
     if (this.versusLocal) {
       // J2 emprunte la même barrière de tick : touches tenues, quantification,
       // changement de soute puis actions. Aucun handler DOM ne touche une yole.
@@ -1045,6 +1289,19 @@ export class Game {
     const simulationFrame = playerTwo
       ? versusCameraFrame(player, playerTwo, this.versusSimulationFrame || (this.versusSimulationFrame = {}))
       : null;
+    let simulationFocusBoat = player;
+    if (!playerTwo && player.eliminated) {
+      let liveFocus = null;
+      for (const candidate of this.boats) {
+        if (
+          !candidate.eliminated
+          && (!liveFocus || candidate.z > liveFocus.z)
+        ) {
+          liveFocus = candidate;
+        }
+      }
+      simulationFocusBoat = liveFocus || player;
+    }
     const playerGap = player.z - this.stormZ;
     this.atmosphere.fixedUpdate(dt, playerGap, this.roundTime);
     // L'amplitude de houle vue par la physique se met à jour sur l'horloge fixe,
@@ -1056,8 +1313,8 @@ export class Game {
     this.ocean?.fixedUpdateWake?.(
       dt,
       this.time,
-      simulationFrame?.x ?? player.dynamics.x,
-      simulationFrame?.z ?? player.dynamics.z,
+      simulationFrame?.x ?? simulationFocusBoat.dynamics.x,
+      simulationFrame?.z ?? simulationFocusBoat.dynamics.z,
       this.atmosphere.weather.stormAmount
     );
     const wind = this.atmosphere.weather.windVector(this.windScratch || (this.windScratch = { x: 0, z: 0 }));
@@ -1077,11 +1334,11 @@ export class Game {
     environment.windZ = wind.z;
     environment.stormAmount = this.atmosphere.weather.stormAmount;
 
-    if (!this.playback) this.replay.recordInput(this.tick, this.input);
+    if (!this.playback) this.replay.recordInput(this.tick, this.controlledInputFor(player));
     for (const boat of this.boats) {
       environment.coastPenalty = this.world.coastPenalty(boat.x, boat.z);
       environment.routeCenter = routeCenter(boat.z);
-      const controlledInput = boat.localControlled ? this.input2 : this.input;
+      const controlledInput = boat.localControlled ? this.input2 : this.controlledInputFor(boat);
       boat.fixedUpdate(dt, controlledInput, environment);
       const edge = Math.abs(boat.x - routeCenter(boat.z));
       if (!boat.eliminated && edge > CONFIG.trackHalfWidth) {
@@ -1133,10 +1390,15 @@ export class Game {
     this.updateSlicks(dt);
     this.updateStorm(dt);
     this.updateRound(dt);
+    // Signature juste après le dernier système autoritaire du tick. endMatch()
+    // fixe finalTick/finalChecksum depuis updateRound ; la relecture les compare
+    // donc ici, au même tick et avant tout streamer ou VFX.
+    if (this.playback) this.validateReplayState();
+    else this.replay.checkpoint(this.tick, this.dynamicsList());
     this.worldRefreshTimer -= dt;
     if (this.worldRefreshTimer <= 0) {
       this.worldRefreshTimer = 0.20;
-      const streamZ = simulationFrame?.z ?? player.z;
+      const streamZ = simulationFrame?.z ?? simulationFocusBoat.z;
       this.world.update(streamZ);
       this.ocean.setIslands(this.world.nearestIslands(streamZ));
     }
@@ -1147,13 +1409,16 @@ export class Game {
     this.spellVfx?.update(dt);
     this.juiceVfx?.update(dt);
     this.debris.update(dt, this.waveField, this.time, (position) => {
-      this.ocean.wake.burst(position.x, position.z, 0.85, 0.16);
+      // Les débris sont semés par visualRng : leur trajectoire dépend donc du
+      // rendu et ne doit jamais écrire dans la WakeGrid lue par la physique.
+      this.rings?.burst?.(position.x, position.y, position.z, 0xd8ffff, 0.42, 0.34);
     });
     this.crewFalls.update(dt, this.waveField, this.time, (position) => {
-      this.ocean.wake.burst(position.x, position.z, 1.45, 0.34);
+      // Même frontière d'autorité pour les équipiers projetés : anneau et
+      // particules visibles, aucune perturbation du champ de simulation.
+      this.rings?.burst?.(position.x, position.y, position.z, 0xd8ffff, 0.68, 0.48);
       this.particles.emitBurst(this.visualRng, position, 0xd8ffff, 8, { speed: 0.85, upward: 1.1, sizeMax: 0.32, lifeMax: 0.45 });
     });
-    this.replay.checkpoint(this.tick, this.dynamicsList());
 
     this.stats.maxSpeed = Math.max(
       this.stats.maxSpeed,
@@ -1177,6 +1442,7 @@ export class Game {
 
 
   frame(now) {
+    if (this.webglContextLost) return;
     const debutTravail = performance.now();
     this.renderer.info.reset?.();
     const raw = Math.min(0.1, (now - this.lastFrame) / 1000 || 0);
@@ -1216,9 +1482,17 @@ export class Game {
     const sharedFrame = playerTwo
       ? versusCameraFrame(player, playerTwo, this.versusRenderFrame || (this.versusRenderFrame = {}))
       : null;
+    let renderFocusBoat = player;
+    if (!playerTwo && player.eliminated && (this.deathCamTimer ?? 0) <= 0) {
+      let liveFocus = null;
+      for (const candidate of this.boats) {
+        if (!candidate.eliminated && (!liveFocus || candidate.z > liveFocus.z)) liveFocus = candidate;
+      }
+      renderFocusBoat = liveFocus || player;
+    }
     const focus = sharedFrame
       ? (this.sharedRenderFocus || (this.sharedRenderFocus = new this.THREE.Vector3())).set(sharedFrame.x, sharedFrame.y, sharedFrame.z)
-      : player.visual.root.position;
+      : renderFocusBoat.visual.root.position;
     const weather = this.atmosphere.update(raw, this.time, focus, this.stormZ);
     this.scene.fog.density = this.fogBase + weather.stormAmount * 0.0042;
     // Brouillard et brume océanique suivent la couleur d'horizon du ciel.
@@ -1240,7 +1514,6 @@ export class Game {
     this.hemisphere.intensity = this.lightBase.hemisphere - weather.stormAmount * 0.86 + weather.lightning * 2.35;
     this.sun.intensity = this.lightBase.sun - weather.stormAmount * 2.75 + weather.lightning * 5.8;
     this.ocean.update(raw, this.time, focus.x, focus.z, weather.stormAmount);
-
     if (this.mode === "playing") {
       for (const boat of this.boats) boat.renderUpdate(this.time, raw, weather);
     } else this.updateAttract(raw);
@@ -1263,7 +1536,32 @@ export class Game {
     this.ui.damage.style.opacity = String(clamp(this.damageFlash * (this.settings.get("reduceFlash") ? 0.22 : 0.72), 0, 0.8));
     this.ui.stormVignette.style.opacity = String(clamp(weather.stormAmount * 0.62, 0, 0.74));
     this.updateSoundscape(weather);
-    if (this.ui.impactFlash) this.ui.impactFlash.style.opacity = String(clamp(this.impact.flash * 0.62, 0, 0.62));
+    if (this.ui.impactFlash) {
+      const overlay = this.ui.impactFlash;
+      overlay.style.opacity = String(clamp(this.impact.flash * 0.62, 0, 0.62));
+      if (this.lastImpactPresentationSerial !== this.impact.serial) {
+        this.lastImpactPresentationSerial = this.impact.serial;
+        if (overlay.dataset) overlay.dataset.tier = this.impact.lastTier ?? "graze";
+        overlay.style.setProperty?.(
+          "--impact-x",
+          `${50 + clamp(this.impact.aftershockX, -1, 1) * 18}%`
+        );
+        overlay.style.setProperty?.(
+          "--impact-y",
+          `${45 - clamp(this.impact.aftershockZ, -1, 1) * 10}%`
+        );
+        overlay.style.setProperty?.(
+          "--impact-scale",
+          String(clamp(0.82 + this.impact.lastIntensity * 0.28, 0.82, 1.25))
+        );
+        overlay.classList?.remove?.("impact-punch");
+        // Un seul reflow par impact, jamais dans le chemin ordinaire : il
+        // relance le cartouche graphique même si deux armes identiques frappent.
+        void overlay.offsetWidth;
+        overlay.classList?.add?.("impact-punch");
+      }
+    }
+    this.ui.hud?.classList?.toggle?.("hud-impact", this.impact.aftershock > 0.035);
     this.cullYoles();
     this.postFX.render(this.scene, this.camera);
     const renderInfo = this.renderer.info.render;
@@ -1307,17 +1605,37 @@ export class Game {
     // pixels : la silhouette de la coque et de la voile suffit à situer
     // l'adversaire. Seul le palier bas y renonce — c'est précisément le levier
     // qui manquait à LQ.
-    const porteeEquipage = this.quality.tier === 0 ? 46 : Infinity;
+    // Huit silhouettes par yole (six dresseurs + écoute + patron) restent
+    // abordables près de l'action, mais 32 squelettes complets n'apportent rien
+    // sur un adversaire de quelques pixels. LQ coupe tôt, MQ garde les équipages
+    // de combat proches, HQ conserve toute la flotte.
+    const porteeEquipage = this.quality.tier === 0
+      ? 46
+      : this.quality.tier === 1
+        ? 92
+        : Infinity;
     const camera = this.camera.position;
     for (const boat of this.boats) {
       const root = boat.visual?.root;
       if (!root) continue;
-      // Le rayon couvre la coque, le mât et les équipiers sortis sur le bois.
-      this.cullSphere.center.copy(root.position);
-      root.visible = this.cullFrustum.intersectsSphere(this.cullSphere);
+      // J1 est le repère corporel du joueur : sa coque, sa gîte et ses yoleurs
+      // ne doivent jamais disparaître à cause d'une imprécision de frustum au
+      // bord inférieur du cadre. Une seule yole toujours soumise coûte peu ;
+      // le culling reste actif sur les trois adversaires.
+      if (boat === this.boats[0]) {
+        root.visible = true;
+        boat.visual.setCrewDetail?.(2);
+      } else {
+        // Le rayon couvre la coque, le mât et les équipiers sortis sur le bois.
+        this.cullSphere.center.copy(root.position);
+        root.visible = this.cullFrustum.intersectsSphere(this.cullSphere);
+      }
       if (!root.visible) continue;
-      boat.visual.setCrewCulled(
-        camera.distanceTo(root.position) > porteeEquipage);
+      const crewDetail = camera.distanceTo(root.position) > porteeEquipage
+        ? 0
+        : (this.qualityProfile?.rivalCrewDetail ?? 2);
+      if (boat.visual.setCrewDetail) boat.visual.setCrewDetail(crewDetail);
+      else boat.visual.setCrewCulled(crewDetail === 0);
     }
   }
 
@@ -1329,22 +1647,75 @@ export class Game {
       this.audio.setBed("water", 0);
       this.audio.setBed("storm", 0);
       this.audio.setBed("cable", 0);
+      this.audio.setBed("sail", 0);
+      this.audio.setBed("wood", 0);
+      this.audio.setBed("sargasse", 0);
       return;
     }
     const player = this.boats[0];
     const speed = clamp(player.speed / 30, 0, 1);
     const spray = clamp(player.dynamics.spray ?? 0, 0, 1);
     const waterMix = handlingWaterMix(player.dynamics, speed, spray);
-    this.audio.setBed("water", waterMix.gain, waterMix.rate);
+    this.audio.setBed("water", waterMix.gain * 0.88, waterMix.rate, 0.45 + speed * 0.75);
     const stormGap = clamp(1 - (player.z - this.stormZ) / 120, 0, 1);
-    this.audio.setBed("storm", stormGap * (0.10 + weather.stormAmount * 0.34), 0.9 + stormGap * 0.25);
+    this.audio.setBed(
+      "storm",
+      stormGap * (0.08 + weather.stormAmount * 0.31),
+      0.9 + stormGap * 0.25,
+      0.35 + weather.stormAmount * 0.55
+    );
     let tension = 0;
     for (const grapple of this.grapples) {
       if (!grapple.active) continue;
       if (grapple.owner !== player && grapple.target !== player) continue;
       tension = Math.max(tension, clamp(grapple.tension ?? 0, 0, 1));
     }
-    this.audio.setBed("cable", tension * 0.20, 0.72 + tension * 0.9);
+    this.audio.setBed("cable", tension * 0.18, 0.72 + tension * 0.9, 0.45 + tension * 0.70);
+
+    // Signature de la yole : la toile répond à la poussée, le bois à la charge
+    // latérale et aux dégâts. Ces couches suivent la physique au lieu d'être un
+    // simple bruit de bateau joué en permanence.
+    const drive = clamp(player.drive ?? 0, 0, 1);
+    const flow = clamp(player.flow ?? 0, 0, 1);
+    const rollLoad = clamp(
+      Math.abs(player.roll) / 0.95
+      + Math.abs(player.dynamics.rollVel ?? 0) * 0.18
+      + Math.abs(player.dynamics.crewShift ?? 0) * 0.22,
+      0,
+      1.35
+    );
+    const damage = clamp(
+      (1 - player.dynamics.structure.hull) * 0.72
+      + (1 - player.dynamics.structure.mast) * 0.55
+      + (1 - player.dynamics.structure.sail) * 0.40,
+      0,
+      1
+    );
+    const sailGain = clamp(
+      speed * 0.045 + drive * 0.072 + Math.max(0, 0.72 - flow) * speed * 0.065,
+      0,
+      0.17
+    );
+    this.audio.setBed(
+      "sail",
+      sailGain,
+      0.72 + speed * 0.42 + drive * 0.20,
+      0.45 + drive * 0.72
+    );
+    this.audio.setBed(
+      "wood",
+      clamp(rollLoad * 0.090 + damage * 0.080, 0, 0.18),
+      0.76 + rollLoad * 0.30,
+      0.30 + damage * 0.46 + rollLoad * 0.34
+    );
+
+    const weed = clamp(player.inSargasse ?? 0, 0, 1);
+    this.audio.setBed(
+      "sargasse",
+      weed * (0.10 + speed * 0.16),
+      0.66 + speed * 0.34,
+      0.24 + speed * 0.42
+    );
   }
 
 
@@ -1433,4 +1804,15 @@ export class Game {
 
 // Composition des systèmes. L'état de Game reste partagé : ces mixins sont un
 // rangement, pas une frontière — chacun pourra devenir une vraie classe.
-Object.assign(Game.prototype, WeaponSystems, MatchDirector, HudSystems, InputSystems, CameraSystems, VersusSystems, PickupSystems, ObstacleSystems);
+Object.assign(
+  Game.prototype,
+  WeaponSystems,
+  MatchDirector,
+  HudSystems,
+  InputSystems,
+  GrowthSystems,
+  CameraSystems,
+  VersusSystems,
+  PickupSystems,
+  ObstacleSystems
+);

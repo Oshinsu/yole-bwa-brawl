@@ -16,6 +16,13 @@ export const OCEAN_GLINT = Object.freeze({
   pathGain: 0.08
 });
 
+const DEFAULT_OCEAN_PALETTE = Object.freeze({
+  deep: 0x0d4f63,
+  mid: 0x168697,
+  shallow: 0x2fb9c4,
+  foam: 0xeefaff
+});
+
 // Miroir scalaire de l'enveloppe GLSL, utilise uniquement par les tests de
 // calibration. La boucle de rendu execute directement le shader.
 export function oceanGlintEnvelope(glintDotValue, detailFadeValue, crestMaskValue) {
@@ -272,6 +279,7 @@ export class OceanSystem {
     this.scene = scene;
     this.waveField = waveField;
     this.quality = options.quality ?? 2;
+    this.graphicStyle = Boolean(options.graphicStyle);
     this.rings = [];
     this.islands = [];
     this.wake = new PersistentWakeField(THREE, {
@@ -345,6 +353,7 @@ export class OceanSystem {
       uHaze: { value: new THREE.Color(0xd1f3f7) },
       uSunDir: { value: new THREE.Vector3(-0.4, 0.72, -0.32).normalize() },
       uDetail: { value: 1 },
+      uGraphicStyle: { value: this.graphicStyle ? 1 : 0 },
       uSeaDetail: { value: makeSeaDetailTexture(THREE) },
       uWindDir: { value: new THREE.Vector2(0.34, 0.94) },
       uIslandCount: { value: 0 },
@@ -472,6 +481,7 @@ export class OceanSystem {
         uniform vec3 uHaze;
         uniform vec3 uSunDir;
         uniform float uDetail;
+        uniform float uGraphicStyle;
         uniform sampler2D uSeaDetail;
         uniform vec2 uWindDir;
         uniform int uIslandCount;
@@ -606,6 +616,31 @@ export class OceanSystem {
           // The far ring is flat and nearly the exact sky-horizon color, so its
           // outer edge cannot form a dark seam even when the camera rolls.
           float atmosphere = smoothstep(120.0, 720.0, viewDist);
+          if (uGraphicStyle > 0.5) {
+            // “Gravure Alizé” : de longues veines guidées par le vent, plutôt
+            // qu'un bruit cellulaire ou des plaques de BD arbitraires. Elles
+            // indiquent visuellement la direction de navigation et disparaissent
+            // avant l'horizon pour ne pas produire de moiré.
+            float ribbonA = 0.5 + 0.5 * sin(
+              windSpace.x * 0.155
+              + sin(windSpace.y * 0.027 - uTime * 0.42) * 1.65
+            );
+            float ribbonB = 0.5 + 0.5 * sin(
+              windSpace.x * 0.071
+              - windSpace.y * 0.014
+              + uTime * 0.24
+            );
+            float inkRibbon = smoothstep(0.80, 0.96, ribbonA)
+              * (0.48 + smoothstep(0.58, 0.92, ribbonB) * 0.52)
+              * (1.0 - smoothstep(90.0, 430.0, viewDist));
+            float heightBand = floor(clamp(heightTint, 0.0, 0.999) * 4.0) / 3.0;
+            vec3 posterSea = mix(uDeep, uMid, 0.22 + heightBand * 0.38);
+            posterSea = mix(posterSea, uShallow, shallow * 0.72);
+            color = mix(color, posterSea, 0.44);
+            color = mix(color, uDeep * 0.34, inkRibbon * 0.27);
+            float cutFoam = step(0.54, foam) * (0.66 + step(0.78, foam) * 0.34);
+            color = mix(color, uFoam, cutFoam * 0.84);
+          }
           color = mix(color, uHaze, atmosphere * 0.94);
           gl_FragColor = vec4(color, 1.0);
         }
@@ -655,6 +690,14 @@ export class OceanSystem {
       if (island) target.set(island.x, island.z, island.rx, island.rz);
       else target.set(9999, 9999, 1, 1);
     }
+  }
+
+  setStagePalette(palette = null) {
+    const selected = { ...DEFAULT_OCEAN_PALETTE, ...(palette ?? {}) };
+    this.uniforms.uDeep.value.setHex(selected.deep);
+    this.uniforms.uMid.value.setHex(selected.mid);
+    this.uniforms.uShallow.value.setHex(selected.shallow);
+    this.uniforms.uFoam.value.setHex(selected.foam);
   }
 
   setQuality(tier) {

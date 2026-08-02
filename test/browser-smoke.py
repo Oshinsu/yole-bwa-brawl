@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 try:
@@ -98,6 +99,24 @@ def main() -> None:
             single_file = single_file.replace('<script type="module">', '<script type="module">\n' + bootstrap, 1)
             game_page.set_content(single_file, wait_until="domcontentloaded")
             game_page.wait_for_function("Boolean(window.__YOLE_DEBUG__)", timeout=15000)
+
+            # Smoke d'intégration des deux panneaux créés dynamiquement. Les
+            # tests unitaires valident leur contenu ; ici on verrouille aussi
+            # le bouton réel, le montage DOM, la visibilité et le focus.
+            game_page.locator("#replaysBtn").click()
+            game_page.locator("#replayLibrary").wait_for(state="visible")
+            if game_page.evaluate("document.activeElement?.classList.contains('tour-hub__close')") is not True:
+                raise AssertionError("La replayothèque ne reçoit pas le focus à l'ouverture")
+            game_page.locator("#replayLibrary .tour-hub__close").click()
+            game_page.locator("#replayLibrary").wait_for(state="hidden")
+
+            game_page.locator("#aboutBtn").click()
+            game_page.locator("#infoHub").wait_for(state="visible")
+            if game_page.evaluate("document.activeElement?.classList.contains('info-hub__close')") is not True:
+                raise AssertionError("Yole & crédits ne reçoit pas le focus à l'ouverture")
+            game_page.locator("#infoHub .info-hub__close").click()
+            game_page.locator("#infoHub").wait_for(state="hidden")
+
             game_page.locator("#playBtn").click()
             game_page.wait_for_function("window.__YOLE_DEBUG__.getState().mode === 'playing'", timeout=15000)
             game_page.wait_for_function("window.__YOLE_DEBUG__.getState().tick > 20", timeout=15000)
@@ -421,6 +440,13 @@ def main() -> None:
                 f"Browser errors detected: page={report['pageErrors']} console={report['consoleErrors']}"
             )
         report["ok"] = True
+    except Exception:
+        # Un timeout d'initialisation masquait précisément les erreurs console
+        # qui l'avaient provoqué, ce qui rendait la release Windows impossible
+        # à diagnostiquer. Le rapport reste un diagnostic, puis l'exception
+        # d'origine conserve l'échec du test.
+        print(json.dumps(report, indent=2, ensure_ascii=False), file=sys.stderr)
+        raise
     finally:
         pass
 

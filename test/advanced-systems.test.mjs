@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { WaveField } from '../src/sim/waves.js';
-import { YoleDynamics } from '../src/sim/yole-physics.js';
+import { YoleDynamics, YoleEventMask } from '../src/sim/yole-physics.js';
 import { VerletRope } from '../src/sim/rope.js';
 import { capsuleCollision, pointCapsuleDistanceSquared } from '../src/sim/collision.js';
 import { UtilityBrain } from '../src/game/utility-ai.js';
@@ -28,10 +28,27 @@ crewBoat.reset(0, 0, 0);
 crewBoat.roll = 0.72;
 const shift = crewBoat.triggerShift();
 assert.equal(shift.critical, true);
+assert.equal(crewBoat.crewStartDelays[0], 0, 'lead dresseur must engage first');
+for (let index = 1; index < crewBoat.crewStartDelays.length; index++) {
+  assert.ok(
+    crewBoat.crewStartDelays[index] > crewBoat.crewStartDelays[index - 1],
+    `crew load order collapsed between ${index - 1} and ${index}`
+  );
+}
+assert.ok(crewBoat.crewStartDelays.at(-1) > 0.25, 'last dresseur no longer holds the old side');
 const crewEnv = environment();
+let loadedTick = -1;
+let loadedPrecision = 0;
+let loadedKind = 0;
 for (let tick = 0; tick < 15; tick++) {
   crewEnv.time += 1 / 60;
   crewBoat.fixedStep(1 / 60, { steer: 0, trim: 0.78 }, crewEnv);
+  const event = crewBoat.consumeEvents({});
+  if (event.mask & YoleEventMask.CREW_LOADED) {
+    loadedTick = tick;
+    loadedPrecision = event.shiftCatch;
+    loadedKind = event.shiftKind;
+  }
 }
 const earlyPositions = [...crewBoat.crewPositions];
 assert.ok(Math.max(...earlyPositions) - Math.min(...earlyPositions) > 0.08, 'crew cascade collapsed into a scalar teleport');
@@ -39,9 +56,18 @@ let mostOutboardShift = crewBoat.crewShift;
 for (let tick = 0; tick < 85; tick++) {
   crewEnv.time += 1 / 60;
   crewBoat.fixedStep(1 / 60, { steer: 0, trim: 0.78 }, crewEnv);
+  const event = crewBoat.consumeEvents({});
+  if (event.mask & YoleEventMask.CREW_LOADED) {
+    loadedTick = tick + 15;
+    loadedPrecision = event.shiftCatch;
+    loadedKind = event.shiftKind;
+  }
   mostOutboardShift = Math.min(mostOutboardShift, crewBoat.crewShift);
 }
 assert.ok(mostOutboardShift < -0.55, `crew failed to reach the rescue side: ${mostOutboardShift}`);
+assert.ok(loadedTick >= 9 && loadedTick <= 48, `load catch did not follow crew movement: tick ${loadedTick}`);
+assert.ok(loadedPrecision > 0.5, `load event lost counterheel precision: ${loadedPrecision}`);
+assert.equal(loadedKind, 2, 'critical counterheel load was confused with dash recovery');
 
 // Flooding on opposite sides must create opposite roll response.
 function flooded(side) {
@@ -163,6 +189,7 @@ console.log(JSON.stringify({
   ok: true,
   crewEarlySpread: Math.max(...earlyPositions) - Math.min(...earlyPositions),
   crewPeakShift: mostOutboardShift,
+  crewLoadedTick: loadedTick,
   floodRolls: [floodPort.roll, floodStarboard.roll],
   maxRopeSegment: maxSegment,
   aiAction: action.type,

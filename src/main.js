@@ -1,7 +1,10 @@
 import { Game } from "./game/game.js";
-import { AssetLibrary } from "./render/assets.js";
+import { AssetLibrary } from "./render/assets.js?v=crew-v2";
 
 const byId = (id) => document.getElementById(id);
+const pageParams = new URLSearchParams(location.search);
+const graphicStyleTest = pageParams.get("da") === "gravure";
+if (graphicStyleTest) document.documentElement.dataset.artStyle = "gravure";
 const ui = {
   viewport: byId("viewport"),
   loading: byId("loading"),
@@ -69,6 +72,7 @@ const ui = {
   mastBar: byId("mastBar"),
   sailBar: byId("sailBar"),
   bwaIntegrityBar: byId("bwaIntegrityBar"),
+  systemIntegrity: byId("systemIntegrity"),
   storm: byId("stormWarning"),
   stormDistance: byId("stormDistance"),
   message: byId("message"),
@@ -93,14 +97,16 @@ const ui = {
   weaponSlotName: byId("weaponSlotName"),
   weaponSlotCd: byId("weaponSlotCd"),
   weaponShortcuts: byId("weaponShortcuts"),
-  revenge: byId("revengeBtn"),
   rotate: byId("rotateHint"),
   endIcon: byId("endIcon"),
   endTitle: byId("endTitle"),
   endCopy: byId("endCopy"),
   statTakedowns: byId("statTakedowns"),
+  statTakedownsLabel: byId("statTakedownsLabel"),
   statPerfects: byId("statPerfects"),
+  statPerfectsLabel: byId("statPerfectsLabel"),
   statSpeed: byId("statSpeed"),
+  statSpeedLabel: byId("statSpeedLabel"),
   perf: byId("perfStats"),
   weatherChip: byId("weatherChip"),
   minimap: byId("minimap"),
@@ -132,15 +138,24 @@ async function loadThree() {
   throw lastError || new Error("Three.js could not be loaded");
 }
 
+function showFatal(message, error = null) {
+  if (error) console.error(error);
+  ui.loading?.classList.add("hidden");
+  ui.menu?.classList.add("hidden");
+  ui.hud?.classList.add("hidden");
+  ui.fatal?.classList.remove("hidden");
+  if (ui.fatalText) ui.fatalText.textContent = message;
+  if (ui.retry) ui.retry.onclick = () => location.reload();
+}
+
 let THREE;
 try {
   THREE = await loadThree();
 } catch (error) {
-  console.error(error);
-  ui.loading.classList.add("hidden");
-  ui.fatal.classList.remove("hidden");
-  ui.fatalText.textContent = "Three.js 0.185.1 n’a pas pu être chargé. Lance PLAY_WINDOWS.bat ou play.sh avec une connexion afin de télécharger le moteur localement.";
-  ui.retry.onclick = () => location.reload();
+  showFatal(
+    "Le moteur 3D n’a pas pu être chargé. Vérifie la connexion ou le mode hors ligne, puis réessaie.",
+    error
+  );
   throw error;
 }
 
@@ -150,6 +165,17 @@ let assets = null;
 try {
   assets = new AssetLibrary(THREE);
   await assets.loadTextures();
+  // Le vertical slice DA reste volontairement hors du chargement normal :
+  // aucune requête ni mémoire supplémentaires pour les joueurs qui n'ouvrent
+  // pas explicitement `?da=gravure`.
+  if (graphicStyleTest) {
+    await assets.loadTextures({
+      backdropGraphic: {
+        file: "experiments/gravure_alize_backdrop.webp",
+        color: true
+      }
+    });
+  }
   await assets.load();
   if (assets.available) console.info(`[assets] pieces chargees: ${assets.loadedParts.join(", ")}`);
   else console.info(`[assets] rendu procedural (${assets.reason || "aucun modele"})`);
@@ -157,11 +183,22 @@ try {
   console.warn("[assets] chargement ignore:", error?.message || error);
 }
 
-const game = new Game(THREE, ui, assets);
-ui.loading.classList.add("hidden");
-ui.menu.classList.remove("hidden");
+let game = null;
+try {
+  game = new Game(THREE, ui, assets);
+  ui.loading.classList.add("hidden");
+  ui.menu.classList.remove("hidden");
+  ui.play?.focus?.();
+} catch (error) {
+  showFatal(
+    "Le rendu 3D n’a pas pu démarrer. Vérifie que WebGL est activé, mets à jour le pilote graphique, puis réessaie.",
+    error
+  );
+}
 
-if (new URLSearchParams(location.search).get("autoplay") === "1") setTimeout(() => game.startMatch(), 350);
+if (game && pageParams.get("autoplay") === "1") {
+  setTimeout(() => game.startMatch(), 350);
+}
 
 // ⚠️ BUG CORRIGÉ : LE SERVICE WORKER NE S'ENREGISTRAIT JAMAIS.
 //
@@ -175,12 +212,17 @@ if (new URLSearchParams(location.search).get("autoplay") === "1") setTimeout(() 
 // Conséquence mesurée en navigateur, derrière le serveur de production :
 // `navigator.serviceWorker.getRegistration()` renvoyait `undefined`, alors
 // qu'un `register()` appelé à la main réussissait immédiatement. Autrement dit
-// le hors-ligne, l'installation PWA et les 171 fichiers de précache étaient du
+// le hors-ligne, l'installation PWA et tout le précache étaient du
 // code mort depuis toujours.
 //
 // On enregistre donc TOUT DE SUITE si le document est déjà chargé, et sur
 // `load` seulement s'il ne l'est pas encore.
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+const localDevelopmentHost = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+if (
+  "serviceWorker" in navigator
+  && location.protocol.startsWith("http")
+  && !localDevelopmentHost
+) {
   const enregistrerServiceWorker = () => {
     // ⚠️ LA PORTÉE DOIT ÊTRE DÉRIVÉE DU WORKER, PAS ÉCRITE EN DUR.
     //

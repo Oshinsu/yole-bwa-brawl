@@ -15,7 +15,13 @@ export const HANDLING_MOTION = Object.freeze({
   hullSlipOffset: 0.11,
   hullCounterRoll: 0.065,
   hullSurfLift: 0.065,
-  hullSurfPitch: 0.028
+  hullSurfPitch: 0.028,
+  // Réponse visuelle à la différence de hauteur entre la proue et le centre.
+  // La physique calcule déjà la flottabilité ; ces valeurs rendent simplement
+  // le passage de la houle lisible à la caméra sans toucher aux replays.
+  hullSwellHeave: 0.18,
+  hullSwellPitch: 0.20,
+  hullSwellMicro: 0.018
 });
 
 function finiteHandlingMotion(value) {

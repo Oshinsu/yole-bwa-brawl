@@ -164,6 +164,76 @@ function droneBed(sampleRate, { duration = 1.6, base = 210 }) {
   return normalize(data, 0.5);
 }
 
+// Toile sous charge : souffle filtré, claquements irréguliers et modulation
+// lente. Le loop reste procédural pour que le jeu puisse raconter la voile sans
+// télécharger un nouvel asset, y compris hors ligne.
+function clothBed(sampleRate, { duration = 2.6, low = 760, high = 5200 }, rng) {
+  const length = Math.floor(sampleRate * duration);
+  const data = svf(noise(length, rng), sampleRate, high, low, 1.35, "band");
+  for (let index = 0; index < length; index++) {
+    const t = index / sampleRate;
+    const slow = 0.30 + Math.sin(t * 3.1) * 0.12 + Math.sin(t * 7.7 + 1.8) * 0.08;
+    const flap = Math.max(0, Math.sin(t * 11.3 + Math.sin(t * 2.2) * 1.4)) ** 7;
+    data[index] *= slow + flap * 0.72;
+  }
+  normalize(data, 0.52);
+  return crossfadeLoop(data, sampleRate, 0.14);
+}
+
+// Coque et bwa en charge : plusieurs résonances de bois dérivent lentement
+// l'une contre l'autre. Le résultat est un craquement continu, pas un bourdon.
+function creakBed(sampleRate, { duration = 2.8, base = 74 }, rng) {
+  const length = Math.floor(sampleRate * duration);
+  const data = new Float32Array(length);
+  const grit = svf(noise(length, rng), sampleRate, 1700, 180, 1.6, "band");
+  for (let index = 0; index < length; index++) {
+    const t = index / sampleRate;
+    const bend = 1 + Math.sin(t * 2.6) * 0.055 + Math.sin(t * 5.3 + 0.7) * 0.025;
+    const pulse = 0.16 + Math.max(0, Math.sin(t * 4.1 + 0.4)) ** 8 * 0.70;
+    data[index] = (
+      Math.sin(TWO_PI * base * bend * t) * 0.50
+      + Math.sin(TWO_PI * base * 2.34 * bend * t) * 0.21
+      + grit[index] * 0.38
+    ) * pulse;
+  }
+  normalize(data, 0.42);
+  return crossfadeLoop(data, sampleRate, 0.16);
+}
+
+// Sargasse mouillée contre la coque : grave pâteux, frottement fibreux et
+// paquets irréguliers. Cette couche se ferme volontairement dans le médium pour
+// que l'engluement se distingue du lit d'eau brillant.
+function weedBed(sampleRate, { duration = 2.5 }, rng) {
+  const length = Math.floor(sampleRate * duration);
+  const low = svf(noise(length, rng), sampleRate, 620, 90, 1.05, "low");
+  const fibre = svf(noise(length, rng), sampleRate, 2100, 320, 1.75, "band");
+  for (let index = 0; index < length; index++) {
+    const t = index / sampleRate;
+    const clump = 0.24 + Math.max(0, Math.sin(t * 5.7 + Math.sin(t * 1.9))) ** 5 * 0.66;
+    low[index] = (low[index] * 0.82 + fibre[index] * 0.28) * clump;
+  }
+  normalize(low, 0.48);
+  return crossfadeLoop(low, sampleRate, 0.15);
+}
+
+function doubleChirp(sampleRate, { duration = 0.42, from = 520, to = 1240 }, rng) {
+  const length = Math.floor(sampleRate * duration);
+  const data = new Float32Array(length);
+  const grit = svf(noise(length, rng), sampleRate, 3200, 1200, 1.3, "band");
+  let phase = 0;
+  for (let index = 0; index < length; index++) {
+    const t = index / sampleRate;
+    const local = t < duration * 0.46 ? t / (duration * 0.46) : (t - duration * 0.54) / (duration * 0.46);
+    const active = (t < duration * 0.42 || t > duration * 0.54) && local >= 0 && local <= 1;
+    if (!active) continue;
+    const frequency = from + (to - from) * local;
+    phase += TWO_PI * frequency / sampleRate;
+    const envelope = Math.sin(Math.PI * local) ** 0.75;
+    data[index] = (Math.sin(phase) * 0.78 + grit[index] * 0.13) * envelope;
+  }
+  return normalize(data, 0.58);
+}
+
 // Motif tanbou pour les fins d'étape et de match.
 function tanbou(sampleRate, rng, victorious = true) {
   const duration = 1.35;
@@ -202,6 +272,10 @@ const VOICES = {
   turbo: (sr, rng) => whoosh(sr, { duration: 0.62, from: 200, to: 2600, back: false }, rng),
   dash: (sr, rng) => whoosh(sr, { duration: 0.34, from: 340, to: 2300, back: true }, rng),
   bwaShift: (sr, rng) => woodKnock(sr, { duration: 0.28, partials: [204, 331, 468], decay: 24 }, rng),
+  sailSnap: (sr, rng) => whoosh(sr, { duration: 0.28, from: 820, to: 4800, back: true }, rng),
+  sargasseHit: (sr, rng) => splash(sr, { duration: 0.48, low: 95, high: 920, decay: 4.8 }, rng),
+  crewYelp: (sr, rng) => whistle(sr, { duration: 0.46, from: 780, to: 1340, decay: 2.2 }, rng),
+  pwasonLock: (sr, rng) => doubleChirp(sr, { duration: 0.42, from: 560, to: 1460 }, rng),
   takedown: (sr, rng) => membrane(sr, { duration: 1.05, from: 165, to: 38, decay: 4.6, noiseAmount: 0.8, noiseDecay: 9, sub: 0.66 }, rng),
   warn: (sr, rng) => membrane(sr, { duration: 0.42, from: 420, to: 300, decay: 9, noiseAmount: 0.12, sub: 0 }, rng),
   uiTick: (sr, rng) => woodKnock(sr, { duration: 0.12, partials: [640, 980], decay: 46 }, rng),
@@ -210,7 +284,10 @@ const VOICES = {
   defeat: (sr, rng) => tanbou(sr, rng, false),
   bedWater: (sr, rng) => bed(sr, { duration: 2.4, low: 150, high: 1150, mode: "band" }, rng),
   bedStorm: (sr, rng) => bed(sr, { duration: 2.8, low: 45, high: 420, mode: "low" }, rng),
-  bedCable: (sr) => droneBed(sr, { duration: 1.6, base: 196 })
+  bedCable: (sr) => droneBed(sr, { duration: 1.6, base: 196 }),
+  bedSail: (sr, rng) => clothBed(sr, { duration: 2.6, low: 760, high: 5200 }, rng),
+  bedWood: (sr, rng) => creakBed(sr, { duration: 2.8, base: 74 }, rng),
+  bedSargasse: (sr, rng) => weedBed(sr, { duration: 2.5 }, rng)
 };
 
 // Ordre de rendu de la banque, par urgence audible : contacts, puis lit d'eau
@@ -219,7 +296,8 @@ const BANK_ORDER = [
   "slamLight", "slamHeavy", "hullSlam", "splash", "bedWater",
   "cocoFire", "cocoBoom", "dash", "turbo", "bwaShift",
   "harpoonFire", "harpoonSnap", "mineDrop", "mineBlast",
-  "bedStorm", "bedCable",
+  "sailSnap", "sargasseHit", "crewYelp", "pwasonLock",
+  "bedStorm", "bedCable", "bedSail", "bedWood", "bedSargasse",
   "takedown", "warn", "buoy", "uiTick", "victory", "defeat"
 ];
 
@@ -231,15 +309,23 @@ const SAMPLED_VOICES = [
 ];
 const LOOPED_VOICES = new Set(["bedWater", "bedStorm"]);
 
+export const SOUNDSCAPE_BEDS = Object.freeze({
+  water: { voice: "bedWater", cutoff: 4200 },
+  storm: { voice: "bedStorm", cutoff: 1150 },
+  cable: { voice: "bedCable", cutoff: 2600 },
+  sail: { voice: "bedSail", cutoff: 6800 },
+  wood: { voice: "bedWood", cutoff: 1900 },
+  sargasse: { voice: "bedSargasse", cutoff: 1450 }
+});
+
 const BEDS = {
-  water: { voice: "bedWater", gain: 0.0, rate: 1 },
-  storm: { voice: "bedStorm", gain: 0.0, rate: 1 },
-  cable: { voice: "bedCable", gain: 0.0, rate: 1 }
+  ...SOUNDSCAPE_BEDS
 };
 
 // Chaque impact possède une attaque, un corps et une queue distincts. Les
 // couches réutilisent la banque poolée/synthétique : aucune requête ni décodage
-// au moment du choc. Le duck ne touche que les lits eau/orage/câble.
+// au moment du choc. Le duck baisse le bus commun des six lits sans interrompre
+// leurs boucles, puis leur rend progressivement la place.
 export const IMPACT_MIXES = Object.freeze({
   harpoon: {
     duck: 0.34, release: 0.24,
@@ -452,7 +538,11 @@ export class AudioEngine {
     source.buffer = buffer;
     const real = this.sampled.has(name);
     const variation = real ? Math.min(spread, 0.03) : spread;
-    source.playbackRate.value = clamp((real ? 1 : rate) + this.rng.signed() * variation, 0.35, 3.2);
+    // Le paramètre `rate` était ignoré pour tous les vrais samples : les
+    // variantes Coco/Mine/Bwa prévues dans les mixages jouaient donc à la même
+    // hauteur. Un sample réel garde une dispersion plus faible, mais respecte
+    // désormais bien la hauteur demandée.
+    source.playbackRate.value = clamp(rate + this.rng.signed() * variation, 0.35, 3.2);
     voiceGain.gain.value = clamp(gain, 0, 1.4);
     let tail = voiceGain;
     if (pan && this.context.createStereoPanner) {
@@ -496,7 +586,7 @@ export class AudioEngine {
   }
 
   // Lits continus : démarrés une fois, pilotés en gain et en hauteur chaque frame.
-  setBed(name, gain, rate = 1) {
+  setBed(name, gain, rate = 1, tone = 1) {
     const definition = BEDS[name];
     if (!definition) return;
     if (gain <= 0.001 && !this.beds.has(name)) return;
@@ -507,21 +597,33 @@ export class AudioEngine {
       if (!buffer) return;
       const source = this.context.createBufferSource();
       const bedGain = this.context.createGain();
+      const filter = this.context.createBiquadFilter?.();
       source.buffer = buffer;
       source.loop = true;
       bedGain.gain.value = 0;
-      source.connect(bedGain).connect(this.bedGain);
+      if (filter) {
+        filter.type = "lowpass";
+        filter.frequency.value = definition.cutoff ?? 4200;
+        filter.Q.value = 0.72;
+        source.connect(filter).connect(bedGain).connect(this.bedGain);
+      } else {
+        source.connect(bedGain).connect(this.bedGain);
+      }
       try {
         source.start();
       } catch {
         return;
       }
-      entry = { source, gain: bedGain };
+      entry = { source, gain: bedGain, filter };
       this.beds.set(name, entry);
     }
     const now = this.context.currentTime;
     entry.gain.gain.setTargetAtTime(clamp(gain, 0, 1), now, 0.09);
     entry.source.playbackRate.setTargetAtTime(clamp(rate, 0.25, 3), now, 0.12);
+    if (entry.filter?.frequency) {
+      const cutoff = (definition.cutoff ?? 4200) * (0.58 + clamp(tone, 0, 1.4) * 0.58);
+      entry.filter.frequency.setTargetAtTime(clamp(cutoff, 90, 12000), now, 0.14);
+    }
   }
 
   stopBeds() {

@@ -21,3 +21,9 @@ docs/ZIK_ANALYSE.json
 
 # Artefacts de sondes accessibilite, jamais servis.
 .playwright-mcp/
+
+# Fichiers de travail Blender. Regle posee avec Blender MCP (docs/BLENDER_MCP.md) :
+# MCP produit un .blend, les SCRIPTS produisent le .glb. Le .blend est un atelier,
+# pas une source de verite — seul l'asset regenerable entre dans le depot.
+*.blend
+*.blend[0-9]*

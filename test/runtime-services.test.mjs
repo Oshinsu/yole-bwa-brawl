@@ -3,7 +3,12 @@ import { SettingsStore, DEFAULT_SETTINGS } from '../src/core/settings.js';
 import { LocalTelemetry } from '../src/core/telemetry.js';
 import { SpatialHash2D } from '../src/core/spatial-hash.js';
 import { QualityManager } from '../src/core/quality.js';
-import { AssetLibrary, YOLE_PARTS, YOLE_RIGS, CREW_JOINTS } from '../src/render/assets.js';
+import {
+  AssetLibrary,
+  YOLE_PARTS,
+  YOLE_RIGS,
+  CREW_JOINTS
+} from '../src/render/assets.js';
 
 class MemoryStorage {
   constructor(seed = {}) { this.data = new Map(Object.entries(seed)); }

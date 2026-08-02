@@ -39,6 +39,12 @@ export class WakeGrid {
   clear() {
     this.height.fill(0); this.velocity.fill(0); this.foam.fill(0);
     this.nextHeight.fill(0); this.nextVelocity.fill(0); this.nextFoam.fill(0);
+    // Une nouvelle manche doit repartir de la même origine et de la même
+    // phase fixe. Vider seulement les textures laissait ces trois valeurs
+    // dépendre de la course précédente et faisait diverger les replays.
+    this.centerX = 0;
+    this.centerZ = 0;
+    this.accumulator = 0;
   }
 
   worldToGrid(x, z) {
@@ -54,7 +60,10 @@ export class WakeGrid {
     if (!shiftX && !shiftY) return false;
     const size = this.resolution;
     if (Math.abs(shiftX) >= size || Math.abs(shiftY) >= size) {
-      this.centerX = x; this.centerZ = z; this.clear(); return true;
+      this.clear();
+      this.centerX = x;
+      this.centerZ = z;
+      return true;
     }
     this.nextHeight.fill(0); this.nextVelocity.fill(0); this.nextFoam.fill(0);
     for (let y0 = 1; y0 < size - 1; y0++) {

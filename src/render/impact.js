@@ -27,7 +27,10 @@ export const IMPACT_TIERS = Object.freeze({
 const MAX_FREEZE = 0.16;
 const KICK_DECAY = 13.5;
 const FLASH_DECAY = 7.2;
-const AFTERSHOCK_DECAY = 5.1;
+// Le résidu ne doit pas vibrer comme un téléphone. Une fréquence proche de
+// 2 Hz donne une retombée de coque ; le kick initial garde la frappe sèche.
+const AFTERSHOCK_DECAY = 4.0;
+const AFTERSHOCK_FREQUENCY = 12.5;
 
 export class ImpactDirector {
   constructor(rng, settings = null) {
@@ -47,6 +50,7 @@ export class ImpactDirector {
     this.aftershockZ = 1;
     this.lastTier = null;
     this.lastIntensity = 0;
+    this.serial = 0;
   }
 
   get strength() {
@@ -69,6 +73,7 @@ export class ImpactDirector {
     this.aftershockZ = 1;
     this.lastTier = null;
     this.lastIntensity = 0;
+    this.serial = 0;
   }
 
   // dirX/dirZ : direction du choc dans le plan monde, normalisée par l'appelant.
@@ -98,6 +103,7 @@ export class ImpactDirector {
     this.aftershockZ = nz;
     this.lastTier = tierName;
     this.lastIntensity = amount;
+    this.serial++;
   }
 
   // Consomme le temps réel de la frame : retourne le temps qui va réellement
@@ -139,10 +145,10 @@ export class ImpactDirector {
       camera.position.y += this.rng.signed() * this.shake * 0.10 * strength;
     }
     if (this.aftershock > 0.001) {
-      const wave = Math.sin(this.aftershockPhase * 35) * this.aftershock * strength;
-      camera.position.x += this.aftershockX * wave * 0.22;
-      camera.position.y += Math.abs(wave) * 0.10;
-      camera.position.z += this.aftershockZ * wave * 0.22;
+      const wave = Math.sin(this.aftershockPhase * AFTERSHOCK_FREQUENCY) * this.aftershock * strength;
+      camera.position.x += this.aftershockX * wave * 0.30;
+      camera.position.y += Math.abs(wave) * 0.13;
+      camera.position.z += this.aftershockZ * wave * 0.30;
     }
   }
 
@@ -153,6 +159,7 @@ export class ImpactDirector {
   applyOrientation(camera) {
     if (this.strength <= 0) return;
     if (this.kickRoll) camera.rotateZ(this.kickRoll);
-    camera.fov -= this.fovKick + Math.sin(this.aftershockPhase * 24) * this.aftershock * 0.32;
+    camera.fov -= this.fovKick
+      + Math.sin(this.aftershockPhase * AFTERSHOCK_FREQUENCY) * this.aftershock * 0.40;
   }
 }

@@ -35,6 +35,7 @@ INSTRUMENTER = """() => {
   const joueur = game.boats[0];
   const t = { chavirages: 0, eliminations: 0, turbosAcceptes: 0, turbosRefuses: 0,
               shiftsParfaits: 0, shiftsRates: 0, tirs: 0, echantillons: 0,
+              echantillonsActifs: 0, ticksSpectateur: 0,
               sommeVitesse: 0, sommeRoll: 0, ticksHorsControle: 0, rollMax: 0,
               vitesseMin: Infinity, vitesseMax: 0 };
   window.__t = t;
@@ -63,7 +64,11 @@ INSTRUMENTER = """() => {
   t.tirsIA = 0;
   for (const cle of ['fireWave', 'fireHarpoon', 'dropMine', 'drinkRhum']) {
     const brut = game[cle].bind(game);
-    game[cle] = (o, ...reste) => { const ok = brut(o, ...reste); if (ok && o !== joueur) t.tirsIA++; return ok; };
+    game[cle] = (o, ...reste) => {
+      const ok = brut(o, ...reste);
+      if (ok && o !== joueur && !joueur.eliminated) t.tirsIA++;
+      return ok;
+    };
   }
 
   const elimBrut = game.eliminate.bind(game);
@@ -76,6 +81,13 @@ INSTRUMENTER = """() => {
   game.fixedUpdate = (dt) => {
     const r = fixeBrut(dt);
     t.echantillons++;
+    // Une élimination est définitive pendant la manche : l'épave figée ne
+    // doit pas faire chuter artificiellement les moyennes de pilotage.
+    if (joueur.eliminated) {
+      t.ticksSpectateur++;
+      return r;
+    }
+    t.echantillonsActifs++;
     const v = joueur.speed * 3.6;
     t.sommeVitesse += v;
     if (v < t.vitesseMin) t.vitesseMin = v;
@@ -85,7 +97,7 @@ INSTRUMENTER = """() => {
     if (roll > t.rollMax) t.rollMax = roll;
     // « Hors controle » : au-dela de 0,34 rad on est dans la fenetre de
     // contre-gite, c'est-a-dire qu'on subit au lieu de piloter.
-    if (roll > 0.34 || joueur.eliminated) t.ticksHorsControle++;
+    if (roll > 0.34) t.ticksHorsControle++;
     return r;
   };
 }"""
@@ -119,9 +131,8 @@ AUTOPILOTE = """(mode) => {
       // marin, et exactement ce que l'accelerateur permet desormais.
       // ⚠️ Seuils relevés avec la gîte de navigation. À 0,22/0,46 le pilote
       // choquait la voile en PERMANENCE dès que la gîte a augmenté : bateau à
-      // 18 km/h, mangé par le Grain, et une gîte moyenne de 1,05 rad qui ne
-      // mesurait plus que le temps passé chaviré en repêchage. Le harnais
-      // mesurait son propre réflexe, pas le jeu.
+      // 18 km/h, mangé par le Grain. Le harnais mesurait alors son propre
+      // réflexe, pas le jeu.
       game.input.trimUp = gite < 0.34;
       game.input.trimDown = gite > 0.62;
       const q = j.dynamics.shiftQuality(window.__q || (window.__q = {}));
@@ -137,11 +148,13 @@ BILAN = """() => {
   const t = window.__t;
   const game = window.__YOLE_DEBUG__.game;
   const j = game.boats[0];
-  const n = Math.max(1, t.echantillons);
+  const n = Math.max(1, t.echantillonsActifs);
   return {
     secondesSimulees: +(t.echantillons / 60).toFixed(1),
+    secondesPilotees: +(t.echantillonsActifs / 60).toFixed(1),
+    secondesSpectateur: +(t.ticksSpectateur / 60).toFixed(1),
     vitesseMoyenneKmh: +(t.sommeVitesse / n).toFixed(1),
-    vitesseMinKmh: +t.vitesseMin.toFixed(1),
+    vitesseMinKmh: Number.isFinite(t.vitesseMin) ? +t.vitesseMin.toFixed(1) : 0,
     vitesseMaxKmh: +t.vitesseMax.toFixed(1),
     rollMoyenRad: +(t.sommeRoll / n).toFixed(3),
     rollMaxRad: +t.rollMax.toFixed(3),
@@ -154,10 +167,10 @@ BILAN = """() => {
     shiftsRates: t.shiftsRates,
     tirs: t.tirs,
     coupsRecus: t.coupsRecus,
-    coupsRecusParMinute: +(t.coupsRecus * 3600 / Math.max(1, t.echantillons)).toFixed(1),
+    coupsRecusParMinute: +(t.coupsRecus * 3600 / n).toFixed(1),
     rollRecuMoyen: +(t.sommeRollRecu / Math.max(1, t.coupsRecus)).toFixed(3),
     tirsIA: t.tirsIA,
-    tirsIAParMinute: +(t.tirsIA * 3600 / Math.max(1, t.echantillons)).toFixed(1),
+    tirsIAParMinute: +(t.tirsIA * 3600 / n).toFixed(1),
     // Roulis subi par minute, VENTILE par origine. C'est la seule mesure qui
     // dise quoi regler.
     rollParMinute: Object.fromEntries(Object.entries(t.parSource).map(

@@ -25,6 +25,8 @@ export const YOLE_RIGS = Object.freeze({
   bouee: "bouee.glb"
 });
 
+const RUNTIME_RIGS = YOLE_RIGS;
+
 // Textures. Le projet n'en avait AUCUNE : tout était en aplats, et c'est ce qui
 // faisait « prototype » plus que la géométrie.
 export const YOLE_TEXTURES = Object.freeze({
@@ -57,6 +59,24 @@ export const CREW_JOINTS = Object.freeze({
   rightArmPivot: ["arm.R", "armR", "RightArm", "upperArm.R", "mixamorigRightArm"],
   leftLegPivot: ["leg.L", "legL", "LeftUpLeg", "thigh.L", "mixamorigLeftUpLeg"],
   rightLegPivot: ["leg.R", "legR", "RightUpLeg", "thigh.R", "mixamorigRightUpLeg"]
+});
+
+// Articulations de finition du moteur Crew V2. Elles améliorent les contacts et
+// les silhouettes rapprochées, mais ne font jamais échouer un rig ancien : les
+// sept points ci-dessus restent le contrat minimal. Un Mixamo standard les
+// fournit toutes, tandis que le gabarit procédural reste parfaitement valide.
+export const CREW_OPTIONAL_JOINTS = Object.freeze({
+  spineMid: ["Spine01", "Spine1", "mixamorigSpine1", "spine.001"],
+  spineUpper: ["Spine02", "Spine2", "mixamorigSpine2", "spine.002", "chest"],
+  neck: ["neck", "Neck", "mixamorigNeck", "cou"],
+  leftForeArm: ["LeftForeArm", "forearm.L", "forearmL", "mixamorigLeftForeArm"],
+  rightForeArm: ["RightForeArm", "forearm.R", "forearmR", "mixamorigRightForeArm"],
+  leftHand: ["LeftHand", "hand.L", "handL", "mixamorigLeftHand"],
+  rightHand: ["RightHand", "hand.R", "handR", "mixamorigRightHand"],
+  leftLowerLeg: ["LeftLeg", "shin.L", "shinL", "mixamorigLeftLeg"],
+  rightLowerLeg: ["RightLeg", "shin.R", "shinR", "mixamorigRightLeg"],
+  leftFoot: ["LeftFoot", "foot.L", "footL", "mixamorigLeftFoot"],
+  rightFoot: ["RightFoot", "foot.R", "footR", "mixamorigRightFoot"]
 });
 
 export class AssetLibrary {
@@ -178,7 +198,7 @@ export class AssetLibrary {
     return geometry;
   }
 
-  async load(parts = YOLE_PARTS, basePath = "./assets/models/", rigs = YOLE_RIGS) {
+  async load(parts = YOLE_PARTS, basePath = "./assets/models/", rigs = RUNTIME_RIGS) {
     this.status = "loading";
     let GLTFLoader;
     try {
@@ -192,7 +212,8 @@ export class AssetLibrary {
     const loader = new GLTFLoader();
     this.cloneSkeleton = await this.loadSkeletonUtils();
 
-    for (const [part, file] of Object.entries(rigs)) {
+    // Les rigs sont indépendants et chargés en parallèle.
+    await Promise.allSettled(Object.entries(rigs).map(async ([part, file]) => {
       try {
         const gltf = await loader.loadAsync(`${basePath}${file}`);
         if (!gltf?.scene) throw new Error("aucune scène dans le GLB");
@@ -223,7 +244,7 @@ export class AssetLibrary {
       } catch (error) {
         console.info(`[assets] rig ${part} procédural (${error?.message || error})`);
       }
-    }
+    }));
 
     for (const [part, file] of Object.entries(parts)) {
       try {

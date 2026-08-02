@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import json
 import re
 import subprocess
 import tempfile
+from release import audio_rights_errors
 
 ROOT = Path(__file__).resolve().parents[1]
 errors = []
@@ -14,7 +16,11 @@ for path in [ROOT / 'main.js', *sorted((ROOT / 'src').rglob('*.js'))]:
     for specifier in re.findall(r'import\s+(?:[^"\']+from\s+)?["\']([^"\']+)["\']', source):
         if not specifier.startswith('.'):
             continue
-        target = (path.parent / specifier).resolve()
+        # Les modules runtime portent parfois un suffixe de version pour forcer
+        # l'abandon d'un ancien cache PWA. Ce suffixe appartient à l'URL, pas au
+        # nom du fichier présent sur disque.
+        file_specifier = re.split(r'[?#]', specifier, maxsplit=1)[0]
+        target = (path.parent / file_specifier).resolve()
         if not target.exists():
             errors.append(f'missing import: {path.relative_to(ROOT)} -> {specifier}')
 
@@ -52,6 +58,41 @@ for relative in re.findall(r'"src"\s*:\s*"(\./[^"]+)"', manifest):
     if not target.exists():
         errors.append(f'missing manifest asset: {relative}')
 
+# Le statut de livraison doit rester honnête dans les métadonnées et le README.
+build_info = json.loads((ROOT / 'BUILD_INFO.json').read_text(encoding='utf-8'))
+release_manifest = json.loads((ROOT / 'release-manifest.json').read_text(encoding='utf-8'))
+release_status = release_manifest.get('releaseStatus')
+release_blockers_raw = release_manifest.get('blockers')
+release_blockers = release_blockers_raw if isinstance(release_blockers_raw, list) else []
+audio_rights = build_info.get('audioRights') or {}
+asset_status = build_info.get('assetStatus') or {}
+authorization = release_manifest.get('releaseAuthorization') or {}
+audio_blocked = bool(audio_rights_errors(
+    audio_rights,
+    authorization,
+    build_info.get('version'),
+))
+active_blockers = (
+    audio_blocked
+    or int(asset_status.get('menuYoleReplacementsPending') or 0) > 0
+)
+if not isinstance(release_blockers_raw, list):
+    errors.append('release blockers must be a JSON list')
+if release_status not in {'candidate-blocked', 'ready'}:
+    errors.append(f'invalid release status: {release_status!r}')
+elif release_status == 'candidate-blocked':
+    if not release_blockers:
+        errors.append('candidate-blocked release has no declared blocker')
+    readme = (ROOT / 'README.md').read_text(encoding='utf-8')
+    if 'candidate-blocked' not in readme:
+        errors.append('README does not disclose candidate-blocked status')
+elif release_blockers or active_blockers:
+    errors.append('release declared ready while blockers remain')
+
+for entrypoint in release_manifest.get('entrypoints') or []:
+    if not (ROOT / entrypoint).is_file():
+        errors.append(f'missing release entrypoint: {entrypoint}')
+
 single = ROOT / 'YOLE_BWA_BRAWL_TROPICAL_MAYHEM_V3_2_SINGLE_FILE_ONLINE.html'
 if not single.exists():
     errors.append('single-file build missing')
@@ -61,6 +102,11 @@ else:
     # suffit pas : oublier un nouveau module laisse ses exports comme variables
     # globales indéfinies et ne casse qu'au démarrage dans le navigateur.
     for source_path in sorted((ROOT / 'src').rglob('*.js')):
+        # bootstrap.js purge les anciens caches en développement puis importe
+        # main.js. Le monofichier remplace volontairement cette balise par le
+        # bundle runtime et ne doit donc pas embarquer ce bootstrap local.
+        if source_path == ROOT / 'src' / 'bootstrap.js':
+            continue
         marker = f'// ---- {source_path.relative_to(ROOT).as_posix()} ----'
         if marker not in source:
             errors.append(f'runtime module absent from single-file bundle: {source_path.relative_to(ROOT)}')

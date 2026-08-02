@@ -97,14 +97,15 @@ cas("un intervalle de vsync SANS marge de travail ne fait pas remonter", () => {
   assert.equal(q.tier, 0, "le palier a remonté alors qu'il n'y avait pas de marge");
 });
 
-cas("palierInitial : bas sur pointeur grossier, haut sinon, et le mémorisé prime", () => {
+cas("palierInitial : le tactile repart bas même si un ancien auto avait mémorisé HQ", () => {
   const media = globalThis.matchMedia;
   try {
     globalThis.matchMedia = (requete) => ({ matches: requete.includes("coarse") });
     assert.equal(palierInitial(), 0, "un écran tactile doit démarrer en LQ");
-    assert.equal(palierInitial(2), 2, "un palier mémorisé doit primer sur la détection");
+    assert.equal(palierInitial(2), 0, "un HQ automatique mémorisé ne doit pas primer sur le tactile");
     globalThis.matchMedia = () => ({ matches: false });
     assert.equal(palierInitial(), 2, "une machine à pointeur fin garde HQ");
+    assert.equal(palierInitial(1), 1, "le palier mémorisé reste utile sur ordinateur");
     // Une valeur corrompue dans localStorage ne doit pas passer.
     globalThis.matchMedia = (requete) => ({ matches: requete.includes("coarse") });
     assert.equal(palierInitial(7), 0, "un palier hors bornes doit être ignoré");
@@ -112,6 +113,29 @@ cas("palierInitial : bas sur pointeur grossier, haut sinon, et le mémorisé pri
   } finally {
     if (media) globalThis.matchMedia = media; else delete globalThis.matchMedia;
   }
+});
+
+cas("les profils mobiles coupent les multiplicateurs GPU dangereux", () => {
+  const q = new QualityManager(() => {}, 0, { mobilePerformance: true });
+  const [lq, mq, hq] = q.profiles();
+  for (const profile of [lq, mq, hq]) {
+    assert.equal(profile.shadows, false, `${profile.label} mobile a réactivé les ombres`);
+    assert.equal(profile.samples, 0, `${profile.label} mobile a réactivé le MSAA`);
+    assert.ok(profile.pixelRatio <= 1, `${profile.label} mobile dépasse le DPR natif`);
+  }
+  assert.equal(lq.fastComposite, true);
+  assert.equal(mq.fastComposite, true);
+  assert.ok(lq.pixelRatio < mq.pixelRatio && mq.pixelRatio < hq.pixelRatio);
+});
+
+cas("l'auto mobile plafonne en MQ mais le HQ manuel reste disponible", () => {
+  const q = new QualityManager(() => {}, 0, { mobilePerformance: true });
+  for (let i = 0; i < 5000; i++) q.update(16.7, 3);
+  assert.equal(q.tier, 1, "l'auto mobile est monté au-delà de MQ");
+  q.setTier(2, true);
+  assert.equal(q.tier, 2, "le HQ manuel a été bloqué");
+  q.setAutomatic();
+  assert.equal(q.tier, 1, "le retour en auto n'a pas quitté le HQ mobile");
 });
 
 if (echecs) { console.error(`\n${echecs} échec(s)`); process.exit(1); }

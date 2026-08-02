@@ -4,7 +4,7 @@ import { YoleVisual } from "../render/yole-visual.js";
 import { routeCenter } from "../render/world.js";
 import { RNG } from "../core/rng.js";
 import { UtilityBrain } from "./utility-ai.js";
-import { BALANCE, RIGS, resolveAiLevel, CRATE_WEAPONS, aiLoadout, resolveLoadout } from "./balance.js";
+import { BALANCE, RIGS, resolveAiLevel, aiLoadout, resolveLoadout } from "./balance.js";
 
 export class Boat {
   constructor(game, id, definition) {
@@ -19,19 +19,23 @@ export class Boat {
     // le cerveau IA et sélectionne l'entrée fixe dédiée.
     this.localControlled = false;
     this.dynamics = new YoleDynamics(id, game.waveField);
-    this.visual = new YoleVisual(game.THREE, this.color, this.accent, id, game.assets);
+    this.visual = new YoleVisual(
+      game.THREE,
+      this.color,
+      this.accent,
+      id,
+      game.assets,
+      { graphicStyle: game.graphicStyle }
+    );
     game.scene.add(this.visual.root);
     this.score = 0;
     this.stats = { takedowns: 0 };
     this.cooldowns = { wave: 0, harpoon: 0, mine: 0, rhum: 0, barik: 0, chadron: 0, lanbi: 0, pwason: 0 };
-    // Les quatre armes de base sont en munition illimitée : c'est leur cooldown
-    // qui les cadence. Les quatre de caisse partent à zéro.
+    // Seules les deux armes de soute sont en munition illimitée : c'est leur
+    // cooldown qui les cadence. Les autres slots partent à zéro.
     this.ammo = { wave: Infinity, harpoon: Infinity, mine: Infinity, rhum: Infinity, barik: 0, chadron: 0, lanbi: 0, pwason: 0 };
-    // Ces quatre champs portent de l'autorité gameplay et n'étaient remis à zéro
-    // NI ici, NI par resetRound, NI par startMatch : ils traversaient les manches
-    // et les étapes du Tour. `stormTimer` déclenche une élimination au-delà de
-    // 2,15 s, et `eliminated` entre dans le checksum — une relecture lancée
-    // depuis un onglet neuf ne repartait donc pas du même état qu'après un match.
+    // Ces champs portent de l'autorité gameplay. Ils sont initialisés ici puis
+    // remis à zéro par reset() à chaque manche et chaque étape du Tour.
     this.inSargasse = 0;
     this.stormTimer = 0;
     this.collisionCd = 0;
@@ -42,6 +46,7 @@ export class Boat {
     this.lastWakeAt = 0;
     this.lastSprayAt = 0;
     this.lastHandlingFxAt = 0;
+    this.lastSargasseFxAt = -99;
     this.lastSlam = 0;
     this.handlingFxPosition = { x: 0, y: 0, z: 0 };
     this.handlingFxOptions = {
@@ -86,16 +91,24 @@ export class Boat {
     const startX = routeCenter(0) + BALANCE.startSpread[slot];
     const startZ = -slot * 2.4;
     this.dynamics.reset(startX, startZ, 0, BALANCE.startSpeed);
-    this.respawnTimer = 0;
+    // Aucune contamination entre manches : sans ces remises à zéro, une yole
+    // pouvait démarrer une étape avec le compteur de Brume, de Sargasse ou de
+    // collision de l'étape précédente et faire diverger sa relecture.
+    this.inSargasse = 0;
+    this.stormTimer = 0;
+    this.collisionCd = 0;
+    this.coastCollisionCd = 0;
+    this.lastFloodWarningAt = -99;
+    this.rhumVfxTimer = 0;
     // Seule la yole du joueur porte le gréement choisi ; les IA restent sur
     // l'option médiane, qui est numériquement l'ancien jeu.
     const rig = this.isPlayer ? (this.game.matchRig ?? 1) : 1;
     this.dynamics.setRig?.(RIGS[rig]?.sail ?? 1, RIGS[rig]?.heel ?? 1, RIGS[rig]?.flow ?? 1);
     this.dynamics.roll = (slot - 1.5) * 0.018;
     this.score = this.score || 0;
-    // Arsenal de base toujours plein : une manche ne peut plus se jouer sans
-    // qu'un seul coup soit tiré. Les quatre armes de caisse, elles, repartent à
-    // sec — ce sont elles, et elles seules, qui se ramassent.
+    // Arsenal de soute toujours plein : une manche ne peut plus se jouer sans
+    // qu'un seul coup soit tiré. Les autres armes repartent à sec et se
+    // ramassent en caisse.
     // ⚠️ SEULE LA SOUTE EST ILLIMITÉE, et elle ne compte que deux armes. Le
     // joueur choisit la sienne au garage ; celle d'une IA est dérivée de son
     // identifiant, donc déterministe et variée d'un rival à l'autre.
@@ -127,6 +140,7 @@ export class Boat {
     this.lastWakeAt = 0;
     this.lastSprayAt = 0;
     this.lastHandlingFxAt = 0;
+    this.lastSargasseFxAt = -99;
     this.lastSlam = 0;
     this.aiLane = [-11, -4, 5, 12][slot];
     // Le niveau est figé pour toute la partie (game.matchAiLevel) et voyage dans
@@ -263,17 +277,11 @@ export class Boat {
 
   fixedUpdate(dt, playerInput, environment) {
     if (!this.isPlayer && !this.localControlled && !this.eliminated) this.updateAI(dt);
-    this.cooldowns.rhum = Math.max(0, (this.cooldowns.rhum ?? 0) - dt);
-    this.cooldowns.wave = Math.max(0, this.cooldowns.wave - dt);
-    this.cooldowns.harpoon = Math.max(0, this.cooldowns.harpoon - dt);
-    this.cooldowns.mine = Math.max(0, this.cooldowns.mine - dt);
-    // ⚠️ BUG CORRIGÉ : les quatre armes de CAISSE n'étaient jamais
-    // décrémentées. Leur cooldown était posé au tir et remis à zéro seulement
-    // au reset de manche — donc une caisse ramassée avec 3 munitions ne
-    // pouvait être tirée QU'UNE FOIS par manche. Les deux munitions restantes
-    // étaient inutilisables, et l'IA les gardait indéfiniment en réserve.
-    for (const cle of CRATE_WEAPONS) {
-      this.cooldowns[cle] = Math.max(0, (this.cooldowns[cle] ?? 0) - dt);
+    // Une seule source de vérité : Mine et Rhum peuvent venir de la soute OU
+    // d'une caisse. Les décrémenter d'abord comme armes de base puis dans la
+    // liste des caisses divisait silencieusement leurs délais par deux.
+    for (const key of Object.keys(this.cooldowns)) {
+      this.cooldowns[key] = Math.max(0, (this.cooldowns[key] ?? 0) - dt);
     }
 
     const input = (this.isPlayer || this.localControlled) ? playerInput : { steer: this.steer, trim: 0.82 };

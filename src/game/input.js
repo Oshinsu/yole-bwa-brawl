@@ -6,7 +6,20 @@
 import { clamp } from "../core/math.js";
 import { downloadReplay } from "../sim/replay.js";
 import { SPELL_VFX } from "../render/vfx.js";
-import { ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, ACTION_RHUM, ACTION_HARPOON, ACTION_MINE, ACTION_REVENGE, ACTION_SHIFT, ACTION_WAVE, ACTION_BARIK, ACTION_CHADRON, ACTION_LANBI, ACTION_PWASON, AI_LEVELS, WEAPONS, RIGS, SAIL_LIVERIES, TOUR_STAGES, ZOOM_MAX, ZOOM_MIN, CRATE_WEAPONS } from "./balance.js";
+import { openTourHub } from "./tour-hub.js";
+import { openReplayLibrary } from "./replay-library.js";
+import { openInfoHub } from "./info-hub.js";
+import {
+  CREW_KITS, DEFAULT_CUSTOMIZATION, GUNWALE_ACCENTS, HULL_PAINTS,
+  WOOD_FINISHES, normalizeCustomization
+} from "./customization.js";
+import {
+  ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, ACTION_RHUM, ACTION_HARPOON,
+  ACTION_MINE, ACTION_SHIFT, ACTION_WAVE, ACTION_BARIK,
+  ACTION_CHADRON, ACTION_LANBI, ACTION_PWASON, AI_LEVELS, WEAPONS, RIGS,
+  SAIL_LIVERIES, TOUR_STAGES, ZOOM_MAX, ZOOM_MIN, CRATE_WEAPONS,
+  LOADOUT_POOL, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS
+} from "./balance.js";
 
 // Écoute de voile au clavier.
 //
@@ -59,6 +72,27 @@ const isInteractiveKeyTarget = (target) => Boolean(target?.closest?.(
   "button,input,select,textarea,a[href],[contenteditable='true']"
 ));
 
+const CONTROL_DEVICES = Object.freeze(["keyboard", "touch", "gamepad"]);
+const LOADOUT_DETAILS = Object.freeze({
+  wave: "COCO BOUM · impact direct et vague de recul",
+  harpoon: "SPIDER HARPON · accroche puis slingshot",
+  mine: "MINE TSUNAMI · piège arrière et onde circulaire",
+  rhum: "RHUM · boost risqué pour renverser une poursuite"
+});
+const LOADOUT_GLYPHS = Object.freeze({ wave: "🥥", harpoon: "🕸", mine: "🌊", rhum: "🍹" });
+const WORKSHOP_PART_LABELS = Object.freeze({
+  paint: "COQUE & BORDAGE",
+  sail: "VOILE & LIVRÉE",
+  wood: "BWA & GRÉEMENT",
+  crew: "ÉQUIPAGE",
+  rig: "PROFIL DE GRÉEMENT",
+  loadout: "SOUTE & ARMEMENT"
+});
+const WORKSHOP_SETTING_KEYS = Object.freeze([
+  "hullColor", "accentColor", "woodFinish", "crewKit", "sailLivery", "rig", "loadout"
+]);
+const cssHex = (value) => `#${Math.max(0, Number(value) || 0).toString(16).padStart(6, "0").slice(-6)}`;
+
 export const InputSystems = {
   // Pendant une relecture, seul le replay a le droit de piloter. Les handlers de
   // l'UI, le clavier et la manette restaient actifs et mutaient directement les
@@ -71,7 +105,394 @@ export const InputSystems = {
     // simulation est gelée, et elles partiraient toutes d'un coup sur le GO.
     return Boolean(this.paused)
       || this.countdown > 0
+      || Boolean(this.tour && this.boats?.[0]?.tourFinished)
       || (Boolean(this.playback) && !this.isApplyingReplay);
+  },
+
+  applyPendingPlayerActions() {
+    // Après la ligne, le joueur devient spectateur : aucune action nouvellement
+    // injectée (DOM, manette ou outil externe) ne doit encore toucher les IA.
+    if (!this.playback && this.tour && this.boats?.[0]?.tourFinished) {
+      this.input.actions = 0;
+      return false;
+    }
+    this.applyActionMask(this.input.actions);
+    return true;
+  },
+
+  controlledInputFor(boat) {
+    if (!this.playback && this.tour && boat?.isPlayer && boat.tourFinished) {
+      return this.finishedTourInput ??= {
+        steer: 0,
+        trim: KEYBOARD_TRIM.min,
+        aim: 0,
+        aimPitch: 0,
+        aimActive: false,
+        actions: 0
+      };
+    }
+    return this.input;
+  },
+
+  collectExtendedUI() {
+    const byId = (id) => globalThis.document?.getElementById?.(id) ?? null;
+    Object.assign(this.ui, {
+      menuSettings: byId("menuSettingsBtn"),
+      controlsBtn: byId("controlsBtn"),
+      replaysBtn: byId("replaysBtn"),
+      aboutBtn: byId("aboutBtn"),
+      challengeBanner: byId("challengeBanner"),
+      challengeBannerLabel: byId("challengeBannerLabel"),
+      challengeSeed: byId("challengeSeed"),
+      challengeStart: byId("challengeStartBtn"),
+      dailyChallenge: byId("dailyChallengeBtn"),
+      shareChallenge: byId("shareChallengeBtn"),
+      shareStatus: byId("shareStatus"),
+      endInstall: byId("endInstallBtn"),
+      pauseControls: byId("pauseControlsBtn"),
+      resetSettings: byId("resetSettingsBtn"),
+      controlsScreen: byId("controlsScreen"),
+      controlsClose: byId("controlsCloseBtn"),
+      replayOnboarding: byId("replayOnboardingBtn"),
+      onboardingScreen: byId("onboardingScreen"),
+      onboardingNext: byId("onboardingNextBtn"),
+      onboardingSkip: byId("onboardingSkipBtn"),
+      onboardingProgress: byId("onboardingProgress"),
+      leaveScreen: byId("leaveScreen"),
+      leaveCancel: byId("leaveCancelBtn"),
+      leaveConfirm: byId("leaveConfirmBtn"),
+      pauseMenu: byId("pauseMenuBtn"),
+      endMenu: byId("endMenuBtn"),
+      skipSpectating: byId("skipSpectatingBtn"),
+      musicVolume: byId("musicVolumeSlider"),
+      musicVolumeValue: byId("musicVolumeValue"),
+      sfxVolume: byId("sfxVolumeSlider"),
+      sfxVolumeValue: byId("sfxVolumeValue"),
+      pauseStateLabel: byId("pauseStateLabel"),
+      pauseIcon: byId("pauseIcon"),
+      loadoutChoices: byId("loadoutChoices"),
+      loadoutDetail: byId("loadoutDetail"),
+      hullChoices: byId("hullChoices"),
+      accentChoices: byId("accentChoices"),
+      woodChoices: byId("woodChoices"),
+      crewChoices: byId("crewChoices"),
+      customCancel: byId("customCancelBtn"),
+      customReset: byId("customResetBtn"),
+      menuWorkshop: byId("menuWorkshopBtn"),
+      menuBuildTitle: byId("menuBuildTitle"),
+      menuBuildCopy: byId("menuBuildCopy"),
+      menuHullSwatch: byId("menuHullSwatch"),
+      menuAccentSwatch: byId("menuAccentSwatch"),
+      menuCrewSwatch: byId("menuCrewSwatch"),
+      menuLoadoutIcons: byId("menuLoadoutIcons"),
+      menuLoadoutCopy: byId("menuLoadoutCopy"),
+      workshopOrbitZone: byId("workshopOrbitZone"),
+      workshopRotateLeft: byId("workshopRotateLeftBtn"),
+      workshopRotateRight: byId("workshopRotateRightBtn"),
+      workshopPartLabel: byId("workshopPartLabel"),
+      workshopSummary: byId("workshopSummary"),
+      workshopSummaryDetail: byId("workshopSummaryDetail"),
+      rigPowerBar: byId("rigPowerBar"),
+      rigPowerValue: byId("rigPowerValue"),
+      rigStabilityBar: byId("rigStabilityBar"),
+      rigStabilityValue: byId("rigStabilityValue")
+    });
+    this.ui.controlTabs = [...(globalThis.document?.querySelectorAll?.("[data-control-device]") ?? [])];
+    this.ui.controlPanels = [...(globalThis.document?.querySelectorAll?.("[data-control-panel]") ?? [])];
+    this.ui.onboardingSteps = [...(globalThis.document?.querySelectorAll?.("[data-onboarding-step]") ?? [])];
+    this.ui.onboardingDots = [...(globalThis.document?.querySelectorAll?.(".onboarding-dots i") ?? [])];
+    this.ui.customTabs = [...(globalThis.document?.querySelectorAll?.("[data-custom-tab]") ?? [])];
+    this.ui.customPanels = [...(globalThis.document?.querySelectorAll?.("[data-custom-panel]") ?? [])];
+  },
+
+  setInputDevice(device) {
+    const next = CONTROL_DEVICES.includes(device) ? device : "keyboard";
+    if (this.inputDevice === next && this.uiDeviceApplied) return next;
+    this.inputDevice = next;
+    this.uiDeviceApplied = true;
+    const body = globalThis.document?.body;
+    for (const candidate of CONTROL_DEVICES) body?.classList?.toggle?.(`input-${candidate}`, candidate === next);
+    for (const tab of this.ui?.controlTabs ?? []) {
+      const active = tab.dataset?.controlDevice === next;
+      tab.classList?.toggle?.("active", active);
+      tab.setAttribute?.("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of this.ui?.controlPanels ?? []) {
+      panel.classList?.toggle?.("hidden", panel.dataset?.controlPanel !== next);
+    }
+    const aimCopy = {
+      keyboard: "VISÉE · CLIC DROIT · GLISSER · RELÂCHER",
+      touch: "VISÉE · GARDE LA BARRE + 2E DOIGT · GLISSER · RELÂCHER",
+      gamepad: "VISÉE · STICK DROIT · A POUR TIRER"
+    }[next];
+    if (this.ui?.aimHelp) this.ui.aimHelp.textContent = aimCopy;
+    const joyCopy = this.ui?.joystick?.querySelector?.(":scope > span");
+    if (joyCopy) joyCopy.textContent = next === "touch" ? "GLISSE ICI OU SUR L’EAU" : "JOYSTICK TACTILE";
+    return next;
+  },
+
+  handleControlTabKey(event, tab) {
+    const key = event?.key;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return false;
+    const tabs = [...(this.ui?.controlTabs ?? [])];
+    const index = tabs.indexOf(tab);
+    if (index < 0 || !tabs.length) return false;
+    let nextIndex = index;
+    if (key === "Home") nextIndex = 0;
+    else if (key === "End") nextIndex = tabs.length - 1;
+    else nextIndex = (index + (key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    const next = tabs[nextIndex];
+    event.preventDefault?.();
+    this.setInputDevice(next?.dataset?.controlDevice);
+    next?.focus?.();
+    return true;
+  },
+
+  preferredInputDevice() {
+    const pads = typeof navigator !== "undefined" ? navigator.getGamepads?.() : null;
+    if (pads && [...pads].some((pad) => pad?.connected)) return "gamepad";
+    if (globalThis.matchMedia?.("(pointer:coarse)")?.matches) return "touch";
+    return "keyboard";
+  },
+
+  openControls(returnFocus = null) {
+    const screen = this.ui?.controlsScreen;
+    if (!screen) return false;
+    this.controlsReturnFocus = returnFocus || globalThis.document?.activeElement || this.ui.controlsBtn;
+    this.setInputDevice(this.inputDevice || this.preferredInputDevice());
+    screen.classList.remove("hidden");
+    this.ui.controlsBtn?.setAttribute?.("aria-expanded", "true");
+    const activeTab = (this.ui.controlTabs ?? []).find((tab) => tab.dataset?.controlDevice === this.inputDevice);
+    activeTab?.focus?.();
+    return true;
+  },
+
+  closeControls({ restoreFocus = true } = {}) {
+    if (!this.ui?.controlsScreen) return false;
+    this.ui.controlsScreen.classList.add("hidden");
+    this.ui.controlsBtn?.setAttribute?.("aria-expanded", "false");
+    if (restoreFocus) this.controlsReturnFocus?.focus?.();
+    this.controlsReturnFocus = null;
+    return true;
+  },
+
+  updateOnboardingStep(index = 0) {
+    const steps = this.ui?.onboardingSteps ?? [];
+    if (!steps.length) return false;
+    this.onboardingStep = clamp(index | 0, 0, steps.length - 1);
+    steps.forEach((step, stepIndex) => step.classList?.toggle?.("hidden", stepIndex !== this.onboardingStep));
+    (this.ui.onboardingDots ?? []).forEach((dot, stepIndex) => dot.classList?.toggle?.("active", stepIndex === this.onboardingStep));
+    if (this.ui.onboardingProgress) this.ui.onboardingProgress.textContent = `${this.onboardingStep + 1} / ${steps.length}`;
+    if (this.ui.onboardingNext) this.ui.onboardingNext.textContent = this.onboardingStep === steps.length - 1
+      ? (this.pendingOnboardingStart ? "À L’EAU !" : "TERMINER")
+      : "SUIVANT";
+    if (this.ui.onboardingSkip) {
+      this.ui.onboardingSkip.textContent = this.pendingOnboardingStart ? "PASSER & JOUER" : "FERMER";
+    }
+    return true;
+  },
+
+  openOnboarding(startCallback = null, returnFocus = null) {
+    if (!this.ui?.onboardingScreen) {
+      startCallback?.();
+      return false;
+    }
+    this.pendingOnboardingStart = typeof startCallback === "function" ? startCallback : null;
+    this.onboardingReturnFocus = returnFocus || globalThis.document?.activeElement || this.ui.play;
+    this.setInputDevice(this.inputDevice || this.preferredInputDevice());
+    this.updateOnboardingStep(0);
+    this.ui.onboardingScreen.classList.remove("hidden");
+    this.ui.onboardingNext?.focus?.();
+    return true;
+  },
+
+  finishOnboarding({ completed = true } = {}) {
+    if (!this.ui?.onboardingScreen) return false;
+    const callback = this.pendingOnboardingStart;
+    const returnFocus = this.onboardingReturnFocus;
+    this.pendingOnboardingStart = null;
+    this.onboardingReturnFocus = null;
+    this.ui.onboardingScreen.classList.add("hidden");
+    if (completed) this.settings?.set?.("onboardingSeen", true);
+    if (completed && callback) callback();
+    else returnFocus?.focus?.();
+    return true;
+  },
+
+  startWithOnboarding(callback) {
+    if (globalThis.__YOLE_DEBUG_ENABLE__ || this.settings?.get?.("onboardingSeen")) {
+      callback?.();
+      return false;
+    }
+    return this.openOnboarding(callback);
+  },
+
+  requestReturnToMenu(returnFocus = null) {
+    if (!this.ui?.leaveScreen) return false;
+    this.leaveReturnFocus = returnFocus || globalThis.document?.activeElement;
+    const copy = globalThis.document?.getElementById?.("leaveCopy");
+    if (copy) {
+      copy.textContent = this.playback
+        ? "La relecture est terminée. Tu reviens choisir un mode sans modifier la progression."
+        : this.tour
+          ? this.tourPersistenceAvailable === false
+            ? "Cette étape s’arrête ici. Le stockage local est indisponible : cette progression sera perdue en quittant."
+            : "Cette étape s’arrête ici. Ta progression du Tour déjà sauvegardée restera disponible."
+        : this.mode === "ended"
+          ? "Le résultat reste enregistré, puis tu reviens choisir un mode."
+          : "La manche en cours s’arrête ici et tu reviens choisir un mode.";
+    }
+    const pauseVisible = this.ui?.pause
+      && !this.ui.pause.classList?.contains?.("hidden");
+    this.leavePausedUnderlying = Boolean(pauseVisible);
+    if (pauseVisible) {
+      this.ui.pause.setAttribute?.("aria-hidden", "true");
+      this.ui.pause.inert = true;
+    }
+    this.ui.leaveScreen.classList.remove("hidden");
+    this.ui.leaveCancel?.focus?.();
+    return true;
+  },
+
+  cancelReturnToMenu() {
+    if (!this.ui?.leaveScreen) return false;
+    this.ui.leaveScreen.classList.add("hidden");
+    if (this.leavePausedUnderlying && this.ui?.pause) {
+      this.ui.pause.removeAttribute?.("aria-hidden");
+      this.ui.pause.inert = false;
+    }
+    this.leaveReturnFocus?.focus?.();
+    this.leaveReturnFocus = null;
+    this.leavePausedUnderlying = false;
+    return true;
+  },
+
+  returnToMenu() {
+    if (this.tour && this.mode === "playing" && !this.playback) this.saveTourProgress?.("active");
+    this.mode = "menu";
+    this.paused = false;
+    this.playback = null;
+    this.tour = null;
+    this.setVersusMode?.(false);
+    this.clearLiveInput();
+    this.audio?.stopBeds?.();
+    this.music?.setScene?.("menu");
+    this.ui?.pause?.removeAttribute?.("aria-hidden");
+    if (this.ui?.pause) this.ui.pause.inert = false;
+    for (const screen of [
+      this.ui?.leaveScreen,
+      this.ui?.pause,
+      this.ui?.end,
+      this.ui?.customScreen,
+      this.ui?.controlsScreen,
+      this.ui?.onboardingScreen,
+      this.ui?.versusScreen
+    ]) screen?.classList?.add?.("hidden");
+    this.ui?.hud?.classList?.add?.("hidden");
+    this.ui?.versusHud?.classList?.add?.("hidden");
+    this.ui?.rotate?.classList?.add?.("hidden");
+    this.ui?.menu?.classList?.remove?.("hidden");
+    this.ui?.pauseBtn?.setAttribute?.("aria-expanded", "false");
+    this.ui?.settingsBtn?.setAttribute?.("aria-expanded", "false");
+    this.settingsFromMenu = false;
+    this.workshopActive = false;
+    this.workshopMenuWasVisible = false;
+    this.pauseReason = null;
+    this.resumeCountdownPending = false;
+    this.leaveReturnFocus = null;
+    this.leavePausedUnderlying = false;
+    for (const control of [this.ui?.customBtn, this.ui?.versusBtn, this.ui?.menuSettings, this.ui?.settingsBtn, this.ui?.pauseBtn]) {
+      control?.setAttribute?.("aria-expanded", "false");
+    }
+    const root = globalThis.document?.documentElement;
+    if (root?.dataset) delete root.dataset.tourStage;
+    root?.style?.removeProperty?.("--tour-accent");
+    this.resize?.();
+    this.ui?.play?.focus?.();
+    return true;
+  },
+
+  hasBlockingMenuDialog({ includePause = true } = {}) {
+    const blockingScreen = [
+      includePause ? this.ui?.pause : null,
+      this.ui?.customScreen,
+      this.ui?.controlsScreen,
+      this.ui?.onboardingScreen,
+      this.ui?.leaveScreen
+    ].some((screen) => screen
+      && screen.hidden !== true
+      && !screen.classList?.contains?.("hidden"));
+    if (blockingScreen) return true;
+    // Tour, replayothèque et À propos sont créés à la demande et ne vivent pas
+    // dans `ui`. Leur attribut `open` est la source de vérité native.
+    return Boolean(globalThis.document?.querySelector?.("dialog[open]"));
+  },
+
+  activatePrimaryAction() {
+    // Start ne doit jamais activer le CTA situé sous une confirmation ou une
+    // aide. Le garde vaut aussi sur l'écran de résultats : auparavant,
+    // « Retour au port ? » restait visible pendant qu'une revanche démarrait.
+    if (this.hasBlockingMenuDialog()) return false;
+    if (this.mode === "ended") {
+      if (typeof this.ui?.rematch?.onclick === "function") this.ui.rematch.onclick();
+      else if (this.versusLocal) this.startVersusMatch?.();
+      else if (this.tour && this.tour.stage + 1 < TOUR_STAGES.length) this.startTourStage?.(this.tour.stage + 1);
+      else if (this.tour) this.startTour?.();
+      else this.startMatch?.();
+      return true;
+    }
+    if (this.mode !== "menu") return false;
+    if (this.ui?.versusScreen && !this.ui.versusScreen.classList?.contains?.("hidden")) {
+      this.startWithOnboarding(() => this.startVersusMatch?.());
+      return true;
+    }
+    this.startWithOnboarding(() => this.startMatch?.());
+    return true;
+  },
+
+  isPortraitCombat() {
+    const width = Number(globalThis.innerWidth) || 0;
+    const height = Number(globalThis.innerHeight) || 0;
+    return width > 0 && height > width * 1.15;
+  },
+
+  updatePauseDialog() {
+    const fromMenu = Boolean(this.settingsFromMenu);
+    const portrait = this.pauseReason === "orientation";
+    const background = this.pauseReason === "visibility";
+    if (this.ui?.pauseStateLabel) this.ui.pauseStateLabel.textContent = fromMenu
+      ? "RÉGLAGES"
+      : portrait ? "ÉCRAN VERTICAL" : background ? "RETOUR À BORD" : "PAUSE";
+    if (this.ui?.pauseIcon) {
+      this.ui.pauseIcon.textContent = "";
+      if (this.ui.pauseIcon.dataset) {
+        this.ui.pauseIcon.dataset.pauseVisual = fromMenu
+          ? "settings"
+          : portrait ? "orientation" : "pause";
+      }
+    }
+    const title = globalThis.document?.getElementById?.("pauseTitle");
+    const copy = globalThis.document?.getElementById?.("pauseCopy");
+    if (title) title.textContent = fromMenu ? "CALE DE PILOTAGE" : portrait ? "TOURNE TA YOLE" : "MER SUSPENDUE";
+    if (copy) copy.textContent = fromMenu
+      ? "Règle le son, le pilotage et la lisibilité avant de prendre la mer."
+      : portrait
+        ? "La partie est en pause. Repasse en paysage pour reprendre."
+        : background
+          ? "Tout est resté en pause pendant ton absence. Reprends quand tu es prêt."
+          : "La mer et tes rivaux sont suspendus.";
+    if (this.ui?.resume) this.ui.resume.textContent = fromMenu ? "FERMER" : portrait ? "TOURNE L’ÉCRAN" : "REPRENDRE";
+  },
+
+  pauseForInterruption(reason) {
+    if (this.mode !== "playing" || this.paused) return false;
+    this.pauseReason = reason;
+    this.resumeCountdownPending = true;
+    if (reason === "orientation") this.ui?.rotate?.classList?.remove?.("hidden");
+    this.togglePause(true);
+    this.updatePauseDialog();
+    return true;
   },
 
   restartInputCue(element, className = "input-confirmed") {
@@ -86,7 +507,6 @@ export const InputSystems = {
     if (bit === ACTION_SHIFT) control = this.ui?.bwa;
     else if (bit === ACTION_BOOST_FORWARD) control = this.ui?.boostForward;
     else if (bit === ACTION_BOOST_LATERAL) control = this.ui?.boostLateral;
-    else if (bit === ACTION_REVENGE) control = this.ui?.revenge;
     else if (WEAPONS.some((weapon) => weapon.action === bit)) control = this.ui?.weaponSlot;
     this.restartInputCue(control);
   },
@@ -94,6 +514,9 @@ export const InputSystems = {
   trapDialogFocus(event) {
     if (event.code !== "Tab") return false;
     const dialog = [
+      this.ui?.leaveScreen,
+      this.ui?.onboardingScreen,
+      this.ui?.controlsScreen,
       this.ui?.versusScreen,
       this.ui?.customScreen,
       this.ui?.pause,
@@ -107,7 +530,14 @@ export const InputSystems = {
     // calcul d'enroulement, et le focus serait sorti du dialogue.
     const focusable = [...dialog.querySelectorAll(
       "button:not([disabled]),a[href],summary,input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])"
-    )].filter((element) => !element.hidden && element.getAttribute?.("aria-hidden") !== "true");
+    )].filter((element) => {
+      if (element.hidden || element.getAttribute?.("aria-hidden") === "true") return false;
+      // `hidden` ne voit ni display:none via une classe/ancêtre, ni le contenu
+      // d'un <details> fermé. getClientRects couvre les deux sans exclure les
+      // contrôles positionnés en fixed.
+      if (typeof element.getClientRects === "function" && element.getClientRects().length === 0) return false;
+      return true;
+    });
     if (!focusable.length) return false;
     const active = globalThis.document?.activeElement;
     const index = focusable.indexOf(active);
@@ -157,6 +587,13 @@ export const InputSystems = {
     this.gamepadTrim = null;
     this.hadLocalSteer = false;
     this.hadGamepadTrim = false;
+    this.dashTapSide = 0;
+    this.dashTapAt = -1e9;
+    this.dashDoubleTapSide = 0;
+    this.joyDashSide = 0;
+    this.joyDashAt = -1e9;
+    this.joyDashLatch = 0;
+    this.resetPointerInputs?.();
     this.clearVersusInput?.();
     if (this.ui?.joyKnob?.style) this.ui.joyKnob.style.transform = "";
   },
@@ -231,7 +668,153 @@ export const InputSystems = {
   findAimedTarget(owner, range, cone) {
     return this.withPlayerAim(owner, () => this.findTarget(owner, range, cone));
   },
+
+  moveDialogFocus(scope, direction = 1) {
+    const controls = [...(scope?.querySelectorAll?.(
+      "button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])"
+    ) ?? [])].filter((control) => control.hidden !== true);
+    if (!controls.length) return false;
+    const active = globalThis.document?.activeElement;
+    const current = controls.indexOf(active);
+    const next = (current + (direction < 0 ? -1 : 1) + controls.length) % controls.length;
+    controls[next]?.focus?.();
+    return true;
+  },
+
+  activeMenuNavigationScope() {
+    const doc = globalThis.document;
+    if (!doc) return null;
+    const visible = (node) => Boolean(node)
+      && node.hidden !== true
+      && !node.classList?.contains?.("hidden")
+      && node.getAttribute?.("aria-hidden") !== "true"
+      && (typeof node.getClientRects !== "function" || node.getClientRects().length > 0);
+    const openDialogs = [...(doc.querySelectorAll?.("dialog[open]") ?? [])].filter(visible);
+    if (openDialogs.length) return openDialogs.at(-1);
+    const ordered = [
+      this.ui?.leaveScreen,
+      this.ui?.onboardingScreen,
+      this.ui?.controlsScreen,
+      this.ui?.customScreen,
+      this.ui?.versusScreen,
+      this.ui?.end,
+      this.ui?.fatal,
+      this.ui?.pause,
+      this.ui?.menu
+    ];
+    return ordered.find(visible) ?? null;
+  },
+
+  menuFocusableItems(scope) {
+    return [...(scope?.querySelectorAll?.(
+      "button:not([hidden]):not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex='-1'])"
+    ) ?? [])].filter((control) => {
+      if (control.hidden === true || control.closest?.(".hidden,[inert]")) return false;
+      return typeof control.getClientRects !== "function" || control.getClientRects().length > 0;
+    });
+  },
+
+  adjustFocusedRange(control, direction) {
+    if (control?.tagName !== "INPUT" || control.type !== "range" || !direction) return false;
+    const minimum = Number(control.min || 0);
+    const maximum = Number(control.max || 100);
+    const step = Math.max(Number(control.step || 1), Number.EPSILON);
+    const value = clamp(Number(control.value || minimum) + Math.sign(direction) * step, minimum, maximum);
+    control.value = String(value);
+    const EventCtor = globalThis.Event;
+    if (typeof EventCtor === "function") {
+      control.dispatchEvent?.(new EventCtor("input", { bubbles: true }));
+      control.dispatchEvent?.(new EventCtor("change", { bubbles: true }));
+    }
+    return true;
+  },
+
+  moveMenuFocus(scope, directionX = 0, directionY = 0) {
+    const controls = this.menuFocusableItems(scope);
+    if (!controls.length) return false;
+    const doc = globalThis.document;
+    const active = doc?.activeElement;
+    if (directionX && this.adjustFocusedRange(active, directionX)) return true;
+    if (!controls.includes(active)) {
+      const preferred = controls.find((control) => control.classList?.contains?.("primary"))
+        ?? controls[0];
+      preferred?.focus?.();
+      return true;
+    }
+    const origin = active.getBoundingClientRect?.();
+    if (!origin || (!directionX && !directionY)) return this.moveDialogFocus(scope, directionY < 0 || directionX < 0 ? -1 : 1);
+    const originX = origin.left + origin.width * .5;
+    const originY = origin.top + origin.height * .5;
+    let best = null;
+    let bestScore = Infinity;
+    for (const candidate of controls) {
+      if (candidate === active) continue;
+      const rect = candidate.getBoundingClientRect?.();
+      if (!rect) continue;
+      const dx = rect.left + rect.width * .5 - originX;
+      const dy = rect.top + rect.height * .5 - originY;
+      const forward = dx * directionX + dy * directionY;
+      if (forward <= 3) continue;
+      const lateral = Math.abs(dx * directionY - dy * directionX);
+      const score = forward + lateral * 2.35;
+      if (score < bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    if (!best) {
+      // Rebouclage spatial : partir du bord opposé sans perdre la colonne ou la
+      // rangée visuelle donne un comportement prévisible dans les grilles.
+      let wrapScore = Infinity;
+      for (const candidate of controls) {
+        if (candidate === active) continue;
+        const rect = candidate.getBoundingClientRect?.();
+        if (!rect) continue;
+        const cx = rect.left + rect.width * .5;
+        const cy = rect.top + rect.height * .5;
+        const edge = cx * directionX + cy * directionY;
+        const lateral = Math.abs((cx - originX) * directionY - (cy - originY) * directionX);
+        const score = edge + lateral * 2.35;
+        if (score < wrapScore) {
+          best = candidate;
+          wrapScore = score;
+        }
+      }
+    }
+    best?.focus?.();
+    return Boolean(best);
+  },
+
+  cancelMenuNavigation(scope) {
+    if (!scope) return false;
+    if (scope === this.ui?.leaveScreen) return Boolean(this.cancelReturnToMenu?.());
+    if (scope === this.ui?.controlsScreen) return Boolean(this.closeControls?.());
+    if (scope === this.ui?.onboardingScreen) return Boolean(this.finishOnboarding?.({ completed: false }));
+    if (scope === this.ui?.customScreen) return Boolean(this.closeWorkshop?.({ save: false }));
+    if (scope === this.ui?.versusScreen) {
+      this.ui?.versusClose?.click?.();
+      return true;
+    }
+    if (scope.matches?.("dialog[open]")) {
+      const close = scope.querySelector?.(
+        ".tour-hub__close,.info-hub__close,[aria-label^='Fermer']"
+      );
+      close?.click?.();
+      return Boolean(close);
+    }
+    if (scope === this.ui?.end && this.ui?.endMenu) {
+      this.requestReturnToMenu?.(this.ui.endMenu);
+      return true;
+    }
+    return false;
+  },
+
   pollGamepad() {
+    // Filet de sécurité pour une partie lancée alors que le téléphone est déjà
+    // vertical : aucun événement `resize` n'est alors garanti après le clic.
+    if (this.mode === "playing" && !this.paused && this.isPortraitCombat()) {
+      this.pauseForInterruption("orientation");
+    }
     const pads = typeof navigator !== "undefined" ? navigator.getGamepads?.() : null;
     let pad = null;
     if (pads) {
@@ -243,6 +826,7 @@ export const InputSystems = {
       this.gamepadPrev.length = 0;
       this.gamepadSteer = null;
       this.gamepadTrim = null;
+      this.gamepadMenuAxes = { x: 0, y: 0 };
       return;
     }
     const prev = this.gamepadPrev;
@@ -252,34 +836,93 @@ export const InputSystems = {
       prev[index] = now;
       return now && !was;
     };
+    const hasPadActivity = [...(pad.axes ?? [])].some((axis) => Math.abs(axis ?? 0) > 0.18)
+      || [...(pad.buttons ?? [])].some((button) => button?.pressed);
+    if (hasPadActivity) this.setInputDevice("gamepad");
     const startPressed = pressed(9);
-    // Menus et écran de fin : Start démarre une manche comme le bouton Jouer.
+    // Menus et écran de fin : Start emprunte le CTA réellement affiché. C'est
+    // essentiel en Tour, où un `startMatch()` générique abandonnerait l'étape
+    // suivante au lieu d'activer le bouton de résultats.
     if (this.mode !== "playing") {
+      const acceptPressed = pressed(0);
+      const cancelPressed = pressed(1);
+      const upPressed = pressed(12);
+      const downPressed = pressed(13);
+      const leftPressed = pressed(14);
+      const rightPressed = pressed(15);
+      const axisX = Math.abs(pad.axes?.[0] ?? 0) > .62 ? Math.sign(pad.axes[0]) : 0;
+      const axisY = Math.abs(pad.axes?.[1] ?? 0) > .62 ? Math.sign(pad.axes[1]) : 0;
+      const previousAxes = this.gamepadMenuAxes ?? { x: 0, y: 0 };
+      const axisXPressed = axisX && axisX !== previousAxes.x ? axisX : 0;
+      const axisYPressed = axisY && axisY !== previousAxes.y ? axisY : 0;
+      this.gamepadMenuAxes = { x: axisX, y: axisY };
       for (let index = 0; index < pad.buttons.length; index++) {
-        if (index !== 9) prev[index] = Boolean(pad.buttons[index]?.pressed);
+        if (![0, 1, 9, 12, 13, 14, 15].includes(index)) {
+          prev[index] = Boolean(pad.buttons[index]?.pressed);
+        }
       }
-      if (startPressed) {
-        if (this.versusLocal) this.startVersusMatch();
-        else this.startMatch();
+      const scope = this.activeMenuNavigationScope();
+      const directionX = rightPressed ? 1 : leftPressed ? -1 : axisXPressed;
+      const directionY = downPressed ? 1 : upPressed ? -1 : axisYPressed;
+      if (cancelPressed) this.cancelMenuNavigation(scope);
+      else if (directionX || directionY) this.moveMenuFocus(scope, directionX, directionY);
+      else if (acceptPressed) {
+        const active = globalThis.document?.activeElement;
+        if (active && scope?.contains?.(active)) active.click?.();
+        else this.moveMenuFocus(scope, 0, 1);
+      } else if (startPressed) {
+        this.activatePrimaryAction();
       }
       return;
     }
-    // Start est traité AVANT toute action de bateau. Entrer en pause ou en
-    // sortir consomme les autres fronts de boutons et efface l'état tenu : une
-    // combinaison Start+A ne peut donc ni tirer sous le modal, ni tirer au
-    // premier tick repris.
-    if (this.paused || startPressed) {
+    // En pause, la manette pilote le vrai dialogue : auparavant tout sauf Start
+    // était consommé, donc « Menu principal » devenait un cul-de-sac au pad.
+    if (this.paused) {
+      const acceptPressed = pressed(0);
+      const cancelPressed = pressed(1);
+      const backPressed = pressed(8);
+      const upPressed = pressed(12);
+      const downPressed = pressed(13);
+      for (let index = 0; index < pad.buttons.length; index++) {
+        if (![0, 1, 8, 9, 12, 13].includes(index)) prev[index] = Boolean(pad.buttons[index]?.pressed);
+      }
+      this.clearLiveInput();
+      const leaveOpen = this.ui?.leaveScreen
+        && !this.ui.leaveScreen.classList?.contains?.("hidden");
+      if (leaveOpen) {
+        if (cancelPressed) this.cancelReturnToMenu();
+        else if (upPressed || downPressed) this.moveDialogFocus(this.ui.leaveScreen, upPressed ? -1 : 1);
+        else if (acceptPressed) globalThis.document?.activeElement?.click?.();
+        return;
+      }
+      const nestedDialogOpen = this.hasBlockingMenuDialog({ includePause: false });
+      if (nestedDialogOpen) {
+        if (cancelPressed && this.ui?.controlsScreen
+          && !this.ui.controlsScreen.classList?.contains?.("hidden")) this.closeControls?.();
+        return;
+      }
+      if (backPressed) this.requestReturnToMenu(this.ui?.pauseMenu);
+      else if (upPressed || downPressed) this.moveDialogFocus(this.ui?.pause, upPressed ? -1 : 1);
+      else if (acceptPressed) globalThis.document?.activeElement?.click?.();
+      else if (startPressed || cancelPressed) this.togglePause(false);
+      return;
+    }
+    // Entrer en pause consomme tous les autres fronts : Start+A ne peut pas
+    // tirer au premier tick derrière le dialogue.
+    if (startPressed) {
       for (let index = 0; index < pad.buttons.length; index++) {
         if (index !== 9) prev[index] = Boolean(pad.buttons[index]?.pressed);
       }
       this.clearLiveInput();
-      if (startPressed) this.togglePause();
+      this.togglePause(true);
       return;
     }
     // Le stick est lu ici mais appliqué dans la boucle fixe (cf. fixedUpdate),
     // pour rester déterministe et enregistrable dans les replays.
     const axisX = pad.axes[0] ?? 0;
     const axisY = pad.axes[1] ?? 0;
+    const aimX = pad.axes[2] ?? 0;
+    const aimY = pad.axes[3] ?? 0;
     const dpadX = (pad.buttons[15]?.pressed ? 1 : 0) - (pad.buttons[14]?.pressed ? 1 : 0);
     if (Math.abs(axisX) > 0.18) this.gamepadSteer = clamp(axisX, -1, 1);
     else if (dpadX) this.gamepadSteer = dpadX;
@@ -287,21 +930,53 @@ export const InputSystems = {
     this.gamepadTrim = Math.abs(axisY) > 0.22
       ? clamp(KEYBOARD_TRIM.cruise - axisY * 0.22, KEYBOARD_TRIM.min, KEYBOARD_TRIM.max)
       : null;
+    if (this.inputDevice === "gamepad" || Math.hypot(aimX, aimY) > 0.18) {
+      this.input.aim = Math.abs(aimX) > 0.18 ? clamp(aimX, -1, 1) : 0;
+      this.input.aimPitch = Math.abs(aimY) > 0.18 ? clamp(-aimY, -1, 1) : 0;
+      this.input.aimActive = Math.hypot(aimX, aimY) > 0.18;
+      this.input.aimPointerId = null;
+    }
     // Mapping standard : 0=A/✕ 1=B/○ 2=X/□ 3=Y/△ 4=LB 5=RB 8=Back 9=Start 12/13=croix haut/bas.
-    if (pressed(0)) this.fireWave(this.boats[0]);
-    if (pressed(2)) this.fireHarpoon(this.boats[0]);
-    if (pressed(3)) this.dropMine(this.boats[0]);
+    if (pressed(0)) this.useActiveWeapon();
+    if (pressed(2)) this.cycleWeapon();
+    if (pressed(3)) this.fireWeaponKey(this.crateWeapon()?.key ?? this.boats[0]?.loadout?.[1]);
     if (pressed(1)) this.triggerPlayerShift();
     if (pressed(5)) this.triggerForwardBoost(this.boats[0]);
     if (pressed(4)) this.triggerLateralBoost(this.boats[0], this.input.steer || -this.boats[0].roll || 1);
-    if (pressed(8)) this.useRevenge();
     if (pressed(12)) this.adjustCameraZoom(-0.14);
     if (pressed(13)) this.adjustCameraZoom(0.14);
   },
 
   handleKeyboardInput(down, event) {
     const code = event.code;
+    // Un contrôle ciblé peut avoir déjà consommé la touche avant que
+    // l'événement remonte à ce listener global. C'est notamment le cas des
+    // flèches du tablist : rebasculer ici vers « clavier » annulerait l'onglet
+    // tactile/manette que son propre handler vient de sélectionner.
+    if (down && !event.defaultPrevented) this.setInputDevice("keyboard");
     if (down && code === "Tab" && this.trapDialogFocus(event)) return;
+    if (down && code === "Escape") {
+      if (this.ui?.leaveScreen && !this.ui.leaveScreen.classList?.contains?.("hidden")) {
+        event.preventDefault?.();
+        this.cancelReturnToMenu();
+        return;
+      }
+      if (this.ui?.onboardingScreen && !this.ui.onboardingScreen.classList?.contains?.("hidden")) {
+        event.preventDefault?.();
+        this.finishOnboarding({ completed: false });
+        return;
+      }
+      if (this.ui?.controlsScreen && !this.ui.controlsScreen.classList?.contains?.("hidden")) {
+        event.preventDefault?.();
+        this.closeControls();
+        return;
+      }
+      if (this.settingsFromMenu && this.ui?.pause && !this.ui.pause.classList?.contains?.("hidden")) {
+        event.preventDefault?.();
+        this.togglePause(false);
+        return;
+      }
+    }
     if (down && code === "Escape" && this.mode !== "playing") {
       let returnTarget = this.dialogReturnFocus;
       let closed = false;
@@ -311,15 +986,14 @@ export const InputSystems = {
         returnTarget ??= this.ui.versusBtn;
         closed = true;
       } else if (this.ui?.customScreen && !this.ui.customScreen.classList?.contains?.("hidden")) {
-        this.ui.customScreen.classList.add("hidden");
-        this.ui.customBtn?.setAttribute?.("aria-expanded", "false");
-        returnTarget ??= this.ui.customBtn;
+        this.closeWorkshop?.({ save: false });
+        returnTarget = null;
         closed = true;
       }
       if (closed) {
         event.preventDefault?.();
         returnTarget?.focus?.();
-        this.dialogReturnFocus = null;
+        if (returnTarget) this.dialogReturnFocus = null;
         return;
       }
     }
@@ -333,7 +1007,7 @@ export const InputSystems = {
     // Une touche qui active un bouton du modal appartient au DOM, pas à la
     // yole. En pause, aucune touche de gameplay ne peut non plus mettre un bit
     // en attente pour la reprise.
-    if (this.mode !== "playing" || this.paused || isInteractiveKeyTarget(event.target)) {
+    if (this.mode !== "playing" || this.playerInputLocked() || isInteractiveKeyTarget(event.target)) {
       if (!down) {
         if (code === "ArrowLeft" || code === "KeyA") this.input.left = false;
         if (code === "ArrowRight" || code === "KeyD") this.input.right = false;
@@ -416,7 +1090,6 @@ export const InputSystems = {
     if (code === "KeyX" || code === "ControlLeft" || code === "ControlRight") this.requestAction(ACTION_BOOST_LATERAL);
     if (code === "Equal" || code === "NumpadAdd") this.adjustCameraZoom(-0.12);
     if (code === "Minus" || code === "NumpadSubtract") this.adjustCameraZoom(0.12);
-    if (code === "KeyR") this.requestAction(ACTION_REVENGE);
     if (code === "F3") this.toggleSetting("showPerf");
   },
 
@@ -427,27 +1100,15 @@ export const InputSystems = {
     return this.cameraZoom;
   },
 
-  useRevenge() {
-    if (this.playerInputLocked()) return;
-    if (this.tour) return;
-    const player = this.boats[0];
-    if (!player.eliminated || this.spiritUsed || this.revengePending) return;
-    const target = this.boats.filter((boat) => !boat.eliminated).sort((a, b) => b.z - a.z)[0];
-    if (!target) return;
-    this.spiritUsed = true;
-    this.ui.revenge.classList.add("hidden");
-    this.revengePending = { target, delay: 0.72 };
-    this.showMessage("🌪 FRAPPE DE SABLE", 0.9);
-    if (!this.isApplyingReplay) this.input.actions |= ACTION_REVENGE;
-  },
-
   triggerPlayerShift() {
     if (this.playerInputLocked()) return;
     const player = this.boats[0];
     if (!player || player.eliminated) return;
     const result = player.triggerShift();
     const water = this.waveField.sample(player.x, player.z, this.time, this.waterScratch);
-    this.spellVfx?.spawn(player.x, water.height + 1.15, player.z, SPELL_VFX.BWA_SHIFT, result.critical ? 5.2 : 4.1, 0.52, {
+    // Réponse de commande courte seulement. La vraie reprise de charge est
+    // déclenchée plus tard par l'événement physique CREW_LOADED.
+    this.spellVfx?.spawn(player.x, water.height + 1.05, player.z, SPELL_VFX.BWA_SHIFT, result.critical ? 2.8 : 2.2, result.critical ? 0.25 : 0.21, {
       flipX: player.dynamics.crewTarget < 0
     });
     this.telemetry.track("bwa_shift", { critical: result.critical, precision: result.precision, cut: result.cut }, this.time);
@@ -513,9 +1174,9 @@ export const InputSystems = {
   // fixedUpdate, jamais au moment de l'événement DOM. C'est ce qui garantit que
   // le direct et la relecture empruntent le même chemin au même instant du tick
   // — l'en-tête de ce fichier le promettait déjà, le code ne le tenait pas.
-  // L'arme ACTIVE est celle que la derniere caisse a donnee. Si elle tombe a
-  // zero, on retombe sur la premiere non vide du registre : le joueur n'a jamais
-  // un emplacement mort alors qu'il lui reste des munitions.
+  // L'arme active est la dernière sélectionnée ou tirée. Si elle tombe à zéro,
+  // on retombe sur la première encore disponible : le joueur n'a jamais un
+  // emplacement mort alors qu'il lui reste des munitions.
   activeWeapon(boat) {
     const held = WEAPONS.filter((w) => (boat?.ammo?.[w.key] ?? 0) > 0);
     if (!held.length) return null;
@@ -528,7 +1189,7 @@ export const InputSystems = {
     this.requestAction(weapon.action);
   },
 
-  // Clavier seulement : sur telephone la caisse suffit a choisir.
+  // Clavier seulement : au tactile, chaque tuile tire directement son arme.
   cycleWeapon() {
     const boat = this.boats[0];
     const held = WEAPONS.filter((w) => (boat?.ammo?.[w.key] ?? 0) > 0);
@@ -538,15 +1199,6 @@ export const InputSystems = {
     this.restartInputCue(this.ui?.weaponSlot);
   },
 
-  /**
-   * Une touche chiffre = SÉLECTIONNER PUIS TIRER.
-   *
-   * C'est le geste que le joueur attend : appuyer sur « & » envoie un coco, il
-   * n'y a pas à confirmer avec Espace. La sélection reste faite au passage,
-   * pour que l'emplacement affiché suive et qu'Espace continue de fonctionner.
-   *
-   * Si la soute est vide, `selectWeaponShortcut` refuse et rien n'est tiré.
-   */
   /** L'arme de caisse actuellement portée, s'il y en a une. */
   crateWeapon(boat) {
     const porte = boat ?? this.boats[0];
@@ -577,6 +1229,12 @@ export const InputSystems = {
     return this.fireWeaponShortcut(index);
   },
 
+  /**
+   * Une touche chiffre = SÉLECTIONNER PUIS TIRER.
+   *
+   * Appuyer sur « & » envoie un coco sans seconde confirmation. Si l'arme
+   * correspondante n'est pas disponible, le raccourci est refusé.
+   */
   fireWeaponShortcut(slotIndex) {
     if (!this.selectWeaponShortcut(slotIndex)) return false;
     // ⚠️ `useActiveWeapon` ne RENVOIE rien : elle se contente d'empiler le bit
@@ -591,14 +1249,14 @@ export const InputSystems = {
     if (this.playerInputLocked()) return false;
     const player = this.boats[0];
     const weapon = WEAPONS[slotIndex];
-    // Huit armes, huit emplacements : les quatre armes de caisse ont désormais
-    // leur touche au lieu de n'être joignables qu'en cyclant avec E.
+    // Huit armes, huit raccourcis : les quatre armes exclusivement en caisse ont
+    // désormais leur touche au lieu de n'être joignables qu'en cyclant avec E.
     if (!player || !weapon || slotIndex < 0 || slotIndex >= WEAPONS.length) return false;
     const ammo = player.ammo?.[weapon.key] ?? 0;
     const shortcut = this.ui?.weaponShortcuts?.querySelectorAll?.("[data-weapon]")?.[slotIndex];
     if (ammo <= 0) {
       this.restartInputCue(shortcut, "input-rejected");
-      this.showMessage?.(`SOUTE ${slotIndex + 1} · VIDE`, 0.48);
+      this.showMessage?.(`ARME ${slotIndex + 1} · INDISPONIBLE`, 0.48);
       return false;
     }
     player.activeWeapon = weapon.key;
@@ -609,36 +1267,265 @@ export const InputSystems = {
     return true;
   },
 
-  // Atelier. Deux axes seulement : le gréement, qui change la course, et la
-  // livrée, qui ne change QUE l'allure. Trois autres axes avaient été conçus et
-  // mesurés sous le seuil de perception — de la décoration payée au prix d'un
-  // champ de checksum.
+  playerCustomization() {
+    const snapshot = this.settings?.snapshot?.() ?? Object.fromEntries(
+      ["hullColor", "accentColor", "woodFinish", "crewKit", "sailLivery", "rig"]
+        .map((key) => [key, this.settings?.get?.(key)])
+    );
+    return normalizeCustomization(snapshot);
+  },
+
+  applyPlayerCustomization() {
+    const profile = this.playerCustomization();
+    this.boats?.[0]?.visual?.applyCustomization?.(profile);
+    this.updateGarageSummary(profile);
+    return profile;
+  },
+
+  updateGarageSummary(profile = this.playerCustomization()) {
+    const hull = HULL_PAINTS[profile.hullColor];
+    const accent = GUNWALE_ACCENTS[profile.accentColor];
+    const wood = WOOD_FINISHES[profile.woodFinish];
+    const crew = CREW_KITS[profile.crewKit];
+    const rig = RIGS[profile.rig];
+    const livery = SAIL_LIVERIES[profile.sailLivery];
+    const loadout = this.playerLoadout();
+    const weaponLabels = loadout.map((key) => WEAPONS.find((entry) => entry.key === key)?.label ?? key);
+    const weaponIcons = loadout.map((key) => LOADOUT_GLYPHS[key] ?? "◆");
+
+    if (this.ui?.menuBuildTitle) this.ui.menuBuildTitle.textContent = `${rig.label} · ${livery}`;
+    if (this.ui?.menuBuildCopy) {
+      this.ui.menuBuildCopy.textContent = `Coque ${hull.label} · bordage ${accent.label} · ${wood.label}`;
+    }
+    const swatches = [
+      [this.ui?.menuHullSwatch, hull.color],
+      [this.ui?.menuAccentSwatch, accent.color],
+      [this.ui?.menuCrewSwatch, crew.jersey]
+    ];
+    for (const [element, color] of swatches) element?.style?.setProperty?.("--swatch", cssHex(color));
+    if (this.ui?.menuLoadoutIcons) this.ui.menuLoadoutIcons.textContent = weaponIcons.join(" · ");
+    if (this.ui?.menuLoadoutCopy) this.ui.menuLoadoutCopy.textContent = `${weaponLabels.join(" + ")} en soute`;
+    if (this.ui?.workshopSummary) this.ui.workshopSummary.textContent = `${rig.label} · ${livery}`;
+    if (this.ui?.workshopSummaryDetail) {
+      this.ui.workshopSummaryDetail.textContent = `${hull.label} · ${accent.label} · ${wood.label} · ${crew.label}`;
+    }
+    if (this.ui?.rigDetail) this.ui.rigDetail.textContent = rig.detail;
+    const power = Math.round(rig.sail * 100);
+    const stability = Math.round(100 / rig.heel);
+    if (this.ui?.rigPowerValue) this.ui.rigPowerValue.textContent = String(power);
+    if (this.ui?.rigStabilityValue) this.ui.rigStabilityValue.textContent = String(stability);
+    this.ui?.rigPowerBar?.style?.setProperty?.("--value", `${clamp(power / 120 * 100, 8, 100)}%`);
+    this.ui?.rigStabilityBar?.style?.setProperty?.("--value", `${clamp(stability / 120 * 100, 8, 100)}%`);
+    return profile;
+  },
+
+  // Showroom : chaque choix s'applique au matériau ou au gréement du vrai
+  // modèle 3D. La sauvegarde reste transactionnelle : ×/Échap restaure l'état
+  // d'ouverture, le CTA du bas le valide.
   buildCustomScreen() {
-    const remplir = (hote, entrees, actuel, choisir) => {
+    const profile = this.playerCustomization();
+    const remplir = (hote, entrees, actuel, key, couleur = null) => {
       if (!hote) return;
       hote.textContent = "";
       entrees.forEach((entree, index) => {
         const bouton = document.createElement("button");
         bouton.type = "button";
         bouton.textContent = entree.label ?? entree;
+        bouton.dataset.option = entree.key ?? String(index);
         const active = index === actuel;
         bouton.classList.toggle("active", active);
         bouton.setAttribute?.("aria-pressed", String(active));
+        const swatch = couleur?.(entree);
+        if (Number.isFinite(swatch)) bouton.style?.setProperty?.("--swatch", cssHex(swatch));
         bouton.onclick = () => {
-          choisir(index);
+          this.settings.set(key, index);
+          this.applyPlayerCustomization();
           this.buildCustomScreen();
           hote.children?.[index]?.focus?.();
         };
         hote.appendChild(bouton);
       });
     };
-    remplir(this.ui.rigChoices, RIGS, this.playerRig(), (index) => this.settings.set("rig", index));
-    remplir(this.ui.liveryChoices, SAIL_LIVERIES, this.playerLivery(), (index) => {
-      this.settings.set("sailLivery", index);
-      // La livrée est du rendu pur : elle s'applique tout de suite, sans manche.
-      this.boats?.[0]?.visual?.setSailLivery?.(index);
-    });
-    if (this.ui.rigDetail) this.ui.rigDetail.textContent = RIGS[this.playerRig()].detail;
+    remplir(this.ui.hullChoices, HULL_PAINTS, profile.hullColor, "hullColor", (entry) => entry.color);
+    remplir(this.ui.accentChoices, GUNWALE_ACCENTS, profile.accentColor, "accentColor", (entry) => entry.color);
+    remplir(this.ui.woodChoices, WOOD_FINISHES, profile.woodFinish, "woodFinish", (entry) => entry.color);
+    remplir(this.ui.crewChoices, CREW_KITS, profile.crewKit, "crewKit", (entry) => entry.jersey);
+    remplir(this.ui.rigChoices, RIGS, profile.rig, "rig");
+    remplir(this.ui.liveryChoices, SAIL_LIVERIES, profile.sailLivery, "sailLivery");
+    const soute = this.playerLoadout();
+    if (this.ui.loadoutChoices) {
+      this.ui.loadoutChoices.textContent = "";
+      for (const key of LOADOUT_POOL) {
+        const weapon = WEAPONS.find((entry) => entry.key === key);
+        if (!weapon) continue;
+        const order = soute.indexOf(key);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "loadout-choice";
+        button.dataset.weapon = key;
+        button.classList.toggle("active", order >= 0);
+        button.setAttribute?.("aria-pressed", String(order >= 0));
+        button.setAttribute?.("aria-label", `${weapon.label}${order >= 0 ? `, arme ${order + 1} de la soute` : ", non sélectionnée"}`);
+        const icon = document.createElement("span");
+        icon.className = `loadout-choice-icon ${weapon.ico}`;
+        icon.setAttribute?.("aria-hidden", "true");
+        const label = document.createElement("strong");
+        label.textContent = weapon.label;
+        const badge = document.createElement("em");
+        badge.textContent = order >= 0 ? String(order + 1) : "";
+        badge.setAttribute?.("aria-hidden", "true");
+        button.append(icon, label, badge);
+        button.onclick = () => {
+          this.selectLoadoutWeapon(key);
+          this.buildCustomScreen();
+          this.ui.loadoutChoices?.querySelector?.(`[data-weapon="${key}"]`)?.focus?.();
+        };
+        this.ui.loadoutChoices.appendChild(button);
+      }
+    }
+    if (this.ui.loadoutDetail) {
+      const labels = soute.map((key) => WEAPONS.find((entry) => entry.key === key)?.label ?? key);
+      this.ui.loadoutDetail.textContent = `${labels.join(" + ")} · une nouvelle arme remplace l’emplacement 2 ; touche l’arme 2 pour la passer en tête.`;
+    }
+    this.updateGarageSummary(profile);
+    this.setWorkshopTab(this.workshopTab ?? "paint");
+  },
+
+  setWorkshopTab(key) {
+    const selected = WORKSHOP_PART_LABELS[key] ? key : "paint";
+    this.workshopTab = selected;
+    for (const tab of this.ui?.customTabs ?? []) {
+      const active = tab.dataset?.customTab === selected;
+      tab.classList?.toggle?.("active", active);
+      tab.setAttribute?.("aria-selected", String(active));
+    }
+    for (const panel of this.ui?.customPanels ?? []) {
+      panel.classList?.toggle?.("hidden", panel.dataset?.customPanel !== selected);
+    }
+    if (this.ui?.workshopPartLabel) this.ui.workshopPartLabel.textContent = WORKSHOP_PART_LABELS[selected];
+    return selected;
+  },
+
+  openWorkshop(returnFocus = null) {
+    if (!this.ui?.customScreen) return false;
+    this.dialogReturnFocus = returnFocus || globalThis.document?.activeElement || this.ui.customBtn;
+    // Le menu est lui aussi une couche plein écran au-dessus du canvas. Le
+    // laisser visible sous l'atelier faisait apparaître ses cartes dans la
+    // baie centrale à la place de la yole 3D.
+    this.workshopMenuWasVisible = Boolean(
+      this.ui?.menu && !this.ui.menu.classList?.contains?.("hidden")
+    );
+    if (this.workshopMenuWasVisible) this.ui.menu.classList.add("hidden");
+    this.workshopOriginal = Object.fromEntries(WORKSHOP_SETTING_KEYS.map((key) => {
+      const value = this.settings?.get?.(key);
+      return [key, Array.isArray(value) ? [...value] : value];
+    }));
+    this.workshopActive = true;
+    this.workshopOrbit = { yaw: -0.42, pitch: 0.26, distance: 13.8, dragging: false };
+    this.buildCustomScreen();
+    this.ui.customScreen.classList.remove("hidden");
+    this.ui.customBtn?.setAttribute?.("aria-expanded", "true");
+    this.setWorkshopTab("paint");
+    (this.ui.customTabs?.[0] || this.ui.workshopOrbitZone || this.ui.customClose)?.focus?.();
+    return true;
+  },
+
+  closeWorkshop({ save = true, restoreFocus = true } = {}) {
+    if (!this.ui?.customScreen) return false;
+    if (!save && this.workshopOriginal) {
+      for (const key of WORKSHOP_SETTING_KEYS) {
+        if (key in this.workshopOriginal) this.settings?.set?.(key, this.workshopOriginal[key]);
+      }
+    }
+    this.applyPlayerCustomization();
+    this.workshopActive = false;
+    if (this.workshopOrbit) this.workshopOrbit.dragging = false;
+    this.ui.customScreen.classList.add("hidden");
+    this.ui.customBtn?.setAttribute?.("aria-expanded", "false");
+    if (this.workshopMenuWasVisible) this.ui?.menu?.classList?.remove?.("hidden");
+    const returnTarget = this.dialogReturnFocus || this.ui.customBtn;
+    this.dialogReturnFocus = null;
+    this.workshopOriginal = null;
+    this.workshopMenuWasVisible = false;
+    if (restoreFocus) returnTarget?.focus?.();
+    return true;
+  },
+
+  resetWorkshopCustomization() {
+    for (const key of ["hullColor", "accentColor", "woodFinish", "crewKit", "sailLivery", "rig"]) {
+      this.settings?.set?.(key, DEFAULT_CUSTOMIZATION[key]);
+    }
+    this.settings?.set?.("loadout", ["wave", "harpoon"]);
+    this.applyPlayerCustomization();
+    this.buildCustomScreen();
+    return true;
+  },
+
+  adjustWorkshopOrbit(delta) {
+    if (!this.workshopOrbit || typeof this.workshopOrbit !== "object") {
+      this.workshopOrbit = { yaw: -0.42, pitch: 0.26, distance: 13.8, dragging: false };
+    }
+    this.workshopOrbit.yaw += Number(delta) || 0;
+    return this.workshopOrbit.yaw;
+  },
+
+  bindWorkshopOrbitControls() {
+    if (this.workshopOrbitBound) return;
+    const zone = this.ui?.workshopOrbitZone;
+    if (!zone) return;
+    this.workshopOrbitBound = true;
+    zone.onpointerdown = (event) => {
+      if (!this.workshopActive) return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.workshopPointerId = event.pointerId;
+      this.workshopPointerX = event.clientX ?? 0;
+      this.workshopOrbit.dragging = true;
+      zone.setPointerCapture?.(event.pointerId);
+    };
+    zone.onpointermove = (event) => {
+      if (!this.workshopActive || this.workshopPointerId !== event.pointerId) return;
+      const nextX = event.clientX ?? this.workshopPointerX ?? 0;
+      this.adjustWorkshopOrbit((this.workshopPointerX - nextX) * 0.012);
+      this.workshopPointerX = nextX;
+    };
+    const finish = (event) => {
+      if (this.workshopPointerId !== event.pointerId) return;
+      this.workshopOrbit.dragging = false;
+      this.workshopPointerId = null;
+      zone.releasePointerCapture?.(event.pointerId);
+    };
+    zone.onpointerup = finish;
+    zone.onpointercancel = finish;
+    zone.onkeydown = (event) => {
+      if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      this.adjustWorkshopOrbit(event.code === "ArrowLeft" ? -0.16 : 0.16);
+    };
+    if (this.ui.workshopRotateLeft) {
+      this.ui.workshopRotateLeft.onclick = () => this.adjustWorkshopOrbit(-0.24);
+    }
+    if (this.ui.workshopRotateRight) {
+      this.ui.workshopRotateRight.onclick = () => this.adjustWorkshopOrbit(0.24);
+    }
+  },
+
+  playerLoadout() {
+    return [...resolveLoadout(this.settings.get("loadout"))];
+  },
+
+  selectLoadoutWeapon(key) {
+    if (!LOADOUT_POOL.includes(key)) return this.playerLoadout();
+    const current = this.playerLoadout();
+    const index = current.indexOf(key);
+    let next = current;
+    if (index === 1) next = [current[1], current[0]];
+    else if (index < 0) next = [current[0], key];
+    this.settings.set("loadout", next);
+    if (this.ui?.loadoutDetail) this.ui.loadoutDetail.textContent = LOADOUT_DETAILS[key] ?? "";
+    this.updateGarageSummary?.();
+    return [...next];
   },
 
   // Bornage AU POINT D'ENTREE, pas au point d'usage : load() fusionne un JSON
@@ -660,6 +1547,20 @@ export const InputSystems = {
     return Number.isInteger(brut) && brut >= 0 && brut < SAIL_LIVERIES.length ? brut : 0;
   },
 
+  resetAllSettings() {
+    this.settings.reset();
+    // Ne jamais écrire `audio.muted` directement : setMuted remet aussi le
+    // gain maître WebAudio à 0,62 après une session coupée.
+    this.audio?.setMuted?.(false);
+    this.cameraZoom = clamp(this.settings.get("cameraZoom"), ZOOM_MIN, ZOOM_MAX);
+    this.quality.setAutomatic();
+    this.impact.reset();
+    this.clearLiveInput();
+    this.applySettingsUI();
+    if (this.mode === "playing") this.showMessage("RÉGLAGES RÉINITIALISÉS", 1.1);
+    return true;
+  },
+
   requestAction(bit) {
     if (this.playerInputLocked()) return false;
     const player = this.boats[0];
@@ -678,7 +1579,6 @@ export const InputSystems = {
     if (actions & ACTION_HARPOON) aimed(() => this.fireHarpoon(player));
     if (actions & ACTION_MINE) aimed(() => this.dropMine(player));
     if (actions & ACTION_SHIFT) this.triggerPlayerShift();
-    if (actions & ACTION_REVENGE) this.useRevenge();
     if (actions & ACTION_BOOST_FORWARD) this.triggerForwardBoost(player);
     if (actions & ACTION_BOOST_LATERAL) {
       // ⚠️ La direction est convertie en repère MONDE. `steer` et le double-tap
@@ -699,34 +1599,12 @@ export const InputSystems = {
 
   bindUI() {
     const ui = this.ui;
-    // ── INSTALLATION DE L'APPLICATION ────────────────────────────────────
-    //
-    // ⚠️ L'ÉVÉNEMENT NE SE REJOUE PAS. Le navigateur émet `beforeinstallprompt`
-    // UNE fois, tôt, et si on ne le garde pas il est perdu : le bouton ne
-    // pourra plus rien déclencher. On le capture donc et on le stocke.
-    //
-    // ⚠️ Le bouton reste MASQUÉ tant que l'événement n'est pas venu. Safari ne
-    // l'émet jamais — sur iOS l'installation passe par Partager > Sur l'écran
-    // d'accueil, et rien ne permet de la déclencher en JavaScript. Un bouton
-    // toujours visible qui échoue une fois sur deux serait pire que rien.
-    globalThis.addEventListener?.("beforeinstallprompt", (event) => {
-      event.preventDefault();
-      this.invitationInstall = event;
-      ui.install?.classList?.remove("hidden");
-    });
-    globalThis.addEventListener?.("appinstalled", () => {
-      this.invitationInstall = null;
-      ui.install?.classList?.add("hidden");
-    });
-    if (ui.install) {
-      ui.install.onclick = async () => {
-        const invitation = this.invitationInstall;
-        if (!invitation) return;
-        this.invitationInstall = null;
-        ui.install.classList.add("hidden");
-        try { await invitation.prompt(); } catch { /* refus ou navigateur capricieux */ }
-      };
-    }
+    this.collectExtendedUI();
+    this.setInputDevice(this.preferredInputDevice());
+    // Installation, défi quotidien et liens déterministes sont liés au moment
+    // de valeur : le navigateur peut proposer l'installation tôt, mais le jeu
+    // ne l'affiche qu'après une course terminée.
+    this.bindGrowthHooks();
     // ⚠️ LA MUSIQUE MOURAIT AU PREMIER PASSAGE EN ARRIÈRE-PLAN.
     //
     // Sur mobile, quitter l'onglet met en pause les HTMLAudioElement. Au
@@ -739,28 +1617,59 @@ export const InputSystems = {
     //
     // On remet `scene` à null avant de rappeler `setScene` : ça contourne la
     // garde sans la supprimer, et le fondu enchaîné repart proprement.
-    globalThis.addEventListener?.("visibilitychange", () => {
-      if (globalThis.document?.visibilityState !== "visible") return;
+    const gererVisibilite = () => {
+      if (globalThis.document?.visibilityState !== "visible") {
+        this.pauseForInterruption("visibility");
+        return;
+      }
       this.audio?.ensure?.();
+      this.syncAudioSettings?.();
       const scene = this.music?.scene;
-      if (!scene) return;
-      this.music.scene = null;
-      this.music.setScene(scene);
-    });
+      if (scene) {
+        this.music.scene = null;
+        this.music.setScene(scene);
+      }
+      if (this.paused && this.pauseReason === "visibility") this.updatePauseDialog();
+    };
+    if (globalThis.document?.addEventListener) globalThis.document.addEventListener("visibilitychange", gererVisibilite);
+    else globalThis.addEventListener?.("visibilitychange", gererVisibilite);
+    const verifierOrientation = () => {
+      if (this.mode !== "playing") return;
+      if (this.isPortraitCombat()) this.pauseForInterruption("orientation");
+      else if (this.paused && this.pauseReason === "orientation") {
+        this.pauseReason = null;
+        this.ui?.rotate?.classList?.add?.("hidden");
+        this.updatePauseDialog();
+      }
+    };
+    globalThis.addEventListener?.("resize", verifierOrientation, { passive: true });
+    globalThis.addEventListener?.("orientationchange", verifierOrientation, { passive: true });
     // ⚠️ La musique de menu ne peut PAS démarrer au chargement : tout navigateur
     // suspend le contexte audio tant qu'aucun geste utilisateur n'a eu lieu.
     // On l'arme donc au premier pointeur, une seule fois, sans rien bloquer.
     const armerMusique = () => {
-      if (this.audio?.ensure?.() && this.mode === "menu") this.music?.setScene?.("menu");
+      if (this.audio?.ensure?.()) {
+        this.syncAudioSettings?.();
+        if (this.mode === "menu") this.music?.setScene?.("menu");
+      }
     };
     globalThis.addEventListener?.("pointerdown", armerMusique, { once: true });
     globalThis.addEventListener?.("keydown", armerMusique, { once: true });
-    ui.play.onclick = () => this.startMatch();
+    globalThis.addEventListener?.("pointerdown", (event) => {
+      if (event.pointerType === "touch") this.setInputDevice("touch");
+      else if (event.pointerType === "mouse") this.setInputDevice("keyboard");
+    }, { passive: true });
+    ui.play.onclick = () => this.startWithOnboarding(() => {
+      this.clearActiveChallenge?.();
+      this.startMatch();
+    });
     if (ui.versusBtn) ui.versusBtn.onclick = () => {
       this.dialogReturnFocus = globalThis.document?.activeElement || ui.versusBtn;
       if (this.openVersusLobby()) {
         ui.versusBtn.setAttribute?.("aria-expanded", "true");
-        ui.versusStart?.focus?.();
+        const overflow = (ui.versusScreen?.scrollHeight ?? 0) > (ui.versusScreen?.clientHeight ?? Infinity) + 1;
+        (overflow ? ui.versusClose : ui.versusStart)?.focus?.();
+        if (overflow && ui.versusScreen) ui.versusScreen.scrollTop = 0;
       }
     };
     if (ui.versusClose) ui.versusClose.onclick = () => {
@@ -771,27 +1680,56 @@ export const InputSystems = {
       this.dialogReturnFocus = null;
     };
     if (ui.versusStart) ui.versusStart.onclick = () => {
-      ui.versusBtn?.setAttribute?.("aria-expanded", "false");
-      this.startVersusMatch();
+      this.startWithOnboarding(() => {
+        this.clearActiveChallenge?.();
+        ui.versusBtn?.setAttribute?.("aria-expanded", "false");
+        this.startVersusMatch();
+      });
     };
-    if (ui.customBtn) ui.customBtn.onclick = () => {
-      this.dialogReturnFocus = globalThis.document?.activeElement || ui.customBtn;
-      this.buildCustomScreen();
-      ui.customScreen.classList.remove("hidden");
-      ui.customBtn.setAttribute?.("aria-expanded", "true");
-      ui.customClose?.focus?.();
+    if (ui.customBtn) ui.customBtn.onclick = () => this.openWorkshop(ui.customBtn);
+    if (ui.menuWorkshop) ui.menuWorkshop.onclick = () => this.openWorkshop(ui.menuWorkshop);
+    if (ui.customClose) ui.customClose.onclick = () => this.closeWorkshop({ save: true });
+    if (ui.customCancel) ui.customCancel.onclick = () => this.closeWorkshop({ save: false });
+    if (ui.customReset) ui.customReset.onclick = () => this.resetWorkshopCustomization();
+    for (const tab of ui.customTabs ?? []) {
+      tab.onclick = () => this.setWorkshopTab(tab.dataset?.customTab);
+    }
+    this.bindWorkshopOrbitControls();
+    this.applyPlayerCustomization();
+    if (ui.tourBtn) ui.tourBtn.onclick = () => this.startWithOnboarding(() => {
+      this.clearActiveChallenge?.();
+      openTourHub(this);
+    });
+    if (ui.menuSettings) ui.menuSettings.onclick = () => {
+      this.settingsFromMenu = true;
+      this.pauseReturnFocus = globalThis.document?.activeElement || ui.menuSettings;
+      this.togglePause(true);
     };
-    if (ui.customClose) ui.customClose.onclick = () => {
-      ui.customScreen.classList.add("hidden");
-      ui.customBtn?.setAttribute?.("aria-expanded", "false");
-      const returnTarget = this.dialogReturnFocus || ui.customBtn;
-      returnTarget?.focus?.();
-      this.dialogReturnFocus = null;
+    if (ui.controlsBtn) ui.controlsBtn.onclick = () => this.openControls(ui.controlsBtn);
+    if (ui.replaysBtn) ui.replaysBtn.onclick = () => openReplayLibrary(this);
+    if (ui.aboutBtn) ui.aboutBtn.onclick = () => openInfoHub();
+    if (ui.pauseControls) ui.pauseControls.onclick = () => this.openControls(ui.pauseControls);
+    for (const tab of ui.controlTabs ?? []) {
+      tab.onclick = () => this.setInputDevice(tab.dataset?.controlDevice);
+      tab.onkeydown = (event) => this.handleControlTabKey(event, tab);
+    }
+    if (ui.controlsClose) ui.controlsClose.onclick = () => this.closeControls();
+    if (ui.replayOnboarding) ui.replayOnboarding.onclick = () => {
+      const returnFocus = this.controlsReturnFocus || ui.controlsBtn;
+      this.closeControls({ restoreFocus: false });
+      this.openOnboarding(null, returnFocus);
     };
-    if (ui.tourBtn) ui.tourBtn.onclick = () => this.startTour();
+    if (ui.onboardingNext) ui.onboardingNext.onclick = () => {
+      const last = Math.max(0, (ui.onboardingSteps?.length ?? 1) - 1);
+      if ((this.onboardingStep ?? 0) >= last) this.finishOnboarding();
+      else this.updateOnboardingStep((this.onboardingStep ?? 0) + 1);
+    };
+    if (ui.onboardingSkip) ui.onboardingSkip.onclick = () => this.finishOnboarding();
     ui.rematch.onclick = () => {
+      if (this.playback?.replay) { this.startReplay(this.playback.replay); return; }
       if (this.versusLocal) { this.startVersusMatch(); return; }
       if (!this.tour) { this.startMatch(); return; }
+      if (this.tour.challenge) { this.startTourStage(this.tour.stage); return; }
       const nextStage = this.tour.stage + 1;
       if (nextStage < TOUR_STAGES.length) this.startTourStage(nextStage);
       else this.startTour();
@@ -800,17 +1738,36 @@ export const InputSystems = {
     ui.pauseBtn.onclick = () => this.togglePause();
     if (ui.settingsBtn) ui.settingsBtn.onclick = () => this.togglePause(true);
     ui.resume.onclick = () => this.togglePause(false);
+    if (ui.pauseMenu) ui.pauseMenu.onclick = () => this.requestReturnToMenu(ui.pauseMenu);
+    if (ui.endMenu) ui.endMenu.onclick = () => this.requestReturnToMenu(ui.endMenu);
+    if (ui.leaveCancel) ui.leaveCancel.onclick = () => this.cancelReturnToMenu();
+    if (ui.leaveConfirm) ui.leaveConfirm.onclick = () => this.returnToMenu();
+    if (ui.skipSpectating) ui.skipSpectating.onclick = () => this.skipTourSpectating?.();
     ui.restart.onclick = () => {
       if (this.versusLocal) this.startVersusMatch();
       else if (this.tour) this.startTourStage(this.tour.stage);
       else this.startMatch();
     };
     ui.sound.onclick = () => {
-      this.audio.setMuted(!this.audio.muted);
-      this.settings.set("audio", !this.audio.muted);
-      ui.sound.textContent = this.audio.muted ? "🔇" : "🔊";
-      ui.sound.setAttribute?.("aria-pressed", String(!this.audio.muted));
+      const enabled = this.settings.get("audio") !== false && !this.audio.muted;
+      this.audio.setMuted(enabled);
+      this.settings.set("audio", !enabled);
+      if (!enabled) this.audio.ensure?.();
+      this.applySettingsUI();
     };
+    const bindVolume = (control, output, key) => {
+      if (!control) return;
+      control.oninput = () => {
+        const value = clamp(Number(control.value) / 100, 0, 1);
+        control.style?.setProperty?.("--range-level", `${Math.round(value * 100)}%`);
+        this.settings.set(key, value);
+        if (output) output.textContent = `${Math.round(value * 100)}%`;
+        this.audio?.ensure?.();
+        this.syncAudioSettings?.();
+      };
+    };
+    bindVolume(ui.musicVolume, ui.musicVolumeValue, "musicVolume");
+    bindVolume(ui.sfxVolume, ui.sfxVolumeValue, "sfxVolume");
     if (ui.replay) ui.replay.onclick = () => this.latestReplay && this.startReplay(this.latestReplay);
     if (ui.downloadReplay) ui.downloadReplay.onclick = () => this.latestReplay && downloadReplay(this.latestReplay);
     if (ui.downloadTelemetry) ui.downloadTelemetry.onclick = () => this.downloadTelemetry();
@@ -820,7 +1777,9 @@ export const InputSystems = {
       this.applySettingsUI();
     };
     if (ui.hapticsToggle) ui.hapticsToggle.onclick = () => this.toggleSetting("haptics", [1, 0.5, 0]);
-    if (ui.stableCameraToggle) ui.stableCameraToggle.onclick = () => this.toggleSetting("cameraRoll", [0.72, 0.94]);
+    // Trois paliers nommés : le défaut équilibré ouvre naturellement vers le
+    // confort, puis vers la caméra vivante, sans le saut ambigu 82 → 72 %.
+    if (ui.stableCameraToggle) ui.stableCameraToggle.onclick = () => this.toggleSetting("cameraRoll", [0.82, 0.94, 0.72]);
     if (ui.flashToggle) ui.flashToggle.onclick = () => this.toggleSetting("reduceFlash");
     // SANS doit vraiment produire zéro mouvement caméra, pas un mouvement atténué.
     if (ui.impactToggle) ui.impactToggle.onclick = () => {
@@ -839,6 +1798,11 @@ export const InputSystems = {
       if (this.quality.manual) { this.quality.setAutomatic(); this.settings.set("quality", "auto"); }
       else { this.quality.setTier(this.quality.tier, true); this.settings.set("quality", ["LQ", "MQ", "HQ"][this.quality.tier]); }
       this.applySettingsUI();
+    };
+    if (ui.resetSettings) ui.resetSettings.onclick = () => {
+      if (typeof globalThis.confirm === "function"
+        && !globalThis.confirm("Rétablir tous les réglages, le garage et l’initiation par défaut ?")) return;
+      this.resetAllSettings();
     };
     ui.bwa.onclick = () => this.requestAction(ACTION_SHIFT);
     // ── TROIS TUILES D'ARME, TIR DIRECT ──────────────────────────────────
@@ -867,8 +1831,6 @@ export const InputSystems = {
     if (ui.zoomIn) ui.zoomIn.onclick = () => this.adjustCameraZoom(-0.14);
     if (ui.zoomOut) ui.zoomOut.onclick = () => this.adjustCameraZoom(0.14);
     if (ui.zoomReset) ui.zoomReset.onclick = () => this.adjustCameraZoom(1.18 - this.cameraZoom);
-    ui.revenge.onclick = () => this.requestAction(ACTION_REVENGE);
-
     addEventListener("keydown", (event) => this.handleKeyboardInput(true, event));
     addEventListener("keyup", (event) => this.handleKeyboardInput(false, event));
     this.focusWhenDialogOpens(ui.end, ui.rematch);
@@ -956,6 +1918,13 @@ export const InputSystems = {
     const RAYON_LIBRE = 62;
     const DOUBLE_TAP_MS = 280;
     const DOUBLE_TAP_PX = 44;
+    this.resetPointerInputs = () => {
+      libre.actif = false;
+      libre.id = null;
+      libre.dernierTap = -1;
+      libre.dernierX = 0;
+      libre.dernierY = 0;
+    };
 
     const barreLibre = (event) => {
       if (this.paused || !libre.actif || event.pointerId !== libre.id) return;
@@ -1032,20 +2001,53 @@ export const InputSystems = {
   }
 ,
   togglePause(force) {
-    if (this.mode !== "playing") return;
+    if (this.mode !== "playing") {
+      if (this.mode !== "menu" || (!this.settingsFromMenu && force !== true)) return;
+      const open = force !== false;
+      this.settingsFromMenu = open;
+      this.ui.pause?.classList?.toggle?.("hidden", !open);
+      this.ui.pause?.classList?.toggle?.("menu-settings", open);
+      this.ui.menuSettings?.setAttribute?.("aria-expanded", String(open));
+      this.updatePauseDialog();
+      if (open) this.ui.resume?.focus?.();
+      else {
+        this.ui.pause?.classList?.remove?.("menu-settings");
+        this.pauseReturnFocus?.focus?.();
+        this.pauseReturnFocus = null;
+      }
+      return open;
+    }
     const nextPaused = typeof force === "boolean" ? force : !this.paused;
+    if (!nextPaused && this.isPortraitCombat()) {
+      this.pauseReason = "orientation";
+      this.resumeCountdownPending = true;
+      this.ui?.rotate?.classList?.remove?.("hidden");
+      this.updatePauseDialog();
+      this.ui.resume?.focus?.();
+      return true;
+    }
     if (nextPaused && !this.paused) {
       this.pauseReturnFocus = globalThis.document?.activeElement || this.ui.pauseBtn;
     }
+    this.settingsFromMenu = false;
     this.paused = nextPaused;
     this.clearLiveInput();
     this.ui.pause.classList.toggle("hidden", !this.paused);
+    this.ui.pause.classList.remove?.("menu-settings");
     this.ui.pauseBtn?.setAttribute?.("aria-expanded", String(this.paused));
     this.ui.settingsBtn?.setAttribute?.("aria-expanded", String(this.paused));
+    this.updatePauseDialog();
     if (this.paused) this.ui.resume?.focus?.();
     else {
+      if (this.resumeCountdownPending) {
+        this.countdown = Math.max(this.countdown ?? 0, COUNTDOWN_SECONDS + COUNTDOWN_GO_SECONDS);
+        this.showMessage?.("REPRISE · TIENS BON LA BARRE", 1.1);
+      }
+      this.resumeCountdownPending = false;
+      this.pauseReason = null;
       this.pauseReturnFocus?.focus?.();
       this.pauseReturnFocus = null;
     }
+    return this.paused;
   }
 };

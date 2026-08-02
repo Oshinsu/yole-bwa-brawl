@@ -23,7 +23,7 @@ import { ACTION_HARPOON, ACTION_MINE, ACTION_BARIK, ACTION_CHADRON, ACTION_LANBI
 // ⚠️ Réservé aux ARMES. Les collisions de coque et les récifs appellent
 // `applyHit` directement, sans passer par ici : un abordage doit rester un
 // abordage.
-// Cooldown effectif d'une arme de base pour un tireur donné.
+// Cooldown effectif d'une arme du vivier de soute pour un tireur donné.
 //
 // Les IA tirent moins vite que le joueur, et c'est assumé : elles n'ont ni
 // hésitation ni erreur de visée à compenser, donc à cadence égale elles
@@ -106,12 +106,18 @@ function withAimOffset(owner, radians, callback) {
   }
 }
 
-function weaponHit(payload) {
+export function weaponHit(payload) {
   const bias = BALANCE.weaponBias;
   // Marqueur d'origine. Sans lui, impossible de savoir si un joueur se fait
   // coucher par les armes, par les abordages ou par les récifs — les trois
   // passent par le même `applyHit`, et on règle alors à l'aveugle.
   payload.fromWeapon = true;
+  // Gag/règle centrale : chaque IMPACT DIRECT d'arme décroche un yoleur. Les
+  // effets continus (feu résiduel, tension du câble) passent `ejectCrew:false`
+  // pour ne pas vider six hommes sur un seul projectile resté actif.
+  if (payload.ejectCrew !== false) {
+    payload.crewLoss = Math.max(1, payload.crewLoss ?? 0);
+  }
   if (payload.rollImpulse) payload.rollImpulse *= bias.roll;
   if (payload.waterKg) payload.waterKg *= bias.water;
   if (payload.structure) {
@@ -338,7 +344,11 @@ export const WeaponSystems = {
         // C'est tout l'intérêt — voir que le coup est parti pour rien.
         item.life = 0;
         item.line.visible = false;
-        this.ocean?.wake?.burst?.(item.x, item.z, 1.6, 0.42);
+        // Ce projectile est avancé au temps de RENDU. Écrire ici dans la
+        // WakeGrid ferait dépendre la hauteur d'eau autoritaire du framerate.
+        // L'anneau conserve la lecture visuelle de l'impact sans nourrir la
+        // physique du tick suivant.
+        this.rings?.burst?.(item.x, eau + 0.02, item.z, 0xdfffff, 0.58, 0.42);
         this.particles?.emitBurst?.(this.visualRng,
           { x: item.x, y: eau + 0.2, z: item.z }, 0xdfffff, 10,
           { speed: 1.5, upward: 2.1, sizeMax: 0.42, lifeMax: 0.5 });
@@ -420,6 +430,7 @@ export const WeaponSystems = {
         const force = clamp(1 - distance / conf.slickRadius, 0.2, 1);
         const cote = Math.sign(boat.x - nappe.x) || 1;
         boat.applyHit(nappe.owner, weaponHit({
+          ejectCrew: false,
           rollImpulse: cote * conf.slickRoll * force,
           slow: 0.06 * force,
           waterKg: conf.slickWater * force,
@@ -493,7 +504,7 @@ export const WeaponSystems = {
     // Relecture : l'IA continue de jouer, le joueur non.
     if (owner === this.boats[0] && this.playerInputLocked?.()) return false;
     if (!owner || owner.eliminated || owner.cooldowns.wave > 0) return false;
-    // Arme de base : munition illimitée, c'est la cadence qui l'équilibre.
+    // Soute ou caisse : le stock ne baisse que s'il est fini.
     if (owner.ammo.wave <= 0) return false;
     const projectile = this.allocate(this.waveProjectiles);
     if (Number.isFinite(owner.ammo.wave)) owner.ammo.wave--;
@@ -940,6 +951,15 @@ export const WeaponSystems = {
     });
     projectile.vfxTrailTimer = PWASON_TRAIL_INTERVAL;
     this.audio.play("cocoFire", { gain: owner.isPlayer ? 0.34 : 0.16, rate: 1.42, pan: this.panFor(owner.x), gap: 0.03 });
+    if (projectile.target) {
+      this.audio.play("pwasonLock", {
+        gain: projectile.target.isPlayer ? 0.46 : owner.isPlayer ? 0.31 : 0.14,
+        rate: projectile.target.isPlayer ? 0.92 : 1.08,
+        pan: this.panFor(projectile.target.x),
+        gap: 0.12,
+        delay: 0.055
+      });
+    }
     if (owner.isPlayer) this.showMessage("🐟 PWASON VOLAN !", 0.44);
     this.telemetry.track("weapon_pwason", { owner: owner.id }, this.time);
     if (owner.isPlayer && !this.isApplyingReplay) this.input.actions |= ACTION_PWASON;
@@ -1084,7 +1104,6 @@ export const WeaponSystems = {
         hitLateral: side,
         hitLongitudinal: -0.25,
         crewImpulse: isPwason ? 0.52 + attenuation * 0.46 : 0.42 + attenuation * 0.40,
-        crewLossChance: attenuation * (isPwason ? 0.11 : 0.09),
         // Le coco perce désormais : 20 % de coque à bout portant. Il ne se
         // contente plus de noyer — c'est l'arme de base, elle doit pouvoir tuer.
         structure: {
@@ -1190,7 +1209,6 @@ export const WeaponSystems = {
         hitLateral: localSide,
         hitLongitudinal: Math.sign(dz || 1) * 0.45,
         crewImpulse: 0.32 + attenuation * 0.80,
-        crewLossChance: attenuation * 0.15,
         structure: {
           // ⚠️ La MINE arrache 30 % de coque à bout portant (0,417 × 0,72 de
           // biais = 0,30). Avant : 4,5 %, soit une explosion qui ne se voyait
@@ -1466,12 +1484,5 @@ export const WeaponSystems = {
       );
     }
 
-    if (this.revengePending) {
-      this.revengePending.delay -= dt;
-      if (this.revengePending.delay <= 0) {
-        this.executeRevenge(this.revengePending.target);
-        this.revengePending = null;
-      }
-    }
   }
 };

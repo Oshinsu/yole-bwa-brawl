@@ -81,7 +81,7 @@ const { ACTION_BOOST_FORWARD, ACTION_SHIFT } = await import('../src/game/balance
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate',
-  'zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
+  'zoomIn','zoomOut','zoomValue','joystick','joyKnob','menu','hud','end',
   'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon','difficultyToggle',

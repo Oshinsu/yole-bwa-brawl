@@ -258,6 +258,25 @@ def main() -> int:
     except ValueError:
         shown = target
     print(f"[OK] {shown}: {len(glb)} octets")
+
+    # ⚠️ CET OUTIL NE NORMALISE QUE LA BOITE ENGLOBANTE.
+    #
+    # La forme interieure — tonture, rocker, sections — passe telle quelle. Une
+    # carene peut deriver d'un demi-metre sans que rien ici ne bronche, et c'est
+    # exactement ce qui est arrive a la coque livree (207 mm d'ecart median a la
+    # ligne de quille du gabarit). C'est ACCEPTE, mais il faut le savoir.
+    #
+    # L'autorite sur ce qui est verifie, c'est `npm run test:hull`, qui decode le
+    # GLB reellement livre. On ne redouble pas ses controles ici : deux tables de
+    # verite qui derivent l'une de l'autre est precisement le defaut documente
+    # dans docs/ASSET_CONTRACT.md.
+    half_beam = max(abs(final[0][0]), abs(final[0][1]))
+    ratio = (final[2][1] - final[2][0]) / (half_beam * 2) if half_beam else 0.0
+    print(f"     enveloppe : L={final[2][1] - final[2][0]:.3f} m  "
+          f"demi-largeur={half_beam:.3f} m  ratio={ratio:.2f}")
+    print("     ⚠️ le ratio du MESH doit rester ~5,14 : le runtime applique")
+    print("        ensuite HULL_VISUAL_WIDTH_SCALE=0,84 pour afficher 6,12.")
+    print("     -> valider avec : npm run test:hull")
     return 0
 
 

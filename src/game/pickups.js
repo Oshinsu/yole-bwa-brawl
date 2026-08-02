@@ -1,8 +1,8 @@
 // Caisses d'armes semées sur le parcours.
 //
-// Les armes ne sont plus disponibles en permanence derrière un cooldown : il
-// faut aller les chercher. Le cooldown subsiste, mais seulement comme garde
-// anti-spam — c'est la munition qui décide.
+// Deux armes de soute restent disponibles en permanence derrière un cooldown.
+// Les autres passent par cet emplacement de caisse : il faut aller les chercher
+// et c'est alors la munition qui décide.
 //
 // Déterminisme : la position d'une caisse est une fonction pure de son indice de
 // rangée (aucun tirage), et seul le CONTENU est tiré, sur `gameRng` — déjà dans
@@ -35,13 +35,12 @@ export const PICKUP = {
   firstRow: 1         // la première rangée est juste devant la ligne de départ
 };
 
-// Table de butin : les quatre armes absurdes.
+// Table de butin : six armes. Mine et Rhum peuvent être en soute ou en caisse ;
+// Barik, Chadron, Lanbi et Pwason restent exclusivement en caisse.
 //
-// ⚠️ La mine et le rhum devaient les rejoindre, pour que chaque caisse compte.
-// Le changement a été mesuré puis RETIRÉ : il faisait diverger la relecture
-// (voir BASE_WEAPONS dans balance.js). Ce qui reste de cette passe pour donner
-// du poids aux caisses est donc structurel et visuel — moitié moins de boîtes,
-// jamais sur la ligne de course, balisées et visibles de loin.
+// Une première tentative faisait diverger la relecture parce que le pas fixe
+// consommait `visualRng`. Les RNG gameplay et rendu sont désormais séparés :
+// ces six contenus restent déterministes.
 const LOOT = [
   { weapon: "mine", weight: 0.20, color: 0xff3d63 },
   { weapon: "rhum", weight: 0.18, color: 0xffc531 },
@@ -57,13 +56,9 @@ const LOOT = [
 // et va chercher celle qu'il veut, au lieu de subir un tirage à l'impact. Le
 // choix se joue à la barre, pas dans un sous-menu.
 //
-// ⚠️ Le tirage DOIT rester sur `gameRng`, au placement. Une première version le
-// remplaçait par un hachage pur de la rangée et de la voie — déterministe en
-// apparence, et pourtant elle faisait diverger le replay au tick 167 de
-// test/full-game-smoke, alors qu'aucune caisse n'avait encore été ramassée. La
-// cause exacte n'a pas été trouvée ; ce qui est établi par bissection, c'est que
-// seul `grantPickup` était en cause, et que passer par le flux du projet au
-// point de placement rend la relecture exacte.
+// ⚠️ Le tirage reste sur `gameRng`, au placement. Le rendu utilise son propre
+// `visualRng` : ajouter un effet visuel ne peut donc plus déplacer le prochain
+// butin gameplay ni faire diverger une relecture.
 
 export const PickupSystems = {
   createPickupPool() {
@@ -88,14 +83,31 @@ export const PickupSystems = {
     // Un fût lumineux à sa couleur de butin se lit de loin et permet de CHOISIR
     // sa caisse au lieu de la découvrir. Un InstancedMesh de plus, un seul
     // draw call, et l'attribut d'instance porte déjà la couleur.
-    const beaconGeometry = new THREE.CylinderGeometry(0.30, 0.62, 7.5, 7, 1, true);
+    const beaconGeometry = new THREE.CylinderGeometry(0.12, 0.34, 5.6, 10, 1, true);
     const beaconMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.30,
-      depthWrite: false, side: THREE.DoubleSide
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending
+    });
+    // Un noyau lumineux de la couleur du butin flotte au-dessus du couvercle.
+    // Il rend la caisse identifiable même quand l'anneau est masqué par une
+    // vague, pour un seul draw call supplémentaire sur toutes les caisses.
+    const coreGeometry = new THREE.SphereGeometry(0.34, 8, 6);
+    const coreMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false
     });
     this.pickupBeacons = new THREE.InstancedMesh(beaconGeometry, beaconMaterial, count);
+    this.pickupCores = new THREE.InstancedMesh(coreGeometry, coreMaterial, count);
     this.pickupBeacons.frustumCulled = false;
+    this.pickupCores.frustumCulled = false;
     this.pickupBeacons.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
+    this.pickupCores.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
     this.pickupCrates = new THREE.InstancedMesh(crateGeometry, crateMaterial, count);
     this.pickupRings = new THREE.InstancedMesh(ringGeometry, ringMaterial, count);
     this.pickupCrates.castShadow = true;
@@ -103,15 +115,21 @@ export const PickupSystems = {
     this.pickupRings.frustumCulled = false;
     this.pickupCrates.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
     this.pickupRings.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
-    this.scene.add(this.pickupCrates, this.pickupRings, this.pickupBeacons);
+    this.scene.add(
+      this.pickupCrates,
+      this.pickupRings,
+      this.pickupBeacons,
+      this.pickupCores
+    );
     this.pickupDummy = new THREE.Object3D();
     this.pickupColorScratch = new THREE.Color();
+    this.pickupWaterScratch = {};
 
     this.pickups = [];
     for (let index = 0; index < count; index++) {
       this.pickups.push({
         index, row: 0, lane: index % PICKUP.lanes.length,
-        x: 0, z: 0, active: false, respawn: 0
+        x: 0, z: 0, active: false, respawn: 0, phase: index * 0.73
       });
     }
     this.pickupFirstRow = PICKUP.firstRow;
@@ -122,22 +140,58 @@ export const PickupSystems = {
   writePickupMatrix(pickup) {
     const dummy = this.pickupDummy;
     const visible = pickup.active;
-    dummy.position.set(pickup.x, visible ? 0.5 : -999, pickup.z);
-    dummy.rotation.set(0, 0, 0);
+    const water = this.waveField?.sample?.(
+      pickup.x,
+      pickup.z,
+      this.time,
+      this.pickupWaterScratch
+    ) ?? { height: 0, slopeX: 0, slopeZ: 0 };
+    const phase = pickup.phase ?? 0;
+    const bob = Math.sin(this.time * 2.15 + phase) * 0.10;
+    const pulse = 1 + Math.sin(this.time * 3.6 + phase) * 0.12;
+    dummy.position.set(
+      pickup.x,
+      visible ? water.height + 0.54 + bob : -999,
+      pickup.z
+    );
+    dummy.rotation.set(
+      (water.slopeZ ?? 0) * 0.18,
+      phase + this.time * 0.34,
+      -(water.slopeX ?? 0) * 0.18
+    );
     dummy.scale.setScalar(visible ? 1 : 0.0001);
     dummy.updateMatrix();
     this.pickupCrates.setMatrixAt(pickup.index, dummy.matrix);
-    dummy.rotation.x = Math.PI / 2;
-    dummy.position.y = visible ? 0.6 : -999;
+    dummy.rotation.set(Math.PI / 2, 0, phase - this.time * 0.22);
+    dummy.position.y = visible ? water.height + 0.16 : -999;
+    dummy.scale.setScalar(visible ? pulse : 0.0001);
     dummy.updateMatrix();
     this.pickupRings.setMatrixAt(pickup.index, dummy.matrix);
     if (this.pickupBeacons) {
       dummy.rotation.set(0, 0, 0);
-      dummy.position.y = visible ? 3.9 : -999;
-      dummy.scale.setScalar(visible ? 1 : 0.0001);
+      dummy.position.y = visible ? water.height + 3.05 : -999;
+      dummy.scale.set(
+        visible ? 0.88 + (pulse - 1) * 0.7 : 0.0001,
+        visible ? 1 : 0.0001,
+        visible ? 0.88 + (pulse - 1) * 0.7 : 0.0001
+      );
       dummy.updateMatrix();
       this.pickupBeacons.setMatrixAt(pickup.index, dummy.matrix);
       this.pickupBeacons.instanceMatrix.needsUpdate = true;
+    }
+    if (this.pickupCores) {
+      dummy.position.y = visible
+        ? water.height + 1.34 + Math.sin(this.time * 3.1 + phase) * 0.16
+        : -999;
+      dummy.rotation.set(
+        this.time * 0.7 + phase,
+        this.time * 1.15 + phase,
+        phase * 0.5
+      );
+      dummy.scale.setScalar(visible ? 0.82 + (pulse - 1) * 1.8 : 0.0001);
+      dummy.updateMatrix();
+      this.pickupCores.setMatrixAt(pickup.index, dummy.matrix);
+      this.pickupCores.instanceMatrix.needsUpdate = true;
     }
     this.pickupCrates.instanceMatrix.needsUpdate = true;
     this.pickupRings.instanceMatrix.needsUpdate = true;
@@ -164,6 +218,7 @@ export const PickupSystems = {
     pickup.z = z;
     pickup.active = true;
     pickup.respawn = 0;
+    pickup.phase = row * 0.61 + lane * 1.37;
     const loot = this.rollLoot();
     pickup.weapon = loot.weapon;
     // Retenue pour l'effet de ramassage : la gerbe prend la teinte de l'arme.
@@ -179,6 +234,10 @@ export const PickupSystems = {
     if (this.pickupBeacons?.setColorAt && this.pickupColorScratch) {
       this.pickupBeacons.setColorAt(pickup.index, this.pickupColorScratch.setHex(loot.color));
       if (this.pickupBeacons.instanceColor) this.pickupBeacons.instanceColor.needsUpdate = true;
+    }
+    if (this.pickupCores?.setColorAt && this.pickupColorScratch) {
+      this.pickupCores.setColorAt(pickup.index, this.pickupColorScratch.setHex(loot.color));
+      if (this.pickupCores.instanceColor) this.pickupCores.instanceColor.needsUpdate = true;
     }
     this.writePickupMatrix(pickup);
   },
@@ -218,7 +277,7 @@ export const PickupSystems = {
       if (Number.isFinite(boat.ammo[autre])) boat.ammo[autre] = 0;
     }
     const before = boat.ammo[picked];
-    // Garde-fou : une arme de base a une munition INFINIE. Si l'une d'elles
+    // Garde-fou : une arme de soute a une munition INFINIE. Si l'une d'elles
     // revenait un jour dans la table de butin, `Math.min(cap, ...)` la
     // ramènerait silencieusement à 3 — un ramassage qui RETIRE des munitions.
     boat.ammo[picked] = Number.isFinite(before) ? Math.min(PICKUP.ammoCap, before + 1) : before;
@@ -244,6 +303,9 @@ export const PickupSystems = {
     }
 
     for (const pickup of this.pickups) {
+      // La caisse flotte, tourne doucement et suit la pente locale de la houle.
+      // Cette animation ne touche ni sa position de collision ni le gameplay.
+      this.writePickupMatrix(pickup);
       if (!pickup.active) {
         pickup.respawn -= dt;
         if (pickup.respawn <= 0) {

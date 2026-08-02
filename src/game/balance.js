@@ -8,7 +8,8 @@ export const ACTION_WAVE = 1;
 export const ACTION_HARPOON = 2;
 export const ACTION_MINE = 4;
 export const ACTION_SHIFT = 8;
-export const ACTION_REVENGE = 16;
+// Le bit 16 reste volontairement libre : l'ancienne vengeance post-mort
+// l'utilisait. Ne pas le réattribuer évite de décaler les actions suivantes.
 export const ACTION_BOOST_FORWARD = 32;
 export const ACTION_BOOST_LATERAL = 64;
 export const ACTION_RHUM = 128;
@@ -56,7 +57,8 @@ export const CONFIG = {
   roundLimit: 78,
   trackHalfWidth: 54,
   // ⚠️ AUCUN NOM DE MARQUE ICI. « CHANFLOR X » a été retiré : c'est une marque
-  // déposée d'eau de source martiniquaise, et le jeu est publié publiquement.
+  // déposée d'eau de source martiniquaise, et le projet vise une diffusion
+  // publique après validation de sa candidate.
   // Les trois autres sont sûrs — « caracoli » est un arbre et un lieu-dit,
   // « lanmè rouge » veut dire « mer rouge » en créole, « bwa fatal » est inventé.
   // Si tu ajoutes un nom, vérifie qu'il n'appartient à personne.
@@ -67,8 +69,8 @@ export const CONFIG = {
 
 // Réglage central : toutes les constantes d'équilibrage vivent ici,
 // pas dispersées dans les systèmes. Ne changer qu'avec un playtest à l'appui.
-// Registre des armes de soute. L'ordre fixe la priorite de repli quand l'arme
-// active tombe a zero. `cls` pilote le liseré de couleur de l'emplacement : a
+// Registre complet des armes. L'ordre fixe la priorité de repli quand l'arme
+// active tombe à zéro. `cls` pilote le liseré de couleur de l'emplacement : à
 // 4,8 px un libelle est illisible au soleil, la couleur ne l'est pas — et
 // docs/ART_DIRECTION.md interdit de casser ce code deja appris.
 export const WEAPONS = [
@@ -85,29 +87,6 @@ export const WEAPONS = [
   { key: "pwason", label: "PWASON VOLAN", cls: "w-pwason", ico: "i9", action: 2048 }
 ];
 
-// Les QUATRE armes de fond de soute. Elles ne se ramassent plus : elles sont
-// disponibles en permanence, et c'est leur cooldown qui les cadence. Les quatre
-// autres — barik, chadron, lanbi, pwason — restent en caisse, et ne viennent
-// donc qu'EN PLUS d'un arsenal déjà complet.
-//
-// Motif : avec huit armes toutes en caisse, une manche pouvait se jouer entière
-// sans qu'un pilote tire une seule fois. L'arsenal de base garantit que le
-// combat existe toujours ; les caisses ne décident plus SI on se bat, mais avec
-// quoi on surprend.
-// ⚠️ QUATRE ARMES DE BASE — ET UNE TENTATIVE DE PASSER À DEUX, RETIRÉE.
-//
-// L'idée se tient : avec quatre armes illimitées en soute, une caisse n'est
-// qu'un bonus, on peut jouer une manche entière sans en ramasser une et ne rien
-// perdre. Passer la MINE et le RHUM en caisse rendrait chaque boîte décisive.
-//
-// Mesuré : ce seul changement fait DIVERGER l'enregistrement de la relecture.
-// Écart d'un ULP sur le roulis des bateaux IA dès le tick 10, alors que le
-// joueur reste bit-à-bit identique et qu'AUCUNE action IA n'a encore eu lieu.
-// Vérifié aussi que la sensibilité ne préexiste pas : avec quatre armes, le
-// diff champ par champ sur quatorze ticks donne zéro écart.
-//
-// La cause racine n'est pas trouvée. Tant qu'elle ne l'est pas, le contenu ne
-// justifie pas des replays qui ne se reproduisent plus. Voir la passe 48.
 // ⚠️ DEUX ARMES DE SOUTE, CHOISIES AVANT LA COURSE — PAS QUATRE IMPOSÉES.
 //
 // Avec quatre armes illimitées, une caisse n'était qu'un bonus : on pouvait
@@ -156,8 +135,8 @@ export function aiLoadout(id) {
   const b = LOADOUT_POOL[(id * 2 + 1) % LOADOUT_POOL.length];
   return resolveLoadout(a === b ? [a] : [a, b]);
 }
-// Les six armes qui ne sont JAMAIS en soute : mine et rhum quand on ne les a
-// pas choisies, plus les quatre absurdes. Toutes passent par la caisse.
+// Les six butins possibles. Mine et Rhum peuvent aussi être choisies en soute ;
+// les quatre autres restent exclusivement disponibles en caisse.
 export const CRATE_WEAPONS = Object.freeze(["mine", "rhum", "barik", "chadron", "lanbi", "pwason"]);
 
 // Trois niveaux d'IA. Ils ne trichent pas sur la physique : ce sont les mêmes
@@ -189,9 +168,8 @@ export function resolveAiLevel(key) {
 
 export const BALANCE = {
   cooldowns: { wave: 4.35, harpoon: 5.8, mine: 5.35, rhum: 1.2, barik: 6.2, chadron: 5.0, lanbi: 7.4, pwason: 4.8 },
-  // Cooldowns des armes de base, distincts de ceux des caisses. Elles sont
-  // désormais en munition illimitée : c'est cette cadence-là, et rien d'autre,
-  // qui les équilibre. Elle est donc plus lente que quand la munition limitait.
+  // Cadence des quatre armes du vivier de soute. Mine et Rhum conservent cette
+  // cadence lorsqu'une caisse en donne une copie à munitions limitées.
   baseCooldowns: { wave: 5.4, harpoon: 7.6, mine: 7.0, rhum: 16.0 },
   rhum: { duration: 5.0 },
   // ⚠️ RÉGLAGE DE JEU, à ajuster au playtest — pas une constante physique.
@@ -231,15 +209,6 @@ export const BALANCE = {
   // ça : il vise, il attend d'être à portée, il rate des fenêtres. Le
   // multiplicateur rend aux IA une cadence humaine sans leur retirer l'arsenal.
   aiFireRate: { peyi: 3.4, tour: 2.6, channpyon: 2.0 },
-  // Repêchage après chavirage. Mesuré avant : un joueur éliminé à 5 s pouvait
-  // rester 76 s sans aucune entrée en Combat, et jusqu'à 345 s en Tour. C'était
-  // la vraie punition du jeu, loin devant l'équilibrage des armes.
-  // On revient meurtri, pas neuf : la coque est plafonnée et le flow repart bas.
-  respawn: { delay: 8.5, hull: 0.55, flow: 0.30, invulnerable: 2.4,
-    // Mètres DEVANT le mur où l'on est reposé après repêchage.
-    // Sans cette marge on renaît dans la zone d'absorption.
-    aheadOfStorm: 26
-  },
   coconut: {
     spawnAhead: 4.7, spawnUp: 2.05, speed: 35.5, up: 7.1, life: 2.65,
     inheritVelocity: 0.28, gravity: 10.8, triggerRadius: 5.4, capsuleHit: 3.35, aoeRadius: 9.5
@@ -346,14 +315,152 @@ export const CREW_DOTS = Array.from({ length: 7 }, (_, count) =>
 // Les 8 étapes du 40e Tour des Yoles Rondes (26 juillet → 2 août 2026),
 // distances ramenées à l'échelle arcade. Points à la place : 4/3/2/1, 0 si DNF.
 export const TOUR_STAGES = [
-  { name: "SAINTE-ANNE → LE VAUCLIN", distance: 1500 },
-  { name: "LE VAUCLIN → LE ROBERT", distance: 1300 },
-  { name: "LE ROBERT → LA TRINITÉ", distance: 1600 },
-  { name: "LA TRINITÉ → SAINT-PIERRE", distance: 2400 },
-  { name: "SAINT-PIERRE → FORT-DE-FRANCE", distance: 1700 },
-  { name: "FORT-DE-FRANCE → LES ANSES D'ARLET", distance: 1500 },
-  { name: "LES ANSES D'ARLET → RIVIÈRE-PILOTE", distance: 1900 },
-  { name: "RIVIÈRE-PILOTE → SAINTE-ANNE", distance: 1600 }
+  {
+    slug: "sainte-anne-vauclin",
+    name: "SAINTE-ANNE → LE VAUCLIN",
+    short: "CAP AU VAUCLIN",
+    distance: 1500,
+    landmark: "Pointe Marin",
+    weatherLabel: "Alizés francs",
+    tagline: "Départ lumineux, récifs serrés et premier vrai bord de rappel.",
+    accent: "#38e8c6",
+    palette: { sand: 0xf0e5c8, shallowRock: 0x527a70, green: 0x20a66a, darkGreen: 0x086a49, leaf: 0x39cf72 },
+    environment: {
+      archetype: "lagoon",
+      landmark: { type: "pointe-marin", side: -1, progress: 0.62, offset: 210 },
+      fleetSide: 1,
+      festivity: 1.0,
+      water: { deep: 0x0b5970, mid: 0x168ea1, shallow: 0x39d0ca, foam: 0xf5ffff }
+    }
+  },
+  {
+    slug: "vauclin-robert",
+    name: "LE VAUCLIN → LE ROBERT",
+    short: "PASSE DES ÎLETS",
+    distance: 1300,
+    landmark: "Îlets du François",
+    weatherLabel: "Clapot d'Atlantique",
+    tagline: "Un sprint entre hauts-fonds où la trajectoire vaut plus que la force.",
+    accent: "#5ee6ff",
+    palette: { sand: 0xece2c4, shallowRock: 0x466f69, green: 0x198d59, darkGreen: 0x07563d, leaf: 0x2cc869 },
+    environment: {
+      archetype: "islets",
+      landmark: { type: "ilets-francois", side: 1, progress: 0.56, offset: 215 },
+      fleetSide: -1,
+      festivity: 1.08,
+      water: { deep: 0x0b526d, mid: 0x147f98, shallow: 0x32bfc4, foam: 0xf1ffff }
+    }
+  },
+  {
+    slug: "robert-trinite",
+    name: "LE ROBERT → LA TRINITÉ",
+    short: "CANAL DU ROBERT",
+    distance: 1600,
+    landmark: "Baie du Robert",
+    weatherLabel: "Mer croisée",
+    tagline: "Des couloirs d'eau étroits, des rivaux proches et peu de place pour corriger.",
+    accent: "#76d6ff",
+    palette: { sand: 0xded9bd, shallowRock: 0x486a6f, green: 0x248c63, darkGreen: 0x0c5546, leaf: 0x2cad69 },
+    environment: {
+      archetype: "islets",
+      landmark: { type: "baie-robert", side: -1, progress: 0.67, offset: 230 },
+      fleetSide: 1,
+      festivity: 0.92,
+      water: { deep: 0x0b4b66, mid: 0x187a91, shallow: 0x2aafb8, foam: 0xedffff }
+    }
+  },
+  {
+    slug: "trinite-saint-pierre",
+    name: "LA TRINITÉ → SAINT-PIERRE",
+    short: "LA GRANDE TRAVERSÉE",
+    distance: 2400,
+    landmark: "Montagne Pelée",
+    weatherLabel: "Grain volcanique",
+    tagline: "L'étape reine : longue, sombre et impitoyable sous la silhouette de la Pelée.",
+    accent: "#ffbd66",
+    palette: { sand: 0xb99a73, shallowRock: 0x3f4b49, green: 0x2f704b, darkGreen: 0x12382e, leaf: 0x3f8552 },
+    environment: {
+      archetype: "volcanic",
+      landmark: { type: "pelee", side: -1, progress: 0.72, offset: 235 },
+      fleetSide: 1,
+      festivity: 0.72,
+      water: { deep: 0x102f44, mid: 0x19536a, shallow: 0x327c82, foam: 0xe3edf0 }
+    }
+  },
+  {
+    slug: "saint-pierre-fort-de-france",
+    name: "SAINT-PIERRE → FORT-DE-FRANCE",
+    short: "DESCENTE CARAÏBE",
+    distance: 1700,
+    landmark: "Baie de Fort-de-France",
+    weatherLabel: "Longue houle",
+    tagline: "La côte défile vite ; le moindre excès de gîte se paie jusqu'à la baie.",
+    accent: "#ffca80",
+    palette: { sand: 0xd7c5a3, shallowRock: 0x566c69, green: 0x27865a, darkGreen: 0x0f553b, leaf: 0x38a960 },
+    environment: {
+      archetype: "volcanic",
+      hillHeight: 1.08,
+      landmark: { type: "baie-fdf", side: 1, progress: 0.74, offset: 240 },
+      fleetSide: -1,
+      festivity: 1.18,
+      water: { deep: 0x0e4159, mid: 0x176b7d, shallow: 0x2c9ca1, foam: 0xf0f7f4 }
+    }
+  },
+  {
+    slug: "fort-de-france-anses-arlet",
+    name: "FORT-DE-FRANCE → LES ANSES D'ARLET",
+    short: "CAP AUX ANSES",
+    distance: 1500,
+    landmark: "Rocher du Diamant",
+    weatherLabel: "Vent tournant",
+    tagline: "Reliefs abrupts et changements de pression avant l'entrée aux Anses.",
+    accent: "#ff8f70",
+    palette: { sand: 0xd5bf96, shallowRock: 0x5c5558, green: 0x2b8156, darkGreen: 0x134c38, leaf: 0x3aa25c },
+    environment: {
+      archetype: "volcanic",
+      landmark: { type: "diamant", side: 1, progress: 0.64, offset: 220 },
+      fleetSide: -1,
+      festivity: 1.02,
+      water: { deep: 0x103d55, mid: 0x176578, shallow: 0x2b929b, foam: 0xeff8f6 }
+    }
+  },
+  {
+    slug: "anses-arlet-riviere-pilote",
+    name: "LES ANSES D'ARLET → RIVIÈRE-PILOTE",
+    short: "LE BORD DU SUD",
+    distance: 1900,
+    landmark: "Cap Salomon",
+    weatherLabel: "Rafales du sud",
+    tagline: "Une côte cassée, des rafales brutales et un mur du Grain qui ne pardonne rien.",
+    accent: "#ff718c",
+    palette: { sand: 0xd5c19c, shallowRock: 0x5d5961, green: 0x2d7c50, darkGreen: 0x163f34, leaf: 0x3c9755 },
+    environment: {
+      archetype: "volcanic",
+      hillHeight: 1.14,
+      landmark: { type: "cap-salomon", side: -1, progress: 0.61, offset: 230 },
+      fleetSide: 1,
+      festivity: 0.88,
+      water: { deep: 0x103a50, mid: 0x176276, shallow: 0x2b9199, foam: 0xeff8f5 }
+    }
+  },
+  {
+    slug: "riviere-pilote-sainte-anne",
+    name: "RIVIÈRE-PILOTE → SAINTE-ANNE",
+    short: "RETOUR À SAINTE-ANNE",
+    distance: 1600,
+    landmark: "Ligne de Sainte-Anne",
+    weatherLabel: "Final sous tension",
+    tagline: "Tout le Tour se joue dans une dernière course rapide, claire et sans calcul.",
+    accent: "#ffe36e",
+    palette: { sand: 0xf2e4bd, shallowRock: 0x5c7468, green: 0x27965a, darkGreen: 0x0c5d3d, leaf: 0x38bf62 },
+    environment: {
+      archetype: "lagoon",
+      landmark: { type: "sainte-anne", side: 1, progress: 0.76, offset: 215 },
+      fleetSide: -1,
+      festivity: 1.35,
+      water: { deep: 0x0a5870, mid: 0x158da0, shallow: 0x39ccc4, foam: 0xf8ffff }
+    }
+  }
 ];
 export const TOUR_STAGE_POINTS = [4, 3, 2, 1];
 

@@ -9,7 +9,7 @@ import {
   HANDLING_MOTION,
   prefersReducedMotion,
   sampleHandlingMotion
-} from "../render/handling-motion.js";
+} from "../render/handling-motion.js?v=swell-v2";
 import { versusCameraFrame } from "./versus.js";
 
 // Secondes pendant lesquelles la caméra reste sur NOTRE épave après
@@ -20,9 +20,8 @@ import { versusCameraFrame } from "./versus.js";
 // un replay — c'est la même règle que `lookBack`, qui n'est pas non plus
 // enregistré par `recordInput`.
 //
-// 3,6 s : assez pour voir la coque se coucher et la détonation retomber. En
-// mode Combat le repêchage arrive à 8,5 s (BALANCE.respawn.delay), il reste
-// donc environ 5 s sur un autre bateau avant le retour.
+// 3,6 s : assez pour voir la coque se coucher et la détonation retomber. La
+// caméra suit ensuite une yole encore en course jusqu'à la fin de la manche.
 const DEATH_CAM_SECONDS = 3.6;
 
 // ── TREMBLEMENT D'ÉQUILIBRE ────────────────────────────────────────────────
@@ -37,6 +36,42 @@ const DEATH_CAM_SECONDS = 3.6;
 const TREMBLE_START = 0.62;
 const TREMBLE_END = 1.16;
 const TREMBLE_AMPLITUDE = 0.30;
+
+const MENU_HERO_Z = 20;
+// L'atelier est une CALE SÈCHE, pas une seconde vue de course. La coque du GLB
+// descend jusqu'à environ -0,62 m sous son origine : à la hauteur de flottaison
+// du menu (+0,46 m), elle reste donc en grande partie derrière l'océan. On
+// dégage ici toute la quille et on neutralise la gîte de course.
+const WORKSHOP_DRY_CLEARANCE = 1.12;
+const WORKSHOP_DISPLAY_ROLL = -0.035;
+const WORKSHOP_DISPLAY_PITCH = 0.015;
+const WORKSHOP_DISPLAY_CREW_SHIFT = 0.22;
+const WORKSHOP_WIDE_STAGE_BIAS = 1.55;
+const WORKSHOP_TARGET_LIFT = Object.freeze({
+  paint: 0.28,
+  sail: 3.05,
+  wood: 0.42,
+  crew: 1.12,
+  rig: 2.05,
+  loadout: 0.58
+});
+const WORKSHOP_DISTANCE_SCALE = Object.freeze({
+  paint: 0.90,
+  sail: 1,
+  wood: 0.88,
+  crew: 0.92,
+  rig: 0.98,
+  loadout: 0.90
+});
+const WORKSHOP_ORBIT_DEFAULTS = Object.freeze({
+  yaw: -0.48,
+  pitch: 0.30,
+  distance: 13.8
+});
+
+function finiteOr(value, fallback) {
+  return Number.isFinite(value) ? value : fallback;
+}
 
 export const CameraSystems = {
   resetHandlingCameraFeedback() {
@@ -147,19 +182,103 @@ export const CameraSystems = {
     this.cameraFollowName = follow === player ? null : (follow?.name ?? null);
 
     if (this.mode === "menu") {
-      const t = this.time * 0.12;
+      if (this.cameraReducedMotion === undefined) this.cameraReducedMotion = prefersReducedMotion();
       const target = this.menuCameraTarget || (this.menuCameraTarget = new this.THREE.Vector3());
       const desired = this.menuCameraDesired || (this.menuCameraDesired = new this.THREE.Vector3());
-      target.set(routeCenter(18), 1.2, 24);
-      desired.set(Math.sin(t) * 28, 15 + Math.sin(t * 0.7) * 2, -20 + Math.cos(t) * 16);
-      this.camera.position.lerp(desired, 0.018);
+      const frameDt = Math.min(Math.max(dt, 0), 0.1);
+
+      if (this.workshopActive) {
+        const orbit = this.workshopOrbit;
+        const controls = orbit && typeof orbit === "object" ? orbit : null;
+        const manualYaw = finiteOr(
+          controls?.yaw ?? controls?.azimuth ?? (typeof orbit === "number" ? orbit : undefined),
+          WORKSHOP_ORBIT_DEFAULTS.yaw
+        );
+        const pitch = clamp(
+          finiteOr(controls?.pitch ?? controls?.elevation, WORKSHOP_ORBIT_DEFAULTS.pitch),
+          -0.08,
+          0.72
+        );
+        const distance = clamp(
+          finiteOr(controls?.distance ?? controls?.radius, WORKSHOP_ORBIT_DEFAULTS.distance),
+          8.5,
+          22
+        );
+        const dragging = Boolean(controls?.dragging ?? this.workshopOrbitDragging);
+        if (!this.workshopCameraWasActive) this.workshopAutoOrbit = 0;
+        if (!dragging && !this.cameraReducedMotion) {
+          this.workshopAutoOrbit = (this.workshopAutoOrbit ?? 0) + frameDt * 0.10;
+        }
+        this.workshopCameraWasActive = true;
+
+        const yaw = manualYaw + (this.workshopAutoOrbit ?? 0);
+        const distanceScale = WORKSHOP_DISTANCE_SCALE[this.workshopTab]
+          ?? WORKSHOP_DISTANCE_SCALE.paint;
+        const displayDistance = distance * distanceScale;
+        const horizontal = displayDistance * Math.cos(pitch);
+        // Un atelier automobile cadre la pièce que l'on modifie, pas toujours
+        // le véhicule entier. C'est encore plus important en portrait, où la
+        // fenêtre centrale n'occupe qu'une partie de la hauteur du canvas.
+        const targetLift = WORKSHOP_TARGET_LIFT[this.workshopTab]
+          ?? WORKSHOP_TARGET_LIFT.paint;
+        // Sur le layout large, les contrôles occupent la droite du canvas. On
+        // vise légèrement à tribord de la yole afin de projeter la coque vers le
+        // centre de la baie, au lieu de la laisser sous le panneau de finition.
+        const stageBias = this.camera.aspect > 1.05 ? WORKSHOP_WIDE_STAGE_BIAS : 0;
+        target.set(player.x + stageBias, player.y + targetLift, player.z + 0.20);
+        desired.set(
+          target.x + Math.cos(yaw) * horizontal,
+          target.y + Math.sin(pitch) * displayDistance,
+          target.z + Math.sin(yaw) * horizontal
+        );
+        this.camera.position.lerp(desired, 1 - Math.exp(-7.2 * frameDt));
+        this.camera.lookAt(target);
+        this.camera.fov = damp(this.camera.fov, 52, 7.5, frameDt);
+        this.camera.updateProjectionMatrix();
+        this.sun.position.set(player.x - 34, player.y + 62, player.z + 28);
+        this.sun.target.position.set(player.x, player.y + 1.2, player.z);
+        return;
+      }
+
+      if (this.workshopCameraWasActive) {
+        this.workshopCameraWasActive = false;
+        this.workshopAutoOrbit = 0;
+      }
+      // Cadrage hero : J1 occupe le tiers droit, là où le menu ne masque pas
+      // sa coque, ses bwa ni l'équipage. Le mouvement reste volontairement
+      // court ; en mouvement réduit, la pose devient entièrement fixe.
+      const t = this.cameraReducedMotion ? 0 : this.time * 0.16;
+      const sway = this.cameraReducedMotion ? 0 : Math.sin(t) * 0.75;
+      // Le panneau principal occupe un peu plus de la moitié gauche à 16:9.
+      // La cible légèrement décalée à tribord garde la yole dans la baie libre
+      // entre le panneau de modes et la fiche de configuration.
+      target.set(player.x + 1.50, player.y + 1.55, player.z + 0.90);
+      desired.set(
+        player.x + 13.2 + sway,
+        player.y + 5.35 + (this.cameraReducedMotion ? 0 : Math.sin(t * 0.7) * 0.28),
+        player.z - 6.6 + (this.cameraReducedMotion ? 0 : Math.cos(t) * 0.85)
+      );
+      this.camera.position.lerp(desired, 1 - Math.exp(-4.8 * frameDt));
       this.camera.lookAt(target);
+      this.camera.fov = damp(this.camera.fov, 54, 5.2, frameDt);
+      this.camera.updateProjectionMatrix();
+      this.sun.position.set(player.x - 48, player.y + 82, player.z + 42);
+      this.sun.target.position.set(player.x, 0, player.z + 10);
       return;
     }
 
     if (this.versusLocal) {
+      const activePilots = this.boats.slice(0, 2).filter((boat) => !boat.eliminated);
+      const versusFocus = activePilots.length === 1
+        ? activePilots[0]
+        : activePilots.length === 0
+          ? follow
+          : null;
+      this.cameraFollowName = versusFocus && versusFocus !== player
+        ? (versusFocus.name ?? null)
+        : null;
       this.prepareHandlingCameraRound();
-      this.updateVersusCamera(dt);
+      this.updateVersusCamera(dt, follow);
       return;
     }
 
@@ -176,9 +295,14 @@ export const CameraSystems = {
     const handlingSlip = this.cameraHandlingSlip * handlingMotion;
     const handlingSurf = this.cameraHandlingSurf * handlingMotion;
     const zoom = this.cameraZoom;
-    const back = (16.8 + speedFactor * 5.0 + handlingSurf * HANDLING_MOTION.cameraSurfBack) * zoom;
+    // La yole et ses six équipiers sont l'information principale. L'ancien
+    // cadrage reculait jusqu'à plus de 22 m au zoom par défaut : les bwa, la
+    // gîte et les transferts de masse devenaient illisibles derrière le HUD.
+    // On conserve l'ouverture à haute vitesse, mais depuis une caméra plus
+    // proche et plus basse, comme une poursuite nautique et non une vue drone.
+    const back = (13.6 + speedFactor * 3.4 + handlingSurf * HANDLING_MOTION.cameraSurfBack * 0.72) * zoom;
     const height = (
-      9.2 + speedFactor * 2.2 - handlingSurf * HANDLING_MOTION.cameraSurfHeight
+      7.6 + speedFactor * 1.55 - handlingSurf * HANDLING_MOTION.cameraSurfHeight * 0.70
     ) * Math.sqrt(zoom);
     const desired = this.cameraDesired || (this.cameraDesired = new this.THREE.Vector3());
     desired.set(
@@ -198,7 +322,9 @@ export const CameraSystems = {
       base.copy(desired);
       this.cameraHandlingHardReset = false;
     } else {
-      base.lerp(desired, 1 - Math.exp(-4.6 * dt));
+      // Un suivi un peu plus posé laisse la coque déplacer le cadre au lieu de
+      // recoller instantanément à chaque oscillation de houle.
+      base.lerp(desired, 1 - Math.exp(-3.6 * dt));
     }
     this.camera.position.copy(base);
     // ⚠️ Le tremblement s'AJOUTE au `shake` d'impact au lieu de le remplacer :
@@ -218,11 +344,16 @@ export const CameraSystems = {
     }
     this.impact.applyToCamera(this.camera);
     const look = this.cameraLook || (this.cameraLook = new this.THREE.Vector3());
-    const lookAhead = 10 + speedFactor * 7 + (zoom - 1) * 3
-      + handlingSurf * HANDLING_MOTION.cameraSurfLook;
+    // Le point de visée était placé jusqu'à 14 m devant la proue. À grand
+    // écran cela semblait dynamique, mais sur un viewport presque carré la
+    // coque sortait sous le HUD : impossible de lire la gîte, la houle ou les
+    // transferts d'équipage. On garde une anticipation de trajectoire nette,
+    // tout en garantissant une vraie silhouette dans le tiers inférieur.
+    const lookAhead = 4.8 + speedFactor * 3.6 + (zoom - 1) * 1.8
+      + handlingSurf * HANDLING_MOTION.cameraSurfLook * 0.42;
     look.set(
       follow.x + forward.x * lookAhead * backSign,
-      follow.y + 0.7,
+      follow.y + 0.35,
       follow.z + forward.z * lookAhead * backSign
     );
     look.x += forward.z * handlingSlip * HANDLING_MOTION.cameraSlipLook;
@@ -230,16 +361,22 @@ export const CameraSystems = {
     this.camera.lookAt(look);
     const stabilization = clamp(this.settings.get("cameraRoll"), 0, 1);
     const catchRoll = -handlingSlip * this.cameraHandlingRecovery * 0.032;
+    // Même en caméra stabilisée, supprimer presque tout le roulis retirait la
+    // preuve visuelle que 450 kg d'équipage retiennent une coque sans quille.
+    // La composante basse fréquence reste toujours présente ; le réglage ne
+    // retire que l'amplitude supplémentaire et les mouvements de confort.
+    const rollWeight = 0.10 + (1 - stabilization) * 0.65;
+    const rollVelocity = clamp(follow.dynamics?.rollVel ?? 0, -2.5, 2.5);
     this.cameraRollBase = damp(
       this.cameraRollBase ?? 0,
-      -follow.roll * (1 - stabilization) * 0.34 + catchRoll,
-      5.2 + this.cameraHandlingRecovery * 2.8,
+      -follow.roll * rollWeight - rollVelocity * 0.010 + catchRoll,
+      2.8 + this.cameraHandlingRecovery * 1.9,
       dt
     );
     this.cameraFovBase = damp(
       this.cameraFovBase ?? this.camera.fov,
-      61 + speedFactor * 7 - (zoom - 1) * 4.5,
-      2.8,
+      56.5 + speedFactor * 5.8 - (zoom - 1) * 3.8,
+      2.5,
       dt
     );
     // Roulis appliqué en rotation locale sur le quaternion issu de lookAt().
@@ -257,18 +394,24 @@ export const CameraSystems = {
     this.sun.target.position.set(follow.x, 0, follow.z + 26);
   },
 
-  updateVersusCamera(dt) {
+  updateVersusCamera(dt, fallback = null) {
     const playerOne = this.boats[0];
     const playerTwo = this.boats[1];
-    this.updateVersusHandlingCamera(playerOne, playerTwo, dt);
+    const activePilots = [playerOne, playerTwo].filter((boat) => boat && !boat.eliminated);
+    const cameraOne = activePilots[0] ?? fallback ?? playerOne;
+    const cameraTwo = activePilots[1] ?? cameraOne;
+    this.updateVersusHandlingCamera(cameraOne, cameraTwo, dt);
     const frame = versusCameraFrame(
-      playerOne,
-      playerTwo,
+      cameraOne,
+      cameraTwo,
       this.versusCameraFrameScratch || (this.versusCameraFrameScratch = {})
     );
     const forwardX = Math.sin(frame.heading);
     const forwardZ = Math.cos(frame.heading);
-    const speedFactor = clamp(Math.max(playerOne.speed, playerTwo.speed) / 27, 0, 1);
+    const speedFactor = clamp(Math.max(
+      cameraOne?.eliminated ? 0 : (cameraOne?.speed ?? 0),
+      cameraTwo?.eliminated ? 0 : (cameraTwo?.speed ?? 0)
+    ) / 27, 0, 1);
     const separation = clamp(frame.separation, 0, 78);
     const handlingMotion = this.cameraHandlingMotionScale;
     const handlingSlip = this.cameraHandlingSlip * handlingMotion;
@@ -339,16 +482,79 @@ export const CameraSystems = {
 
   updateAttract(dt) {
     if (this.mode !== "menu") return;
+    if (this.cameraReducedMotion === undefined) this.cameraReducedMotion = prefersReducedMotion();
+    const showroom = Boolean(this.workshopActive);
     for (let index = 0; index < this.boats.length; index++) {
       const boat = this.boats[index];
-      boat.dynamics.z = 18 + index * 6;
-      boat.dynamics.x = routeCenter(boat.z) + (index - 1.5) * 6;
+      if (showroom && index > 0) {
+        // Pas seulement `visible=false` : le culling de fin de frame recalcule
+        // cette propriété. Une position réellement hors scène reste correcte
+        // quel que soit le renderer ou le harnais.
+        boat.dynamics.x = 260 + index * 34;
+        boat.dynamics.y = -48;
+        boat.dynamics.z = -260 - index * 31;
+        boat.dynamics.roll = 0;
+        boat.dynamics.pitch = 0;
+        boat.dynamics.crewShift = 0;
+        boat.dynamics.sailPower = 0;
+        boat.renderUpdate(this.time, dt, this.atmosphere.weather);
+        continue;
+      }
+
+      boat.dynamics.z = index === 0 ? MENU_HERO_Z : 34 + (index - 1) * 11;
+      boat.dynamics.x = routeCenter(boat.dynamics.z)
+        + (index === 0 ? 0 : [-7.5, 5.5, -3.5][index - 1]);
       const water = this.waveField.sample(boat.x, boat.z, this.time, this.waterScratch);
-      boat.dynamics.y = water.height + 0.5;
-      boat.dynamics.roll = -Math.atan(water.slopeX) * 0.23;
-      boat.dynamics.pitch = Math.atan(water.slopeZ) * 0.2;
-      boat.dynamics.crewShift = Math.sin(this.time * 0.8 + index) * 0.72;
-      boat.dynamics.sailPower = 0.8;
+      const workshopDisplay = showroom && index === 0;
+      if (workshopDisplay) {
+        // Une épave ne doit pas entrer dans l'atelier telle quelle. `sink`,
+        // `overboard`, l'eau embarquée et la casse survivent normalement au
+        // retour au menu ; le showroom les lisait donc et présentait parfois
+        // une coque coulée, vide ou sans mât. Cette remise à neuf est strictement
+        // cantonnée au mode menu, avant toute nouvelle simulation.
+        boat.dynamics.eliminated = false;
+        boat.dynamics.sink = 0;
+        boat.dynamics.capsizeTimer = 0;
+        boat.dynamics.waterMassKg = 0;
+        boat.dynamics.vx = 0;
+        boat.dynamics.vy = 0;
+        boat.dynamics.vz = 0;
+        boat.dynamics.yawRate = 0;
+        boat.dynamics.rollVel = 0;
+        boat.dynamics.pitchVel = 0;
+        boat.dynamics.crewStumble = 0;
+        boat.dynamics.activeCrew = 6;
+        boat.dynamics.flooding?.fill?.(0);
+        boat.dynamics.crewPositions?.fill?.(WORKSHOP_DISPLAY_CREW_SHIFT);
+        boat.dynamics.crewTargets?.fill?.(WORKSHOP_DISPLAY_CREW_SHIFT);
+        boat.dynamics.crewVelocities?.fill?.(0);
+        if (boat.dynamics.structure) {
+          boat.dynamics.structure.hull = 1;
+          boat.dynamics.structure.mast = 1;
+          boat.dynamics.structure.sail = 1;
+          boat.dynamics.structure.bwa?.fill?.(1);
+        }
+        if (boat.visual?.overboard) boat.visual.setOverboard?.(false);
+        boat.visual?.setCrewCulled?.(false);
+      }
+      boat.dynamics.y = water.height + (workshopDisplay ? WORKSHOP_DRY_CLEARANCE : 0.46);
+      boat.dynamics.centerWaterHeight = water.height;
+      boat.dynamics.lastBowWaterHeight = water.height;
+      const breathing = this.cameraReducedMotion ? 0 : Math.sin(this.time * 0.46 + index) * 0.055;
+      boat.dynamics.roll = workshopDisplay
+        ? WORKSHOP_DISPLAY_ROLL
+        : (index === 0 ? -0.21 : (index % 2 ? 0.13 : -0.13))
+          - Math.atan(water.slopeX) * 0.18;
+      boat.dynamics.pitch = workshopDisplay
+        ? WORKSHOP_DISPLAY_PITCH
+        : Math.atan(water.slopeZ) * 0.2;
+      boat.dynamics.heading = index === 0 ? 0.04 : (index - 2) * 0.035;
+      boat.dynamics.crewShift = workshopDisplay
+        ? WORKSHOP_DISPLAY_CREW_SHIFT
+        : index === 0
+          ? 0.76 + breathing
+        : (index % 2 ? -0.58 : 0.58) + breathing;
+      boat.dynamics.sailPower = workshopDisplay ? 0.72 : index === 0 ? 0.88 : 0.78;
       boat.renderUpdate(this.time, dt, this.atmosphere.weather);
     }
   }

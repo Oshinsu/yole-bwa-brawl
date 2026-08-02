@@ -36,11 +36,22 @@ ESSAI = "--essai" in sys.argv
 # Les fichiers ou une reference peut apparaitre. `asset-pack.json` est de la
 # documentation d'atelier, jamais lue par le jeu : on la recable quand meme
 # pour qu'elle ne mente pas.
+#
+# ⚠️ test/ ET docs/ SONT INDISPENSABLES, ET ILS MANQUAIENT.
+# Le 2 aout 2026, la conversion des quatre cadres de HUD V8 a laisse derriere
+# elle 4 references dans `test/hud-instruments.test.mjs` et 8 dans
+# `docs/HUD_ASSET_PROMPTS_SOTA.json`. Le jeu tournait, `verify_static.py`
+# passait — et `npm run verify` echouait douze etapes plus loin sur un ENOENT.
+# Un test qui verifie l'existence d'un asset est une reference comme une autre.
 SOURCES = [
     RACINE / "style.css",
     RACINE / "index.html",
     RACINE / "service-worker.js",
     *sorted((RACINE / "src").rglob("*.js")),
+    *sorted((RACINE / "test").rglob("*.mjs")),
+    *sorted((RACINE / "test").rglob("*.py")),
+    *sorted((RACINE / "tools").rglob("*.py")),
+    *sorted((RACINE / "docs").rglob("*.json")),
     *sorted(TEXTURES.rglob("asset-pack.json")),
 ]
 

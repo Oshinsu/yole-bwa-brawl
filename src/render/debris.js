@@ -1,5 +1,10 @@
 import { clamp } from "../core/math.js";
-import { CREW_SKINS, CrewVisual, makeHeadKits } from "./yole-visual.js";
+import {
+  CREW_SKINS,
+  CrewVisual,
+  makeCrewMaterial,
+  makeHeadKits
+} from "./yole-visual.js";
 
 // Scratch partagé entre les deux pools : les appels à sample() sont séquentiels.
 const waterScratch = {};
@@ -140,15 +145,30 @@ export class DebrisPool {
 const NOYADE_PANIQUE = 1.9;   // secondes de barbotage frénétique
 const NOYADE_ADIEU = 1.15;    // secondes de bras levés avant de couler
 
-function createCrewDummy(THREE, jerseyColor = 0xff7b24, index = 0, kits = null) {
+function createCrewDummy(
+  THREE,
+  jerseyColor = 0xff7b24,
+  index = 0,
+  kits = null,
+  rig = null
+) {
+  const crewMaterial = rig ? makeCrewMaterial(THREE, rig, jerseyColor) : null;
   const visual = new CrewVisual(
     THREE,
     CREW_SKINS[index % CREW_SKINS.length],
     jerseyColor,
     0x0d2531,
-    index * 0.41
+    index * 0.41,
+    rig,
+    crewMaterial
   );
-  if (kits) visual.addHeadgear(THREE, visual.head, kits[index % kits.length]);
+  if (kits) {
+    visual.addHeadgear(
+      THREE,
+      visual.fromRig ? visual.headBone : visual.head,
+      kits[index % kits.length]
+    );
+  }
   // Bras écartés, jambes repliées : une silhouette de nageur, pas la posture de
   // rappel d'un homme accroché à sa perche.
   visual.leftArmPivot.rotation.x = -1.15;
@@ -164,7 +184,7 @@ function createCrewDummy(THREE, jerseyColor = 0xff7b24, index = 0, kits = null) 
 
 /** Tiny pooled ragdoll-like visual for a crew member thrown into the sea. */
 export class CrewFallPool {
-  constructor(THREE, scene, colors, max = 14) {
+  constructor(THREE, scene, colors, max = 14, assets = null) {
     this.items = [];
     this.cursor = 0;
     // Les coiffes sont construites UNE fois et partagées : c'est ce que fait
@@ -173,7 +193,17 @@ export class CrewFallPool {
     for (let index = 0; index < max; index++) {
       // ⚠️ On garde le CrewVisual entier, pas seulement sa racine : ce sont ses
       // pivots (bras, jambes, bassin) qui portent l'animation de noyade.
-      const visual = createCrewDummy(THREE, colors[index % colors.length], index, kits);
+      // Même GLB, même squelette, même texture et mêmes coiffes que les hommes
+      // encore sur la yole. Le corps procédural ne reste qu'un repli si le GLB
+      // est réellement indisponible.
+      const rig = assets?.hasRig?.("crew") ? assets.instantiate("crew") : null;
+      const visual = createCrewDummy(
+        THREE,
+        colors[index % colors.length],
+        index,
+        kits,
+        rig
+      );
       const root = visual.root;
       root.visible = false;
       scene.add(root);
@@ -192,13 +222,19 @@ export class CrewFallPool {
     }
   }
 
-  spawn(rng, position, velocity, side = 1) {
+  spawn(rng, position, velocity, side = 1, appearance = {}) {
     const item = this.items[this.cursor];
     this.cursor = (this.cursor + 1) % this.items.length;
     item.active = true;
     item.root.visible = true;
     item.root.position.copy(position);
     item.root.rotation.set(rng.signed() * 0.3, rng.next() * Math.PI, rng.signed() * 0.3);
+    item.visual?.setKitColors?.(
+      appearance.color ?? 0xff7b24,
+      appearance.accent ?? 0x0d2531
+    );
+    item.root.userData.sourceBoat = appearance.boatId ?? -1;
+    item.root.userData.sourceCrew = appearance.crewIndex ?? -1;
     item.vx = velocity.x + side * rng.range(2.4, 4.8);
     item.vy = rng.range(3.8, 6.4);
     item.vz = velocity.z + rng.signed() * 1.8;
@@ -282,6 +318,10 @@ export class CrewFallPool {
           item.root.rotation.z += (0 - item.root.rotation.z) * Math.min(1, dt * 6);
           item.sombre = adieu;
         }
+        // Sur le vrai GLB, les pivots manipulés ci-dessus sont des proxys :
+        // composer la pose avec les quaternions de repos est indispensable
+        // pour que les os visibles suivent réellement la chute.
+        if (v.rigJoints) v.syncRig();
       }
 
       if (item.splashed) {

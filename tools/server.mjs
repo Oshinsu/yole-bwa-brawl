@@ -25,9 +25,48 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RACINE = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const RACINE_REELLE = await fs.realpath(RACINE);
 const PORT = Number(process.env.PORT) || 8080;
 // ⚠️ 0.0.0.0 et pas 127.0.0.1 : voir l'en-tête.
 const HOTE = process.env.HOST || "0.0.0.0";
+
+const FICHIERS_PUBLICS = new Set([
+  "index.html",
+  "style.css",
+  "legal.css",
+  "privacy.html",
+  "support.html",
+  "credits.html",
+  "manifest.webmanifest",
+  "service-worker.js"
+]);
+const DOSSIERS_PUBLICS = ["/src/", "/vendor/", "/assets/", "/icons/", "/zik/"];
+
+const ENTETES_SECURITE = Object.freeze({
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' https://cdn.jsdelivr.net https://unpkg.com",
+    // GLTFLoader transforme les images embarquées dans les .glb en URL blob,
+    // puis les récupère avec fetch/ImageBitmapLoader. Sans blob: ici, le
+    // modèle charge mais ses textures échouent silencieusement sous CSP.
+    "connect-src 'self' blob: https://cdn.jsdelivr.net https://unpkg.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "font-src 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'none'"
+  ].join("; "),
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY"
+});
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -80,6 +119,15 @@ function typeDe(chemin) {
   return TYPES[extname(chemin).toLowerCase()] || "application/octet-stream";
 }
 
+export function cheminPublic(chemin) {
+  if (typeof chemin !== "string" || !chemin.startsWith("/")) return false;
+  if (chemin.includes("\\") || chemin.includes("\0") || chemin.includes(":")) return false;
+  const segments = chemin.split("/").filter(Boolean);
+  if (segments.some((segment) => segment.startsWith("."))) return false;
+  if (FICHIERS_PUBLICS.has(chemin.slice(1))) return true;
+  return DOSSIERS_PUBLICS.some((prefixe) => chemin.startsWith(prefixe));
+}
+
 /**
  * Résout une URL vers un fichier du projet.
  *
@@ -87,7 +135,7 @@ function typeDe(chemin) {
  * traversée de répertoire (`..%2f..%2fetc%2fpasswd`). Sans lui, ce serveur
  * publierait le disque entier.
  */
-function resoudre(url) {
+export function resoudre(url) {
   let chemin;
   try {
     chemin = decodeURIComponent(new URL(url, "http://x").pathname);
@@ -95,22 +143,49 @@ function resoudre(url) {
     return null;                       // URL mal encodée : on refuse.
   }
   if (chemin.endsWith("/")) chemin += "index.html";
+  if (!cheminPublic(chemin)) return null;
   const cible = resolve(join(RACINE, normalize(chemin)));
   if (cible !== RACINE && !cible.startsWith(RACINE + sep)) return null;
   return { cible, chemin };
 }
 
 function envoyer(reponse, code, texte) {
-  reponse.writeHead(code, { "Content-Type": "text/plain; charset=utf-8" });
+  reponse.writeHead(code, {
+    ...ENTETES_SECURITE,
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
   reponse.end(texte);
 }
 
-const serveur = createServer(async (requete, reponse) => {
+export function analyserPlage(entete, taille) {
+  if (typeof entete !== "string" || !Number.isSafeInteger(taille) || taille <= 0) return null;
+  const correspondance = /^bytes=(\d*)-(\d*)$/i.exec(entete.trim());
+  if (!correspondance || (!correspondance[1] && !correspondance[2])) return null;
+
+  let debut;
+  let fin;
+  if (!correspondance[1]) {
+    const suffixe = Number(correspondance[2]);
+    if (!Number.isSafeInteger(suffixe) || suffixe <= 0) return null;
+    debut = Math.max(0, taille - suffixe);
+    fin = taille - 1;
+  } else {
+    debut = Number(correspondance[1]);
+    fin = correspondance[2] ? Number(correspondance[2]) : taille - 1;
+    if (!Number.isSafeInteger(debut) || !Number.isSafeInteger(fin)) return null;
+    if (debut < 0 || fin < 0 || debut > fin || debut >= taille) return null;
+    fin = Math.min(fin, taille - 1);
+  }
+  return { debut, fin };
+}
+
+async function gererRequete(requete, reponse) {
   if (requete.method !== "GET" && requete.method !== "HEAD") {
     return envoyer(reponse, 405, "Méthode non autorisée");
   }
   const resolu = resoudre(requete.url || "/");
-  if (!resolu) return envoyer(reponse, 400, "Chemin invalide");
+  if (!resolu) return envoyer(reponse, 404, "Introuvable");
 
   let infos;
   try {
@@ -119,18 +194,23 @@ const serveur = createServer(async (requete, reponse) => {
       resolu.cible = join(resolu.cible, "index.html");
       infos = await fs.stat(resolu.cible);
     }
+    const cibleReelle = await fs.realpath(resolu.cible);
+    if (cibleReelle !== RACINE_REELLE && !cibleReelle.startsWith(RACINE_REELLE + sep)) {
+      return envoyer(reponse, 404, "Introuvable");
+    }
+    resolu.cible = cibleReelle;
   } catch {
     return envoyer(reponse, 404, "Introuvable");
   }
+  if (!infos.isFile()) return envoyer(reponse, 404, "Introuvable");
 
   const type = typeDe(resolu.cible);
   const entetes = {
+    ...ENTETES_SECURITE,
     "Content-Type": type,
     "Cache-Control": politiqueDeCache(resolu.chemin),
-    // Le jeu ne charge que ses propres ressources et three.js depuis un CDN
-    // épinglé par empreinte SRI dans le monofichier ; rien ici n'a besoin
-    // d'être encadré dans une iframe tierce.
-    "X-Content-Type-Options": "nosniff",
+    // La CSP limite les fallbacks de modules aux deux CDN explicitement prévus
+    // par main.js ; aucune page du jeu ne doit être encadrée par un tiers.
     "Accept-Ranges": "bytes"
   };
 
@@ -139,15 +219,17 @@ const serveur = createServer(async (requete, reponse) => {
   // `HTMLAudioElement` doit télécharger la piste entière avant de jouer, et se
   // déplacer dedans devient impossible. Les huit MP3 pèsent 12 Mo.
   const plage = requete.headers.range;
-  if (plage && /^bytes=/.test(plage)) {
-    const [brutDebut, brutFin] = plage.replace("bytes=", "").split("-");
-    let debut = brutDebut ? Number(brutDebut) : 0;
-    let fin = brutFin ? Number(brutFin) : infos.size - 1;
-    if (!Number.isFinite(debut) || !Number.isFinite(fin) || debut > fin || debut >= infos.size) {
-      reponse.writeHead(416, { "Content-Range": `bytes */${infos.size}` });
+  if (plage && /^bytes=/i.test(plage)) {
+    const intervalle = analyserPlage(plage, infos.size);
+    if (!intervalle) {
+      reponse.writeHead(416, {
+        ...entetes,
+        "Content-Range": `bytes */${infos.size}`,
+        "Content-Length": "0"
+      });
       return reponse.end();
     }
-    fin = Math.min(fin, infos.size - 1);
+    const { debut, fin } = intervalle;
     reponse.writeHead(206, {
       ...entetes,
       "Content-Range": `bytes ${debut}-${fin}/${infos.size}`,
@@ -170,8 +252,17 @@ const serveur = createServer(async (requete, reponse) => {
   reponse.writeHead(200, { ...entetes, "Content-Length": infos.size });
   if (requete.method === "HEAD") return reponse.end();
   createReadStream(resolu.cible).pipe(reponse);
-});
+}
 
-serveur.listen(PORT, HOTE, () => {
-  console.log(`yole: écoute sur http://${HOTE}:${PORT}/`);
-});
+export function creerServeur() {
+  return createServer(gererRequete);
+}
+
+const lanceDirectement = process.argv[1]
+  && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (lanceDirectement) {
+  const serveur = creerServeur();
+  serveur.listen(PORT, HOTE, () => {
+    console.log(`yole: écoute sur http://${HOTE}:${PORT}/`);
+  });
+}

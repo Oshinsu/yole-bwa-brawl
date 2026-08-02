@@ -103,7 +103,10 @@ assert.equal(shift.result.critical, true);
 assert.ok(shift.result.precision > 0.75, "well-timed Shift missed its precision window");
 assert.equal(shift.immediate.boost, 0, "BWA Shift became a boost substitute");
 assert.ok(shift.immediate.flow > 0.95, "well-timed Shift did not reward Flow");
-assert.ok(Math.abs(shift.rollAtOneSecond) < Math.abs(passiveHeel.rollAtOneSecond) * 0.55, "BWA Shift did not create decisive counter-heel");
+assert.ok(
+  Math.abs(shift.rollAtOneSecond) < Math.abs(passiveHeel.rollAtOneSecond) * 0.55,
+  `BWA Shift did not create decisive counter-heel: shift=${shift.rollAtOneSecond.toFixed(4)}, passive=${passiveHeel.rollAtOneSecond.toFixed(4)}`
+);
 assert.ok(shift.final.z - control.final.z < 1, "BWA Shift gained turbo-like forward distance");
 
 // Same initial state and inputs must remain bit-for-bit reproducible.

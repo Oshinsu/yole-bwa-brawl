@@ -67,7 +67,7 @@ const { Game } = await import('../src/game/game.js');
 
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
-  'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
+  'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','joystick','joyKnob','menu','hud','end',
   'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon',
@@ -79,6 +79,18 @@ ui.viewport = new FakeElement('main');
 const game = new Game(THREE, ui);
 game.audio.muted = true;
 game.audio.ensure = () => {};
+for (const boat of game.boats) {
+  assert.ok(
+    boat.visual.crew[0].z < boat.visual.crew.at(-1).z,
+    "the first dresseur is no longer stationed toward the bow"
+  );
+  assert.deepEqual(
+    boat.visual.specialists.map((entry) => entry.role),
+    ["ecoute", "patron"],
+    "a full one-sail crew must include the sheet operator and patron"
+  );
+  assert.ok(boat.visual.patronPaddleRoot, "the patron lost the steering paddle");
+}
 // Assise de l'equipage sur les bois dresses.
 //
 // Une yole ronde n'a ni quille ni gouvernail : tout le couple de redressement
@@ -89,14 +101,27 @@ game.audio.ensure = () => {};
 // frame(), pas de fixedUpdate(). Piloter fixedUpdate seul ne l'appelle qu'une
 // fois, au reset, et toute mesure faite ainsi est nulle.
 
-const CREW_BEAMS = [6, 5, 4, 3, 2, 1];
-const BEAM_Z = [-3.05, -2.15, -1.05, 0.0, 1.0, 1.95, 2.85];
-const BEAM_LEN = [5.6, 6.2, 6.6, 6.7, 6.4, 6.0, 5.3];
+// z<0 est la proue : le premier dresseur occupe bien le premier bwa et le
+// dernier conserve le rappel vers la poupe.
+const CREW_BEAMS = [0, 1, 2, 3, 4, 5];
 // Hauteur des bois : c'est la cote d'assise attendue du bassin.
 const BEAM_Y = 0.25;
 
 game.audio.muted = true;
 game.startMatch();
+
+// ⚠️ LES BOIS SE LISENT À LA SOURCE, PLUS EN COPIE — CORRIGÉ LE 2 AOÛT 2026.
+//
+// `BEAM_Z` et `BEAM_LEN` étaient recopiés en dur ici depuis `BEAM_LAYOUT`. Le
+// jour où les perches ont été raccourcies, cette copie est restée figée : le
+// test a calculé des pointes de bwa qui n'existaient plus et a rapporté 1,11 m
+// de débord sous le vent pour une valeur réelle de 0,76 m. Un verrou qui mesure
+// une géométrie périmée accuse à tort et rassure à tort.
+//
+// C'est le même défaut que celui relevé sur le contrat de coque le même jour :
+// deux tables de vérité finissent toujours par diverger.
+const BEAM_Z = game.boats[0].visual.beams.map((entry) => entry.baseZ);
+const BEAM_LEN = game.boats[0].visual.beams.map((entry) => entry.length);
 // ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
 // tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
 // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
@@ -105,6 +130,7 @@ game.countdown = 0;
 
 let samples = 0, sumAbsX = 0, horsCoque = 0, coteHaut = 0, rollComptes = 0;
 let pireEcartAuBois = 0, pireMarge = Infinity, etalementMax = 0;
+let bwaUnilateraux = 0, porteeAuVentMin = Infinity, debordSousLeVentMax = 0;
 // Deux seuils DISTINCTS, et c'est volontaire. Le lacet est proportionnel au
 // deport (yaw = side x hike x 1,36 avec hike = |x| / 3,0) : exiger un lacet
 // franc des 1,6 m demanderait 0,73 rad, pas 0,9. On verifie donc le SENS sur
@@ -112,6 +138,21 @@ let pireEcartAuBois = 0, pireMarge = Infinity, etalementMax = 0;
 let sortis = 0, lacetCorrect = 0, pireAssise = 0;
 let ticksElimines = 0, ticksTotal = 0;
 let bienSortis = 0, lacetFranc = 0;
+
+// La géométrie importée et le fallback partagent les mêmes dimensions. Cette
+// mesure inclut l'échelle VISUELLE du mesh, mais aucun volume de collision :
+// elle verrouille donc la silhouette effilée sans coupler le test au gameplay.
+const hull = game.boats[0].visual.hull;
+const hullPositions = hull.geometry.attributes.position.array;
+let hullMinX = Infinity, hullMaxX = -Infinity, hullMinZ = Infinity, hullMaxZ = -Infinity;
+for (let i = 0; i < hullPositions.length; i += 3) {
+  hullMinX = Math.min(hullMinX, hullPositions[i]);
+  hullMaxX = Math.max(hullMaxX, hullPositions[i]);
+  hullMinZ = Math.min(hullMinZ, hullPositions[i + 2]);
+  hullMaxZ = Math.max(hullMaxZ, hullPositions[i + 2]);
+}
+const hullAspect = (hullMaxZ - hullMinZ) * hull.scale.z
+  / ((hullMaxX - hullMinX) * hull.scale.x);
 
 let now = 0;
 for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
@@ -124,6 +165,33 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
     if (boat.eliminated) { ticksElimines++; continue; }
     const roll = boat.dynamics.roll;
     let lo = Infinity, hi = -Infinity;
+
+    // Une fois le changement de bord achevé, chaque bwa doit partir du bord
+    // sous le vent et porter sa quasi-totalité du côté de l'équipage. Mesurer
+    // les deux pointes capture directement l'effet « cage symétrique » que les
+    // seules positions des hommes ne pouvaient pas détecter.
+    const middleBeam = boat.visual.beams[3];
+    const bwaSide = Math.sign(middleBeam.root.position.x);
+    const bwaTransferComplete = boat.visual.beams.slice(1).every((entry) =>
+      Math.sign(entry.root.position.x) === bwaSide
+      && Math.abs(entry.root.position.x) > entry.windwardOffset * 0.965
+    );
+    if (
+      bwaSide !== 0
+      && Math.abs(middleBeam.root.position.x) > middleBeam.windwardOffset * 0.965
+      && bwaTransferComplete
+    ) {
+      for (let beam = 1; beam < boat.visual.beams.length; beam++) {
+        const entry = boat.visual.beams[beam];
+        if (!entry.beam.visible) continue;
+        const windwardTip = entry.root.position.x + bwaSide * BEAM_LEN[beam] / 2;
+        const leewardTip = entry.root.position.x - bwaSide * BEAM_LEN[beam] / 2;
+        porteeAuVentMin = Math.min(porteeAuVentMin, windwardTip * bwaSide);
+        debordSousLeVentMax = Math.max(debordSousLeVentMax, leewardTip * -bwaSide);
+        bwaUnilateraux++;
+      }
+    }
+
     // Seuls les equipiers EMBARQUES sont concernes : un homme perdu joue sa
     // chute puis reste ou elle l'a laisse, et un equipage passe par-dessus bord
     // n'est plus sur ses bois — par definition.
@@ -146,7 +214,26 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
           bienSortis++;
           if (Math.abs(homme.root.rotation.y) > 0.9) lacetFranc++;
         }
-        const bassinY = homme.root.position.y + 0.38 * homme.root.scale.y;
+        // ⚠️ ON MESURE L'OS, PLUS UNE APPROXIMATION — CORRIGÉ LE 2 AOÛT 2026.
+        //
+        // La formule précédente, `root.y + 0,38 × scale`, venait du corps
+        // PROCÉDURAL, dont le bassin est effectivement à 0,38 au-dessus de la
+        // racine. Le rig GLB est normalisé en hauteur par `measureRigHeight` :
+        // son bassin ne tombe pas là. Écart mesuré entre la formule et l'os
+        // réel : environ 12 cm.
+        //
+        // Conséquence : ce verrou passait au vert en mesurant une position que
+        // le rig n'occupe pas, pendant que les vrais bassins flottaient de 7 à
+        // 17 cm au-dessus du bois. Un test qui mesure la mauvaise chose est pire
+        // qu'un test absent — il donne l'assurance sans la vérification.
+        const osBassin = homme.rigJoints?.find((j) => j.boneName === "Hips")?.joint;
+        let bassinY;
+        if (osBassin) {
+          homme.root.updateWorldMatrix(true, true);
+          bassinY = osBassin.getWorldPosition(new THREE.Vector3()).y - boat.visual.root.position.y;
+        } else {
+          bassinY = homme.root.position.y + 0.38 * homme.root.scale.y;
+        }
         const ecartAssise = Math.abs(bassinY - BEAM_Y);
         if (ecartAssise > pireAssise) pireAssise = ecartAssise;
       }
@@ -208,8 +295,25 @@ assert.ok(pireAssise < 0.10, `bassin a ${pireAssise.toFixed(3)} m du bois — l'
 //    pas une rangee parallele a la coque.
 assert.ok(etalementMax > 1.5, `etalement lateral de seulement ${etalementMax.toFixed(2)} m`);
 
+// 6. La coque reste une lame longue et étroite, et les bwa ne dessinent jamais
+//    une seconde aile sous le vent une fois le changement de bord stabilisé.
+assert.ok(hullAspect > 6.0, `coque trop large: ratio longueur/largeur ${hullAspect.toFixed(2)}`);
+assert.ok(bwaUnilateraux > 2000, `pas assez de bwa stabilises: ${bwaUnilateraux}`);
+assert.ok(
+  debordSousLeVentMax < 0.90,
+  `bwa encore en cage: ${debordSousLeVentMax.toFixed(2)} m sous le vent`
+);
+assert.ok(
+  porteeAuVentMin > 4.40,
+  `bwa trop courts au vent: portee mini ${porteeAuVentMin.toFixed(2)} m`
+);
+
 console.log(JSON.stringify({
   crewSeatingOk: true,
+  ratioCoqueLongueurLargeur: +hullAspect.toFixed(2),
+  echantillonsBwaUnilateraux: bwaUnilateraux,
+  porteeBwaAuVentMin: +porteeAuVentMin.toFixed(2),
+  debordBwaSousLeVentMax: +debordSousLeVentMax.toFixed(2),
   echantillons: samples,
   moyenneAbsX: +moyenneAbsX.toFixed(3),
   pourcentHorsCoque: +pctHorsCoque.toFixed(1),

@@ -20,9 +20,21 @@ class FakeContext2D {
   createRadialGradient() { return new FakeGradient(); }
 }
 class FakeCanvas {
-  constructor(width = 256, height = 256) { this.width = width; this.height = height; this.style = {}; }
+  constructor(width = 256, height = 256) {
+    this.width = width;
+    this.height = height;
+    this.style = {};
+    this.listeners = new Map();
+  }
   getContext(kind) { return kind === '2d' ? new FakeContext2D() : {}; }
-  addEventListener() {}
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+  dispatchEvent(event) {
+    for (const listener of this.listeners.get(event.type) ?? []) listener(event);
+  }
 }
 class FakeElement {
   constructor(tag = 'div') {
@@ -66,8 +78,8 @@ const THREE = await import('./mock-three.module.js');
 const { Game } = await import('../src/game/game.js');
 
 const uiKeys = [
-  'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
-  'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
+  'viewport','loading','fatal','fatalText','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
+  'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate','zoomIn','zoomOut','zoomValue','joystick','joyKnob','menu','hud','end',
   'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon',
@@ -75,11 +87,49 @@ const uiKeys = [
 ];
 const ui = Object.fromEntries(uiKeys.map((key) => [key, new FakeElement()]));
 ui.viewport = new FakeElement('main');
+ui.fatal.classList.add('hidden');
 
 const game = new Game(THREE, ui);
 game.audio.muted = true;
 game.audio.ensure = () => {};
+
+let contextLossPrevented = false;
+game.renderer.domElement.dispatchEvent({
+  type: 'webglcontextlost',
+  preventDefault() { contextLossPrevented = true; }
+});
+assert.equal(contextLossPrevented, true, 'WebGL context loss must be made restorable');
+assert.equal(game.webglContextLost, true);
+assert.equal(game.paused, true);
+assert.equal(game.renderer.loop, null);
+assert.equal(ui.fatal.classList.contains('hidden'), false);
+game.renderer.domElement.dispatchEvent({ type: 'webglcontextrestored' });
+assert.equal(game.webglContextLost, false);
+assert.equal(game.paused, false);
+assert.equal(typeof game.renderer.loop, 'function');
+assert.equal(ui.fatal.classList.contains('hidden'), true);
+
+Object.assign(game.input, {
+  aimPitch: 0.91,
+  trimUp: true,
+  trimDown: true,
+  lookBack: true
+});
+game.playbackInput.aimPitch = -0.77;
+game.gamepadSteer = 0.65;
+game.gamepadTrim = 0.2;
+game.hadLocalSteer = true;
+game.hadGamepadTrim = true;
 game.startMatch();
+assert.equal(game.input.aimPitch, 0);
+assert.equal(game.input.trimUp, false);
+assert.equal(game.input.trimDown, false);
+assert.equal(game.input.lookBack, false);
+assert.equal(game.playbackInput.aimPitch, 0);
+assert.equal(game.gamepadSteer, null);
+assert.equal(game.gamepadTrim, null);
+assert.equal(game.hadLocalSteer, false);
+assert.equal(game.hadGamepadTrim, false);
 // ⚠️ ON SAUTE LE 3 · 2 · 1 · GO. Depuis qu'il existe, `fixedUpdate` GÈLE tout
 // tant que `countdown > 0` : les yoles ne bougent pas, rien ne se simule. Un
 // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
@@ -153,6 +203,7 @@ for (let tick = 1; tick <= 1800 && game.mode === 'playing'; tick++) {
   game.input.steer = Math.sin(tick * 0.0123) * 0.71;
   game.input.trim = 0.78 + Math.sin(tick * 0.0031) * 0.08;
   game.input.aim = Math.sin(tick * 0.0171) * 0.84;
+  game.input.aimPitch = Math.cos(tick * 0.0137) * 0.72;
   game.input.aimActive = tick % 240 < 126;
   if (tick % 377 === 0) game.requestAction(1);
   if (tick % 613 === 0) game.requestAction(2);
@@ -169,6 +220,7 @@ const capturedReplay = structuredClone(game.latestReplay);
 assert.ok(capturedReplay?.finalTick > 0, 'game replay was not captured');
 assert.ok(capturedReplay.inputs.length > 0, 'game replay contains no inputs');
 assert.ok(capturedReplay.inputs.some((frame) => Math.abs(frame.aim) > 0.2), 'game replay contains no non-neutral aim');
+assert.ok(capturedReplay.inputs.some((frame) => Math.abs(frame.aimPitch) > 0.2), 'game replay contains no vertical aim');
 assert.ok(capturedReplay.inputs.some((frame) => frame.aimActive), 'game replay contains no active aiming interval');
 const expectedReplayChecksum = capturedReplay.finalChecksum;
 game.startReplay(capturedReplay);
@@ -195,6 +247,10 @@ for (let tick = 0; tick < capturedReplay.finalTick && game.mode === 'playing'; t
 }
 const replayedGameChecksum = game.debugState().checksum;
 assert.equal(replayedGameChecksum, expectedReplayChecksum, `game replay diverged: ${replayedGameChecksum} !== ${expectedReplayChecksum}`);
+assert.equal(game.mode, "ended", "validated Combat replay must stop on its result screen");
+game.ui.rematch.onclick();
+assert.equal(game.mode, "playing");
+assert.equal(game.playback?.replay, capturedReplay, "Replay result CTA must replay the same Combat payload");
 
 console.log(JSON.stringify({
   replayOk: true,
@@ -207,11 +263,17 @@ console.log(JSON.stringify({
 // (0 pour les non-finisseurs) et le classement général sacre le meilleur total.
 game.startTour();
 let tourGuard = 0;
+let capturedTourStageReplay = null;
+const firstTourStageChecksums = [];
 while (!game.tour.champion && tourGuard < 300000) {
   game.input.steer = Math.sin(tourGuard * 0.011) * 0.55;
   if (tourGuard % 457 === 0) game.requestAction(32);
   game.fixedUpdate(1 / 60);
+  if (game.tour?.stage === 0 && game.tick > 0) {
+    firstTourStageChecksums[game.tick - 1] = game.debugState().checksum;
+  }
   if (game.mode === 'ended' && !game.tour.champion) {
+    capturedTourStageReplay ??= structuredClone(game.latestReplay);
     const nextStage = game.tour.stage + 1;
     assert.ok(nextStage < 8, 'tour ended without champion before stage 8');
     game.startTourStage(nextStage);
@@ -233,4 +295,36 @@ console.log(JSON.stringify({
   tourTicks: tourGuard,
   tourPoints: game.tour.points,
   tourChampion: game.tour.champion.name
+}, null, 2));
+
+assert.ok(capturedTourStageReplay, "the first Tour stage must expose a replay");
+assert.equal(capturedTourStageReplay.metadata?.tourStage, 0);
+assert.ok(Array.isArray(capturedTourStageReplay.metadata?.tourPoints));
+assert.equal(game.startReplay(capturedTourStageReplay), true);
+assert.equal(game.tour?.stage, 0, "Tour replay must restore its stage context");
+game.countdown = 0;
+for (let tick = 0; tick < capturedTourStageReplay.finalTick && game.mode === "playing"; tick++) {
+  game.fixedUpdate(1 / 60);
+  assert.equal(
+    game.debugState().checksum,
+    firstTourStageChecksums[tick],
+    `Tour replay first diverged at tick ${game.tick}`
+  );
+}
+assert.equal(
+  game.debugState().checksum,
+  capturedTourStageReplay.finalChecksum,
+  "Tour replay must restore the same coast, rules and final checksum"
+);
+assert.equal(game.replayValidation?.complete, true, "Tour replay final checksum must be validated");
+assert.equal(game.mode, "ended", "a validated Tour replay must stop on a readable result screen");
+game.ui.rematch.onclick();
+assert.equal(game.mode, "playing");
+assert.equal(game.tour?.stage, 0);
+assert.equal(game.playback?.replay, capturedTourStageReplay, "Tour replay CTA must replay the same stage payload");
+console.log(JSON.stringify({
+  tourReplayOk: true,
+  stage: capturedTourStageReplay.metadata.tourStage + 1,
+  ticks: capturedTourStageReplay.finalTick,
+  checksum: capturedTourStageReplay.finalChecksum
 }, null, 2));

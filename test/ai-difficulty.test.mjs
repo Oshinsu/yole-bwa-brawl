@@ -81,7 +81,7 @@ const { ACTION_BOOST_FORWARD, ACTION_SHIFT } = await import('../src/game/balance
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
   'weaponSlot','weaponSlotIco','weaponSlotName','weaponSlotCd','bwa','weaponHold2','weaponCrate',
-  'zoomIn','zoomOut','zoomValue','revenge','joystick','joyKnob','menu','hud','end',
+  'zoomIn','zoomOut','zoomValue','joystick','joyKnob','menu','hud','end',
   'pause','rotate','message','damage','stormVignette','killfeed','damageNumbers','countdown','spectateur','leaderboard','roundLabel',
   'timer','speed','balanceBar','balanceText','flowBar','flowText','crewDots','trimText','waterText',
   'storm','stormDistance','reticle','perf','endIcon','difficultyToggle',
@@ -211,6 +211,17 @@ assert.ok(
   // test qui enchaîne startMatch() puis fixedUpdate() ne mesurerait donc que du
   // vide. On force le rebours à zéro pour reprendre au premier tick réel.
   jeu.countdown = 0;
+  const joueur = jeu.boats[0];
+  joueur.cooldowns.mine = 7;
+  joueur.cooldowns.rhum = 16;
+  joueur.cooldowns.barik = 6.2;
+  jeu.fixedUpdate(1 / 60);
+  for (const [key, initial] of [["mine", 7], ["rhum", 16], ["barik", 6.2]]) {
+    assert.ok(
+      Math.abs(joueur.cooldowns[key] - (initial - 1 / 60)) < 1e-9,
+      `${key} doit perdre exactement un tick de cooldown, pas deux : ${joueur.cooldowns[key]}`
+    );
+  }
   const bateau = jeu.boats[1];
   bateau.ammo.chadron = 3;
   bateau.cooldowns.chadron = 0;

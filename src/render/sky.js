@@ -59,6 +59,7 @@ export class AtmosphereSystem {
     this.weatherRng = weatherRng;
     this.rng = visualRng;
     this.weather = new WeatherDirector(weatherRng);
+    this.graphicStyle = false;
 
     this.uniforms = {
       uTime: { value: 0 },
@@ -70,7 +71,8 @@ export class AtmosphereSystem {
       // Ocre de panache saharien, plus le violet nocturne d'un grain.
       uStormColor: { value: new THREE.Color(0x6d5230) },
       uClouds: { value: null },
-      uHasClouds: { value: 0 }
+      uHasClouds: { value: 0 },
+      uGraphicStyle: { value: 0 }
     };
 
     const skyGeometry = new THREE.SphereGeometry(1450, 44, 26);
@@ -97,6 +99,7 @@ export class AtmosphereSystem {
         uniform vec3 uStormColor;
         uniform sampler2D uClouds;
         uniform float uHasClouds;
+        uniform float uGraphicStyle;
         varying vec3 vDirection;
 
         float hash31(vec3 p) {
@@ -135,12 +138,30 @@ export class AtmosphereSystem {
         void main() {
           vec3 dir = normalize(vDirection);
           float skyMix = smoothstep(-0.04, 0.78, dir.y);
+          if (uGraphicStyle > 0.5) {
+            // La caméra de course regarde légèrement vers le bas : son ciel
+            // visible ne monte qu'à environ dir.y=0.30. L'ancien étalonnage
+            // attendait 0.78 pour atteindre le bleu et laissait donc presque
+            // tout l'écran dans la bande d'horizon ivoire.
+            skyMix = smoothstep(-0.015, 0.31, dir.y);
+            float skyBand = floor(clamp(skyMix, 0.0, 0.999) * 7.0) / 6.0;
+            skyMix = mix(skyMix, skyBand, 0.08);
+          }
           // Keep the palette hue, but expose the near-white horizon below the
           // post-process shoulder so it does not turn into a yellow-white panel.
-          vec3 exposedHorizon = uHorizon * 0.84;
-          vec3 color = mix(exposedHorizon, uTop, skyMix);
+          vec3 exposedHorizon = mix(
+            uHorizon * 0.84,
+            vec3(0.19, 0.74, 1.0),
+            step(0.5, uGraphicStyle)
+          );
+          vec3 clearTop = mix(
+            uTop,
+            vec3(0.035, 0.43, 0.96),
+            step(0.5, uGraphicStyle)
+          );
+          vec3 color = mix(exposedHorizon, clearTop, skyMix);
           float horizonVeil = 1.0 - smoothstep(0.015, 0.19, abs(dir.y));
-          color = mix(color, exposedHorizon, horizonVeil * 0.30);
+          color = mix(color, exposedHorizon, horizonVeil * mix(0.30, 0.12, uGraphicStyle));
 
           // A compact solar disc and a restrained warm halo. The former pow(155)
           // lobe covered several degrees and blew out half of the horizon.
@@ -148,9 +169,23 @@ export class AtmosphereSystem {
           float sunCore = smoothstep(0.99978, 0.99997, sunDot);
           float sunHalo = pow(sunDot, 180.0);
           float sunAureole = pow(sunDot, 28.0);
-          color += vec3(1.0, 0.57, 0.20) * sunAureole * 0.025 * (1.0 - uStorm * 0.78);
-          color += vec3(1.0, 0.73, 0.34) * sunHalo * 0.18 * (1.0 - uStorm * 0.82);
-          color += vec3(1.0, 0.92, 0.62) * sunCore * 1.35 * (1.0 - uStorm * 0.88);
+          float regularStyle = 1.0 - step(0.5, uGraphicStyle);
+          color += vec3(1.0, 0.57, 0.20) * sunAureole * 0.025 * regularStyle * (1.0 - uStorm * 0.78);
+          color += vec3(1.0, 0.73, 0.34) * sunHalo * 0.18 * regularStyle * (1.0 - uStorm * 0.82);
+          color += vec3(1.0, 0.92, 0.62) * sunCore * 1.35 * regularStyle * (1.0 - uStorm * 0.88);
+
+          // En Gravure Alizé, le soleil devient un vrai élément de composition :
+          // disque lisible, bord jaune et halo court. Il reste rond et lumineux,
+          // sans anneau géant postérisé autour de lui.
+          float graphicStyle = step(0.5, uGraphicStyle);
+          float graphicSunDisc = smoothstep(0.99925, 0.99972, sunDot);
+          float graphicSunRim = smoothstep(0.99855, 0.99925, sunDot) * (1.0 - graphicSunDisc);
+          color += vec3(1.0, 0.76, 0.14) * graphicSunRim * 0.42 * graphicStyle * (1.0 - uStorm * 0.86);
+          color = mix(
+            color,
+            vec3(1.0, 0.96, 0.72),
+            graphicSunDisc * graphicStyle * (1.0 - uStorm * 0.92)
+          );
 
           vec3 cloudP = dir * vec3(4.2, 2.0, 4.2);
           cloudP.xz += vec2(uTime * 0.025, -uTime * 0.018);
@@ -158,19 +193,48 @@ export class AtmosphereSystem {
           // asset fallback. Coverage thickens into a real mass during the Grain.
           float cloud;
           if (uHasClouds > 0.5) {
-            vec2 cloudUv = vec2(atan(dir.z, dir.x) * 0.15915494 + uTime * 0.0045, clamp(dir.y * 1.28, 0.0, 1.0));
+            // La texture place ses cumulus entre V=0.43 et V=0.82. L'ancien
+            // dir.y * 1.28 lisait le grand aplat noir pour toute la portion de
+            // ciel réellement cadrée pendant la course.
+            float cloudV = mix(
+              clamp(dir.y * 1.28, 0.0, 1.0),
+              clamp(0.49 + dir.y * 0.92, 0.0, 1.0),
+              step(0.5, uGraphicStyle)
+            );
+            vec2 cloudUv = vec2(atan(dir.z, dir.x) * 0.15915494 + uTime * 0.0045, cloudV);
             // Integer angular repeat keeps atan's +/-pi wrap continuous.
-            vec2 cloudUv2 = vec2(cloudUv.x * 2.0 - uTime * 0.0026, cloudUv.y * 0.86 + 0.06);
+            vec2 cloudUv2 = vec2(cloudUv.x * 2.0 - uTime * 0.0026 + 0.37, cloudUv.y * 0.86 + 0.06);
             cloud = max(texture2D(uClouds, cloudUv).r, texture2D(uClouds, cloudUv2).r * 0.72);
+            if (uGraphicStyle > 0.5) {
+              // Un troisième échantillon décalé évite qu'un cap de caméra tombe
+              // dans un des rares grands trous noirs du panorama de cumulus.
+              vec2 cloudUv3 = vec2(cloudUv.x * 1.43 + 0.68, cloudUv.y * 0.91 + 0.025);
+              cloud = max(cloud, texture2D(uClouds, cloudUv3).r * 0.84);
+            }
           } else {
             cloud = fbm(cloudP);
           }
           float cloudBand = smoothstep(0.015, 0.17, dir.y) * (1.0 - smoothstep(0.70, 0.94, dir.y));
           float coverage = mix(0.68, 0.31, uStorm);
           float density = smoothstep(coverage, coverage + 0.15, cloud) * cloudBand;
+          if (uGraphicStyle > 0.5 && uStorm < 0.35) {
+            density = smoothstep(0.38, 0.64, cloud)
+              * smoothstep(0.005, 0.095, dir.y)
+              * (1.0 - smoothstep(0.40, 0.62, dir.y));
+          }
           // Les nuages se chargent de sable au lieu de virer à la nuit.
           vec3 cloudColor = mix(vec3(1.0, 0.91, 0.72), vec3(0.46, 0.34, 0.19), uStorm);
-          color = mix(color, cloudColor, density * mix(0.48, 0.94, uStorm));
+          cloudColor = mix(
+            cloudColor,
+            mix(
+              mix(vec3(0.72, 0.88, 0.95), vec3(1.0, 0.995, 0.97), smoothstep(0.54, 0.90, cloud)),
+              vec3(0.52, 0.57, 0.60),
+              uStorm
+            ),
+            step(0.5, uGraphicStyle)
+          );
+          float cloudOpacity = mix(mix(0.48, 0.94, uStorm), mix(0.88, 0.96, uStorm), uGraphicStyle);
+          color = mix(color, cloudColor, density * cloudOpacity);
           color += vec3(1.0, 0.62, 0.25) * pow(sunDot, 60.0) * density * 0.08 * (1.0 - uStorm);
           float stormVeil = clamp(uStorm * (0.46 + density * 0.50), 0.0, 0.96);
           color = mix(color, uStormColor, stormVeil);
@@ -381,21 +445,22 @@ export class AtmosphereSystem {
     texture.wrapS = THREE.MirroredRepeatWrapping ?? THREE.RepeatWrapping;
     texture.repeat?.set(6, 1);
     texture.needsUpdate = true;
-    const height = radius * 0.20;
+    const height = radius * (this.graphicStyle ? 0.285 : 0.20);
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 64, 1, true);
+    const backdropOpacity = this.graphicStyle ? 0.96 : 0.25;
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
-      opacity: 0.25,
+      opacity: backdropOpacity,
       alphaTest: 0.025,
       depthWrite: false,
       side: THREE.BackSide,
       fog: false
     });
-    material.clearOpacity = 0.25;
+    material.clearOpacity = backdropOpacity;
     this.backdrop = new THREE.Mesh(geometry, material);
     // Le pied de la bande affleure l'horizon : la mer doit le recouvrir.
-    this.backdrop.position.y = height * 0.12;
+    this.backdrop.position.y = height * (this.graphicStyle ? 0.035 : 0.12);
     this.backdrop.rotation.y = Math.PI;
     this.backdrop.renderOrder = -8;
     this.backdrop.frustumCulled = false;
@@ -445,6 +510,17 @@ export class AtmosphereSystem {
     texture.wrapT = this.THREE.ClampToEdgeWrapping;
     this.uniforms.uClouds.value = texture;
     this.uniforms.uHasClouds.value = 1;
+  }
+
+  setGraphicStyle(enabled) {
+    this.graphicStyle = Boolean(enabled);
+    this.uniforms.uGraphicStyle.value = this.graphicStyle ? 1 : 0;
+    if (this.backdrop?.material) {
+      const opacity = this.graphicStyle ? 0.96 : 0.25;
+      this.backdrop.material.clearOpacity = opacity;
+      this.backdrop.material.opacity = opacity;
+    }
+    if (this.nearBackdrop) this.nearBackdrop.visible = !this.graphicStyle;
   }
 
   resetRng(weatherRng, visualRng = weatherRng) {

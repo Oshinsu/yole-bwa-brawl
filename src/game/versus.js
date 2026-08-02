@@ -42,6 +42,17 @@ export function versusPilotLabel(boat) {
 }
 
 export function versusCameraFrame(playerOne, playerTwo, out = {}) {
+  const oneActive = Boolean(playerOne && !playerOne.eliminated);
+  const twoActive = Boolean(playerTwo && !playerTwo.eliminated);
+  if (oneActive !== twoActive) {
+    const survivor = oneActive ? playerOne : playerTwo;
+    out.x = survivor.x ?? 0;
+    out.y = survivor.y ?? 0;
+    out.z = survivor.z ?? 0;
+    out.separation = 0;
+    out.heading = survivor.dynamics?.heading ?? 0;
+    return out;
+  }
   const dx = (playerTwo?.x ?? 0) - (playerOne?.x ?? 0);
   const dz = (playerTwo?.z ?? 0) - (playerOne?.z ?? 0);
   const separation = Math.hypot(dx, dz);
@@ -142,8 +153,8 @@ export const VersusSystems = {
         water.height + 1.15,
         playerTwo.z,
         SPELL_VFX.BWA_SHIFT,
-        result.critical ? 5.2 : 4.1,
-        0.52,
+        result.critical ? 2.8 : 2.2,
+        result.critical ? 0.25 : 0.21,
         { flipX: playerTwo.dynamics.crewTarget < 0 }
       );
       this.telemetry.track("bwa_shift", {
@@ -169,10 +180,7 @@ export const VersusSystems = {
     if (!active) return;
     const status = (boat) => {
       if (!boat) return "ABSENT";
-      if (boat.eliminated) {
-        const remaining = Math.max(0, BALANCE.respawn.delay - (boat.respawnTimer ?? 0));
-        return `REPÊCHAGE ${remaining.toFixed(1)}S`;
-      }
+      if (boat.eliminated) return "ÉLIMINÉ · SPECTATEUR";
       const hull = Math.round(clamp(boat.dynamics?.structure?.hull ?? 0, 0, 1) * 100);
       const weapon = this.activeWeapon(boat);
       const ammo = weapon ? boat.ammo[weapon.key] : 0;

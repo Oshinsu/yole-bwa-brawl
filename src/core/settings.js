@@ -1,3 +1,5 @@
+import { normalizeCustomization } from "../game/customization.js";
+
 const STORAGE_KEY = "yole-bwa-brawl-v3-2-settings";
 
 function resolveSettingsStorage() {
@@ -15,14 +17,27 @@ export const DEFAULT_SETTINGS = Object.freeze({
   reduceFlash: false,
   impact: 1,
   haptics: 1,
+  // Interrupteur maître historique, conservé pour la migration des sauvegardes.
+  // Les deux volumes permettent désormais de régler la musique sans écraser les
+  // retours de pilotage, et inversement.
   audio: true,
+  musicVolume: 0.8,
+  sfxVolume: 1,
   leftHanded: false,
   showPerf: false,
+  onboardingSeen: false,
   // Personnalisation de la yole. Bornées à la LECTURE dans startMatch, jamais
   // au point d'usage : c'est la première fois qu'une valeur de localStorage
   // touche la simulation, et load() fusionne un JSON arbitraire.
   sailLivery: 0,
   rig: 1,
+  // Finitions visuelles du garage. `normalizeCustomization` borne ces indices
+  // avant toute application au rendu ; les défauts reproduisent la yole J1
+  // historique pour garder les anciennes sauvegardes visuellement stables.
+  hullColor: 0,
+  accentColor: 0,
+  woodFinish: 0,
+  crewKit: 0,
   // Niveau des IA. Comme `rig`, il touche la SIMULATION : il est donc borné à
   // la lecture (playerAiLevel) et voyage dans le replay, jamais relu depuis le
   // magasin au point d'usage.
@@ -32,6 +47,15 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // qui garantit toujours deux armes valides.
   loadout: ["wave", "harpoon"]
 });
+
+const CUSTOMIZATION_SETTING_KEYS = new Set([
+  "hullColor",
+  "accentColor",
+  "woodFinish",
+  "crewKit",
+  "sailLivery",
+  "rig"
+]);
 
 export class SettingsStore {
   constructor(storage = resolveSettingsStorage()) {
@@ -45,7 +69,10 @@ export class SettingsStore {
     try {
       const raw = this.storage?.getItem(STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed === "object") this.values = { ...DEFAULT_SETTINGS, ...parsed };
+      if (parsed && typeof parsed === "object") {
+        this.values = { ...DEFAULT_SETTINGS, ...parsed };
+        Object.assign(this.values, normalizeCustomization(this.values));
+      }
     } catch {
       this.values = { ...DEFAULT_SETTINGS };
     }
@@ -58,9 +85,11 @@ export class SettingsStore {
 
   set(key, value) {
     if (!(key in DEFAULT_SETTINGS)) return false;
-    this.values[key] = value;
+    this.values[key] = CUSTOMIZATION_SETTING_KEYS.has(key)
+      ? normalizeCustomization({ ...this.values, [key]: value })[key]
+      : value;
     this.save();
-    for (const listener of this.listeners) listener(key, value, this.snapshot());
+    for (const listener of this.listeners) listener(key, this.values[key], this.snapshot());
     return true;
   }
 

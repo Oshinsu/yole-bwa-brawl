@@ -4,15 +4,58 @@ const CREW_COUNT = 6;
 const CREW_MASSES = new Float32Array([78, 74, 82, 69, 76, 80]);
 
 // Eight longitudinal stations × port/starboard. z<0 is bow in this model.
-const HULL_STATIONS = [
-  { z: -5.05, width: 0.32, keel: -0.22, volume: 0.58 },
-  { z: -4.05, width: 0.58, keel: -0.31, volume: 0.82 },
-  { z: -2.75, width: 0.86, keel: -0.39, volume: 1.02 },
-  { z: -1.15, width: 1.04, keel: -0.43, volume: 1.13 },
-  { z: 0.65, width: 1.08, keel: -0.44, volume: 1.15 },
-  { z: 2.35, width: 0.92, keel: -0.40, volume: 1.02 },
-  { z: 3.78, width: 0.66, keel: -0.33, volume: 0.82 },
-  { z: 4.82, width: 0.36, keel: -0.24, volume: 0.60 }
+//
+// ⚠️ RECALÉES SUR LA COQUE VISIBLE LE 2 AOÛT 2026. CHANGEMENT AUTORITAIRE.
+//
+// Ces largeurs flottaient jusque-là à leur valeur d'origine, alors que le rendu
+// affine la coque de `HULL_VISUAL_WIDTH_SCALE = 0.84` depuis la passe du
+// 30 juillet. Résultat mesuré : les seize points de flottabilité tombaient
+// jusqu'à **18 cm en dehors de la coque qu'on voit**, au maître-bau. Le bateau
+// flottait sur des points invisibles — dans un jeu entièrement construit sur la
+// lecture de la gîte, c'est le pire endroit où mentir.
+//
+// Chaque largeur vaut désormais la demi-largeur RÉELLE du mesh livré à cette
+// station, multipliée par 0,84. Recalculable à tout moment depuis
+// `assets/models/yole_hull.glb` ; verrouillée par `npm run test:hull`.
+//
+// ⚠️ CE QUI N'A PAS BOUGÉ, ET POURQUOI.
+// `keel` et `volume` sont inchangés. La décision portait sur le débord LATÉRAL.
+// La quille du mesh est pourtant 12 à 33 cm plus creuse que celle déclarée ici
+// (−0,566 contre −0,44 au maître-bau) : la yole flotte plus haut qu'elle n'en a
+// l'air. Toucher à `keel` change le tirant d'eau et donc toute la flottaison,
+// pas seulement le bras de levier — c'est une seconde décision, distincte, et
+// elle n'est pas prise.
+//
+// ⚠️ L'EFFET MESURÉ EST L'INVERSE DE CELUI QU'ON ATTENDAIT.
+// Le bras de levier du couple de flottabilité EST cette largeur
+// (`rollTorque += localX * force`), donc la rétrécir devait assouplir la yole.
+// Mesure faite (`tools/probe_roll_stability.mjs`, avant → après) : elle est
+// très légèrement PLUS raide.
+//
+//   gîte médiane depuis 40°     10,5° → 9,9°
+//   retour sous 20° depuis 40°  1,10 s → 1,07 s
+//   retour sous 20° depuis 60°  1,28 s → 1,25 s
+//   avec contre-gîte            0,82 s → 0,80 s
+//
+// Explication : le redressement est dominé par le ressort artificiel
+// `impactRecovery = -roll * mass * 15.4`, indépendant de la géométrie. La part
+// de flottabilité est minoritaire, et resserrer les points modifie surtout la
+// dissymétrie d'immersion entre bord au vent et bord sous le vent — ici dans le
+// sens favorable. Le changement de ressenti est donc marginal ; c'est la
+// cohérence visuelle qui motive la manœuvre, pas l'équilibrage.
+// Exportée pour que `test/hull-contract.test.mjs` la lise À LA SOURCE. Elle y
+// était d'abord recopiée — soit exactement le défaut que ce test dénonce, deux
+// tables de vérité qui dérivent l'une de l'autre. La copie a d'ailleurs
+// immédiatement menti : elle annonçait encore 18 cm de débord après correction.
+export const HULL_STATIONS = [
+  { z: -5.05, width: 0.348, keel: -0.22, volume: 0.58 },
+  { z: -4.05, width: 0.642, keel: -0.31, volume: 0.82 },
+  { z: -2.75, width: 0.811, keel: -0.39, volume: 1.02 },
+  { z: -1.15, width: 0.892, keel: -0.43, volume: 1.13 },
+  { z: 0.65, width: 0.900, keel: -0.44, volume: 1.15 },
+  { z: 2.35, width: 0.758, keel: -0.40, volume: 1.02 },
+  { z: 3.78, width: 0.561, keel: -0.33, volume: 0.82 },
+  { z: 4.82, width: 0.223, keel: -0.24, volume: 0.60 }
 ];
 
 const BUOYANCY_POINTS = HULL_STATIONS.flatMap((station, stationIndex) => [
@@ -26,6 +69,13 @@ const COMPARTMENT_Z = new Float32Array([-3.2, 0, 3.1, -3.2, 0, 3.1]);
 const EVENT_SLAM = 1;
 const EVENT_CREW_CROSSED = 2;
 const EVENT_CRITICAL_FLOOD = 4;
+const EVENT_CREW_LOADED = 8;
+
+// Départ de la vague de rappel, de la proue vers la poupe. Le dernier dresseur
+// retient volontairement le bateau plus longtemps : sur une vraie yole il est
+// le dernier à relâcher le rappel pendant une manœuvre. La précision resserre
+// cette vague sans jamais transformer six corps en téléportation simultanée.
+const CREW_SHIFT_DELAYS = new Float32Array([0, 0.055, 0.115, 0.18, 0.27, 0.40]);
 
 // Réglages de maniabilité arcade. Ils restent dans la couche simulation afin
 // qu'une partie, un replay et le Duel local empruntent exactement les mêmes
@@ -131,9 +181,18 @@ export class YoleDynamics {
     this.crewTargets = new Float32Array(CREW_COUNT);
     this.crewVelocities = new Float32Array(CREW_COUNT);
     this.crewDelays = new Float32Array(CREW_COUNT);
+    this.crewStartDelays = new Float32Array(CREW_COUNT);
     this.flooding = new Float32Array(6);
     this.lastImmersions = new Float32Array(BUOYANCY_POINTS.length);
-    this.events = { mask: 0, slam: 0, spray: 0, shiftCrossing: 0 };
+    this.events = {
+      mask: 0,
+      slam: 0,
+      spray: 0,
+      shiftCrossing: 0,
+      shiftCatch: 0,
+      shiftSide: 0,
+      shiftKind: 0
+    };
     this.reset(0, 0, 0);
   }
 
@@ -157,6 +216,12 @@ export class YoleDynamics {
     this.rhum = 0;
     this.crewTarget = 0;
     this.shiftTimer = 0;
+    this.shiftDuration = 0;
+    this.shiftElapsed = 0;
+    this.shiftPrecision = 0;
+    this.shiftKind = 0;
+    this.shiftCatchTriggered = false;
+    this.shiftLoadTargetAbs = 0;
     this.shiftOriginSign = 0;
     this.flow = 0.58;
     this.boost = 0;
@@ -203,10 +268,14 @@ export class YoleDynamics {
     this.events.slam = 0;
     this.events.spray = 0;
     this.events.shiftCrossing = 0;
+    this.events.shiftCatch = 0;
+    this.events.shiftSide = 0;
+    this.events.shiftKind = 0;
     this.crewPositions.fill(0);
     this.crewTargets.fill(0);
     this.crewVelocities.fill(0);
     this.crewDelays.fill(0);
+    this.crewStartDelays.fill(0);
     this.flooding.fill(0);
     this.lastImmersions.fill(0);
     this.structure.hull = 1;
@@ -389,12 +458,21 @@ export class YoleDynamics {
     this.crewTarget = target;
     this.shiftOriginSign = rollSign;
     this.shiftTimer = 0.84 + precision * 0.18;
+    this.shiftDuration = this.shiftTimer;
+    this.shiftElapsed = 0;
+    this.shiftPrecision = precision;
+    this.shiftKind = critical ? 2 : (dashRecovery ? 3 : 1);
+    this.shiftCatchTriggered = false;
+    this.shiftLoadTargetAbs = Math.abs(target);
 
     for (let i = 0; i < CREW_COUNT; i++) {
       const active = i < this.activeCrew;
       this.crewTargets[i] = active ? target * (0.90 + (i % 3) * 0.045) : 0;
-      // A visible/physical human wave instead of teleportation.
-      this.crewDelays[i] = active ? i * (0.050 - precision * 0.018) : 0;
+      // Vague avant -> arrière. Le dernier dresseur garde son appui plus
+      // longtemps ; un bon timing resserre la bordée sans l'uniformiser.
+      const delay = CREW_SHIFT_DELAYS[i] * (1 - precision * 0.30);
+      this.crewStartDelays[i] = active ? delay : 0;
+      this.crewDelays[i] = active ? delay : 0;
     }
 
     if (critical) {
@@ -404,7 +482,15 @@ export class YoleDynamics {
       this.flow = clamp(this.flow + 0.12 + precision * 0.26 + this.slip * 0.055, 0, 1);
       this.cohesion = clamp(this.cohesion + 0.035 + precision * 0.055, 0.16, 1);
       const outwardVelocity = Math.max(0, rollSign * this.rollVel);
-      this.rollVel -= rollSign * (outwardVelocity * (0.38 + precision * 0.28) + 0.035 + precision * 0.075);
+      // Réponse immédiate pour que la commande ne paraisse jamais molle, mais
+      // le gros du redressement vient ensuite du déplacement des hommes. Le
+      // précédent 38–66 % arrêtait la chute avant que les corps aient chargé
+      // les bwa : techniquement efficace, visuellement magique.
+      this.rollVel -= rollSign * (
+        outwardVelocity * (0.27 + precision * 0.12)
+        + 0.022
+        + precision * 0.044
+      );
       this.yawRate *= 1 - precision * (0.12 + this.counterSteer * 0.18);
       this.counterHeel = precision;
     } else if (dashRecovery) {
@@ -465,7 +551,10 @@ export class YoleDynamics {
     // pas cumuler jusqu'à cinq secondes sans barre, ce qui serait injouable.
     if (data.helmLoss) this.helmLoss = Math.max(this.helmLoss, data.helmLoss);
     this.crewStumble = Math.max(this.crewStumble, clamp(Math.abs(data.rollImpulse ?? 0) * 0.55 + (data.crewImpulse ?? 0) * 0.6, 0, 1));
-    if (data.crewLoss) this.activeCrew = Math.max(2, this.activeCrew - data.crewLoss);
+    // Une arme peut désormais vider réellement les six postes de rappel. Le
+    // plancher à deux conservait des silhouettes à bord après leur éjection et
+    // rendait impossible la règle « un impact direct = un yoleur à l'eau ».
+    if (data.crewLoss) this.activeCrew = Math.max(0, this.activeCrew - data.crewLoss);
     if (data.structure) {
       this.structure.hull = clamp(this.structure.hull - (data.structure.hull ?? 0), 0, 1);
       this.structure.mast = clamp(this.structure.mast - (data.structure.mast ?? 0), 0, 1);
@@ -501,6 +590,9 @@ export class YoleDynamics {
   }
 
   updateCrew(dt) {
+    if (this.shiftDuration > 0 && this.shiftElapsed < this.shiftDuration + 0.46) {
+      this.shiftElapsed += dt;
+    }
     this.shiftTimer = Math.max(0, this.shiftTimer - dt);
     const crossedUpright = this.shiftOriginSign !== 0 && Math.sign(this.roll || this.shiftOriginSign) !== this.shiftOriginSign;
     if (crossedUpright) {
@@ -533,6 +625,24 @@ export class YoleDynamics {
       totalMass += CREW_MASSES[i];
     }
     this.crewShift = totalMass > 0 ? weightedPosition / totalMass : 0;
+    if (
+      this.shiftKind >= 2
+      && !this.shiftCatchTriggered
+      && this.shiftElapsed >= 0.16
+      && Math.abs(this.crewShift) >= this.shiftLoadTargetAbs * 0.56
+    ) {
+      this.shiftCatchTriggered = true;
+      // La contre-gîte doit rester lourde : l'impulsion initiale met les corps
+      // en mouvement, puis cette reprise d'appui n'agit qu'une fois leur masse
+      // réellement chargée sur les bwa. On obtient un rattrapage décisif sans
+      // annuler la chute avant que l'animation ait traversé la coque.
+      const loadSide = Math.sign(this.crewTarget || -this.shiftOriginSign || 1);
+      this.rollVel += loadSide * (0.045 + this.shiftPrecision * 0.045);
+      this.events.mask |= EVENT_CREW_LOADED;
+      this.events.shiftCatch = this.shiftPrecision;
+      this.events.shiftSide = Math.sign(this.crewTarget || -this.shiftOriginSign || 1);
+      this.events.shiftKind = this.shiftKind;
+    }
     return weightedPosition;
   }
 
@@ -541,10 +651,16 @@ export class YoleDynamics {
     out.slam = this.events.slam;
     out.spray = this.events.spray;
     out.shiftCrossing = this.events.shiftCrossing;
+    out.shiftCatch = this.events.shiftCatch;
+    out.shiftSide = this.events.shiftSide;
+    out.shiftKind = this.events.shiftKind;
     this.events.mask = 0;
     this.events.slam = 0;
     this.events.spray = 0;
     this.events.shiftCrossing = 0;
+    this.events.shiftCatch = 0;
+    this.events.shiftSide = 0;
+    this.events.shiftKind = 0;
     return out;
   }
 
@@ -553,6 +669,9 @@ export class YoleDynamics {
     this.events.slam = 0;
     this.events.spray = 0;
     this.events.shiftCrossing = 0;
+    this.events.shiftCatch = 0;
+    this.events.shiftSide = 0;
+    this.events.shiftKind = 0;
     this.slam = Math.max(0, this.slam - dt * 3.5);
     this.spray = Math.max(0, this.spray - dt * 4.0);
     this.crewStumble = Math.max(0, this.crewStumble - dt * 2.6);
@@ -883,5 +1002,6 @@ export class YoleDynamics {
 export const YoleEventMask = Object.freeze({
   SLAM: EVENT_SLAM,
   CREW_CROSSED: EVENT_CREW_CROSSED,
-  CRITICAL_FLOOD: EVENT_CRITICAL_FLOOD
+  CRITICAL_FLOOD: EVENT_CRITICAL_FLOOD,
+  CREW_LOADED: EVENT_CREW_LOADED
 });

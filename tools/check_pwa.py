@@ -26,8 +26,6 @@ import os
 import shutil
 import sys
 
-from playwright.sync_api import sync_playwright
-
 sys.stdout.reconfigure(encoding="utf-8")
 URL = os.environ.get("YOLE_URL", "http://127.0.0.1:8802/index.html")
 
@@ -141,6 +139,20 @@ def controles(donnees: dict) -> list[str]:
             fautes.append(f"hors-ligne : la page se charge mais le menu est vide {hors}")
         elif not hors.get("partieLancee"):
             fautes.append(f"hors-ligne : le menu s'affiche mais la partie ne demarre pas {hors}")
+        if hors.get("rechargement") == "ok":
+            musiques = hors.get("musiques") or []
+            if len(musiques) != 8:
+                fautes.append(f"hors-ligne : {len(musiques)}/8 musiques vérifiées")
+            for musique in musiques:
+                contenu = musique.get("contenu") or ""
+                if (musique.get("statut") != 206
+                        or musique.get("octets") != 32
+                        or not contenu.startswith("bytes 0-31/")):
+                    fautes.append(
+                        f"musique hors-ligne {musique.get('fichier')} : "
+                        f"HTTP {musique.get('statut')}, plage {contenu!r}, "
+                        f"{musique.get('octets')} octets"
+                    )
 
     # ⚠️ Sans capture `narrow`, Chrome Android retombe sur la bandelette
     # d'installation au lieu de la fiche riche. Ce n'est pas bloquant.
@@ -171,6 +183,18 @@ def autotest() -> int:
         "themeManifeste": "#00b8c9", "themeMeta": "#061a29",
         "appleTouchIcon": "./icons/icon-192.png",
         "serviceWorker": {"actif": True, "etat": "activated"},
+        "horsLigne": {
+            "rechargement": "ok", "titreVisible": True, "boutonJouer": True,
+            "partieLancee": True,
+            "musiques": [
+                {"fichier": f"piste-{index}.mp3", "statut": 206,
+                 "contenu": "bytes 0-31/100", "octets": 32}
+                for index in range(7)
+            ] + [
+                {"fichier": "piste-cassee.mp3", "statut": 503,
+                 "contenu": "", "octets": 0}
+            ]
+        },
         "icones": [
             {"src": "./icons/icon-192.png", "statut": 200, "declare": "192x192",
              "mesure": "192x192", "purpose": "any maskable", "coinsOpaques": False},
@@ -180,7 +204,8 @@ def autotest() -> int:
         "captures": [],
     }
     attendus = ("coins TRANSPARENTS", "cumule `any` et `maskable`",
-                "aucune capture `narrow`", "theme_color", "apple-touch-icon")
+                "aucune capture `narrow`", "theme_color", "apple-touch-icon",
+                "musique hors-ligne")
     fautes = controles(avant)
     manques = [a for a in attendus if not any(a in f for f in fautes)]
     for faute in fautes:
@@ -203,6 +228,12 @@ def chromium():
 def main():
     if "--autotest" in sys.argv:
         return autotest()
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  ECHEC : Playwright est requis pour le contrôle navigateur.")
+        print("  -> installe-le avec `python -m pip install playwright`.")
+        return 1
     with sync_playwright() as p:
         lancement = {"headless": True, "args": [
             "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]}
@@ -214,8 +245,8 @@ def main():
         page.goto(URL, wait_until="networkidle", timeout=90000)
         # Le service worker s'enregistre apres le chargement des modules.
         page.wait_for_function(
-            "() => navigator.serviceWorker.controller || performance.now() > 12000",
-            timeout=20000)
+            "() => Boolean(navigator.serviceWorker.controller)",
+            timeout=120000)
         donnees = page.evaluate(SONDE)
 
         # ⚠️ LE SEUL TEST QUI PROUVE LE HORS-LIGNE : couper le reseau et
@@ -234,6 +265,33 @@ def main():
               menuAffiche: !document.getElementById('menu')?.classList.contains('hidden'),
               troisJs: typeof WebGL2RenderingContext !== "undefined"
             })""")
+            # Les HTMLAudioElement lisent les MP3 par plages. Un simple GET 200
+            # ne prouve donc pas la musique hors ligne : on reproduit les huit
+            # premières lectures `Range` avec les chemins exacts de PISTES.
+            hors_ligne["musiques"] = page.evaluate("""async () => {
+              const { PISTES } = await import("./src/core/music.js");
+              const resultats = [];
+              for (const { fichier } of Object.values(PISTES)) {
+                const chemin = `./zik/${encodeURIComponent(fichier)}`;
+                try {
+                  const response = await fetch(chemin, {
+                    headers: { Range: "bytes=0-31" }
+                  });
+                  const contenu = response.headers.get("Content-Range");
+                  const octets = (await response.arrayBuffer()).byteLength;
+                  resultats.push({
+                    fichier, statut: response.status, contenu, octets,
+                    type: response.headers.get("Content-Type")
+                  });
+                } catch (erreur) {
+                  resultats.push({
+                    fichier, statut: 0, contenu: null, octets: 0,
+                    erreur: String(erreur).slice(0, 100)
+                  });
+                }
+              }
+              return resultats;
+            }""")
             # Le menu s'affiche peut-etre, mais les GLB et les textures sont
             # chargees APRES : c'est la partie qu'il faut voir demarrer.
             page.evaluate("document.getElementById('playBtn').click()")

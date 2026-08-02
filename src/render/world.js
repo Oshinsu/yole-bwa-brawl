@@ -15,8 +15,120 @@ const WORLD_QUALITY = [
   { palmiers: 1.00, rochers: 1.00 }    // HQ
 ];
 
+const DEFAULT_PALETTE = Object.freeze({
+  sand: 0xcfc8ae,
+  shallowRock: 0x4a6961,
+  green: 0x1d9b58,
+  darkGreen: 0x0b603d,
+  leaf: 0x23b85c
+});
+
+const ARCHETYPE_PRESETS = Object.freeze({
+  tropical: Object.freeze({
+    skipChance: 0.14,
+    lateralMin: 62,
+    lateralMax: 118,
+    rx: [8, 24],
+    rz: [10, 34],
+    sandScale: 1.015,
+    sandLift: 0,
+    hillWidth: 1,
+    hillHeight: 1,
+    palms: 1,
+    rocks: 1
+  }),
+  lagoon: Object.freeze({
+    skipChance: 0.10,
+    lateralMin: 68,
+    lateralMax: 126,
+    rx: [8, 20],
+    rz: [12, 30],
+    sandScale: 1.27,
+    sandLift: 0.19,
+    hillWidth: 0.78,
+    hillHeight: 0.58,
+    palms: 1.35,
+    rocks: 0.40
+  }),
+  islets: Object.freeze({
+    skipChance: 0.04,
+    lateralMin: 58,
+    lateralMax: 108,
+    rx: [7, 22],
+    rz: [11, 32],
+    sandScale: 1.15,
+    sandLift: 0.09,
+    hillWidth: 0.90,
+    hillHeight: 0.76,
+    palms: 1.28,
+    rocks: 0.62
+  }),
+  volcanic: Object.freeze({
+    skipChance: 0.16,
+    lateralMin: 74,
+    lateralMax: 132,
+    rx: [12, 28],
+    rz: [15, 38],
+    sandScale: 1.025,
+    sandLift: -0.04,
+    hillWidth: 1.04,
+    hillHeight: 1.30,
+    palms: 0.72,
+    rocks: 1.75
+  })
+});
+
+function resolveStageProfile(stage = null) {
+  const archetype = stage?.archetype && ARCHETYPE_PRESETS[stage.archetype]
+    ? stage.archetype
+    : "tropical";
+  return {
+    ...ARCHETYPE_PRESETS[archetype],
+    ...(stage ?? {}),
+    archetype
+  };
+}
+
 export function routeCenter(z) {
   return Math.sin(z * 0.0062) * 21 + Math.sin(z * 0.014 + 0.9) * 8;
+}
+
+export function distanceToIslandCollider(island, x, z, out = {}) {
+  const shapes = island.collisionShapes?.length
+    ? island.collisionShapes
+    : [{ x: island.x, z: island.z, rx: island.rx, rz: island.rz, rotation: 0 }];
+  const dx = x - island.x;
+  const dz = z - island.z;
+  const radialDistance = Math.hypot(dx, dz);
+  // Le centre n'a plus de singularité : une direction fixe et déterministe
+  // permet d'en sortir, au lieu d'une normale (0, 0) qui immobilisait la yole.
+  const directionX = radialDistance > 1e-8 ? dx / radialDistance : 1;
+  const directionZ = radialDistance > 1e-8 ? dz / radialDistance : 0;
+  let boundaryRadius = 0;
+  let boundaryShape = shapes[0];
+  for (const shape of shapes) {
+    const rotation = shape.rotation || 0;
+    const cosine = Math.cos(rotation);
+    const sine = Math.sin(rotation);
+    const localX = cosine * directionX - sine * directionZ;
+    const localZ = sine * directionX + cosine * directionZ;
+    const radius = 1 / Math.sqrt(
+      (localX / Math.max(0.1, shape.rx)) ** 2
+      + (localZ / Math.max(0.1, shape.rz)) ** 2
+    );
+    if (radius > boundaryRadius) {
+      boundaryRadius = radius;
+      boundaryShape = shape;
+    }
+  }
+  out.x = island.x + directionX * boundaryRadius;
+  out.z = island.z + directionZ * boundaryRadius;
+  out.nx = directionX;
+  out.nz = directionZ;
+  out.shape = boundaryShape;
+  out.distance = radialDistance - boundaryRadius;
+  out.island = island;
+  return out;
 }
 
 
@@ -30,6 +142,8 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
   const colors = [];
   const uvs = [];
   const indices = [];
+  const altitudes = [];
+  let collisionScale = 1;
 
   const ridgeCount = 3 + Math.floor(rng.next() * 3);
   const ridgePhase = rng.next() * Math.PI * 2;
@@ -77,7 +191,11 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
       const jitter = segment === radialSegments ? firstJitter : generatedJitter;
       const r = radius * ridge * jitter;
       const shoulder = Math.cos(angle * (ridgeCount - 1) - ridgePhase) * 0.055 * Math.sin(t * Math.PI);
-      positions.push(Math.cos(angle) * r + lean * height, height + shoulder, Math.sin(angle) * r);
+      const px = Math.cos(angle) * r + lean * height;
+      const pz = Math.sin(angle) * r;
+      positions.push(px, height + shoulder, pz);
+      altitudes.push(t);
+      collisionScale = Math.max(collisionScale, Math.hypot(px, pz));
 
       // Etagement : plage, vegetation dense, puis roche a decouvert au sommet.
       if (t < 0.16) scratch.copy(sand).lerp(jungle, t / 0.16);
@@ -106,7 +224,13 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
-  geometry.userData = { ridgeCount, ridgePhase, ridgeDepth };
+  geometry.userData = {
+    ridgeCount,
+    ridgePhase,
+    ridgeDepth,
+    altitudes: new Float32Array(altitudes),
+    collisionScale
+  };
   return geometry;
 }
 
@@ -170,16 +294,25 @@ export class WorldStreamer {
     // `OceanSystem.setIslands` fait déjà `slice(0, 8)`, la mini-carte itère sur
     // place, et aucun appel n'est imbriqué dans un autre.
     this.islandScratch = [];
+    this.landmarkIslands = [];
+    this.stageProfile = resolveStageProfile();
+    this.stageDistance = 1600;
+    this.stagePalette = { ...DEFAULT_PALETTE };
 
     this.materials = {
       // Slightly neutral pre-exposed ivory: the scene's strong golden key light
       // brings it back toward #e8d7a2 instead of clipping it to fluorescent yellow.
-      sand: new THREE.MeshStandardMaterial({ color: 0xcfc8ae, roughness: 0.98, flatShading: true }),
-      shallowRock: new THREE.MeshStandardMaterial({ color: 0x4a6961, roughness: 0.96 }),
-      green: new THREE.MeshStandardMaterial({ color: 0x1d9b58, roughness: 0.90 }),
-      darkGreen: new THREE.MeshStandardMaterial({ color: 0x0b603d, roughness: 0.93 }),
+      sand: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.sand, roughness: 0.98, flatShading: true }),
+      shallowRock: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.shallowRock, roughness: 0.96 }),
+      green: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.green, roughness: 0.90 }),
+      darkGreen: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.darkGreen, roughness: 0.93 }),
       trunk: new THREE.MeshStandardMaterial({ color: 0xa76a32, roughness: 0.86 }),
-      leaf: new THREE.MeshStandardMaterial({ color: 0x23b85c, roughness: 0.82, emissive: 0x083c1d, emissiveIntensity: 0.12 }),
+      leaf: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.leaf, roughness: 0.82, emissive: 0x083c1d, emissiveIntensity: 0.12 }),
+      basalt: new THREE.MeshStandardMaterial({ color: 0x263631, roughness: 0.96, flatShading: true }),
+      landmarkIvory: new THREE.MeshStandardMaterial({ color: 0xf1ead6, roughness: 0.92 }),
+      landmarkRoof: new THREE.MeshStandardMaterial({ color: 0xd75f48, roughness: 0.84 }),
+      landmarkTown: new THREE.MeshStandardMaterial({ color: 0xd5c8a9, roughness: 0.94 }),
+      landmarkAccent: new THREE.MeshStandardMaterial({ color: 0x35dbc5, roughness: 0.76 }),
       // La carte de roche est DÉSATURÉE (chroma médiane 0,18) : elle apporte du
       // détail sans écraser le dégradé sable → jungle → roche porté par les
       // couleurs de sommet, qui est ce qui donne l'étagement volcanique.
@@ -201,6 +334,10 @@ export class WorldStreamer {
     this.baseGeometry = new THREE.CylinderGeometry(1, 1.08, 1, 24);
     this.hillGeometry = new THREE.ConeGeometry(1, 1, 22);
     this.rockGeometry = new THREE.DodecahedronGeometry(1, 0);
+    this.landmarkConeGeometry = new THREE.ConeGeometry(1, 1, 22);
+    this.landmarkTowerGeometry = new THREE.CylinderGeometry(0.72, 1, 1, 10);
+    this.landmarkBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
+    this.landmarkFlagGeometry = new THREE.PlaneGeometry(1, 1);
     this.palmTrunkGeometry = new THREE.CylinderGeometry(0.12, 0.22, 3.2, 7);
     this.palmLeafGeometry = new THREE.ConeGeometry(0.58, 2.1, 5);
     this.maxPalms = 168;
@@ -220,6 +357,9 @@ export class WorldStreamer {
     this.rocks.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
     scene.add(this.palmTrunks, this.palmLeaves, this.rocks);
     this.instanceDummy = new THREE.Object3D();
+    this.landmarkRoot = new THREE.Group();
+    this.landmarkRoot.name = "stage-landmark";
+    scene.add(this.landmarkRoot);
 
     for (let index = 0; index < this.chunkCount; index++) {
       const chunk = this.createChunk(index);
@@ -231,12 +371,17 @@ export class WorldStreamer {
 
   createIslandVisual(descriptor, rng) {
     const THREE = this.THREE;
+    const profile = this.stageProfile;
     const group = new THREE.Group();
     const base = new THREE.Mesh(this.baseGeometry, this.materials.sand);
-    base.scale.set(descriptor.rx * 1.015, 0.42 + descriptor.rx * 0.003, descriptor.rz * 1.015);
-    // The top now grazes just below mean sea level. Only troughs reveal a thin
-    // ivory beach edge; the former metre-thick cap read as a fluorescent ring.
-    base.position.y = 0.0;
+    base.scale.set(
+      descriptor.rx * profile.sandScale,
+      0.42 + descriptor.rx * 0.003,
+      descriptor.rz * profile.sandScale
+    );
+    // Le lagon assume une vraie plage blanche émergée ; la côte volcanique
+    // conserve au contraire un filet sombre et bas.
+    base.position.y = profile.sandLift;
     base.castShadow = false;
     base.receiveShadow = true;
     group.add(base);
@@ -245,8 +390,14 @@ export class WorldStreamer {
     const hill = new THREE.Mesh(geometry, this.materials.island);
     // Les iles basses sont larges, les pitons etroits : la hauteur suit le rayon.
     const slender = rng.range(0.72, 1.18);
-    const hillHeight = (rng.range(9, 20) + Math.min(descriptor.rx, descriptor.rz) * 0.22) * slender;
-    hill.scale.set(descriptor.rx * 0.86, hillHeight, descriptor.rz * 0.83);
+    const hillHeight = (
+      rng.range(9, 20) + Math.min(descriptor.rx, descriptor.rz) * 0.22
+    ) * slender * profile.hillHeight;
+    hill.scale.set(
+      descriptor.rx * 0.86 * profile.hillWidth,
+      hillHeight,
+      descriptor.rz * 0.83 * profile.hillWidth
+    );
     hill.position.y = -0.65;
     const hillRotation = rng.next() * TAU;
     hill.rotation.y = hillRotation;
@@ -254,14 +405,37 @@ export class WorldStreamer {
     hill.receiveShadow = true;
     group.add(hill);
 
-    // Purely visual terrain metadata for placing instanced vegetation on the
-    // slope. Collision continues to use only x/z/rx/rz.
+    // Métadonnées communes au placement des palmiers ET au collider. La forme
+    // tournée du morne doit voyager avec sa rotation : l'ancien collider restait
+    // aligné sur les axes pendant que le relief pivotait, laissant jusqu'à des
+    // dizaines de mètres de roche sans contact.
     descriptor.visualHeight = hillHeight;
     descriptor.visualBaseY = -0.95;
-    descriptor.visualRx = descriptor.rx * 0.86;
-    descriptor.visualRz = descriptor.rz * 0.83;
+    descriptor.visualRx = descriptor.rx * 0.86 * profile.hillWidth;
+    descriptor.visualRz = descriptor.rz * 0.83 * profile.hillWidth;
     descriptor.visualRotation = hillRotation;
     descriptor.visualShape = geometry.userData;
+    const terrainEnvelope = geometry.userData.collisionScale ?? 1.35;
+    descriptor.collisionShapes = [
+      {
+        offsetX: 0,
+        offsetZ: 0,
+        rx: descriptor.rx * profile.sandScale * 1.01,
+        rz: descriptor.rz * profile.sandScale * 1.01,
+        rotation: 0,
+        kind: "beach"
+      },
+      {
+        offsetX: 0,
+        offsetZ: 0,
+        rx: descriptor.visualRx * terrainEnvelope,
+        rz: descriptor.visualRz * terrainEnvelope,
+        rotation: hillRotation,
+        kind: "terrain"
+      }
+    ];
+    descriptor.visualGroup = group;
+    descriptor.visualHill = hill;
 
     return group;
   }
@@ -283,22 +457,28 @@ export class WorldStreamer {
     chunk.rocks.length = 0;
     this.islandIndexDirty = true;
     const rng = new RNG((this.seed ^ Math.imul(logicalIndex + 1, 0x9e3779b1)) >>> 0);
+    const profile = this.stageProfile;
 
     for (let sideIndex = 0; sideIndex < 2; sideIndex++) {
       const side = sideIndex === 0 ? -1 : 1;
-      if (rng.chance(0.14)) continue;
-      const localZ = rng.range(-this.chunkLength * 0.38, this.chunkLength * 0.38);
+      if (rng.chance(profile.skipChance)) continue;
+      // Un seul îlot par côté et une bande centrale serrée : deux chunks
+      // adjacents gardent ainsi assez de mer entre leurs enveloppes de collision.
+      // Avant, ±0,38 pouvait superposer deux reliefs puis faire osciller la
+      // résolution entre leurs deux bords.
+      const localZ = rng.range(-this.chunkLength * 0.14, this.chunkLength * 0.14);
       const center = routeCenter(chunk.z + localZ);
-      const rx = rng.range(8, 24);
-      const rz = rng.range(10, 34);
-      const x = center + side * rng.range(62, 118);
+      const rx = rng.range(profile.rx[0], profile.rx[1]);
+      const rz = rng.range(profile.rz[0], profile.rz[1]);
+      const x = center + side * rng.range(profile.lateralMin, profile.lateralMax);
       const descriptor = { x, z: chunk.z + localZ, rx, rz };
       const islandVisual = this.createIslandVisual(descriptor, rng);
       islandVisual.position.set(x, -0.3, localZ);
       chunk.group.add(islandVisual);
       chunk.islands.push(descriptor);
 
-      const palmCount = descriptor.rx > 10 ? rng.int(4, 8) : rng.int(2, 4);
+      const palmBase = descriptor.rx > 10 ? rng.int(4, 8) : rng.int(2, 4);
+      const palmCount = Math.max(1, Math.round(palmBase * profile.palms));
       for (let palmIndex = 0; palmIndex < palmCount; palmIndex++) {
         const palmDx = rng.range(-descriptor.rx * 0.56, descriptor.rx * 0.56);
         const palmDz = rng.range(-descriptor.rz * 0.52, descriptor.rz * 0.52);
@@ -311,7 +491,7 @@ export class WorldStreamer {
         });
       }
 
-      const rockCount = rng.int(1, 4);
+      const rockCount = Math.max(0, Math.round(rng.int(1, 4) * profile.rocks));
       for (let rockIndex = 0; rockIndex < rockCount; rockIndex++) {
         const scale = rng.range(0.7, 2.3);
         chunk.rocks.push({
@@ -370,7 +550,173 @@ export class WorldStreamer {
   reset() {
     for (let index = 0; index < this.chunks.length; index++) this.configureChunk(this.chunks[index], index);
     this.nextLogicalIndex = this.chunkCount;
+    this.buildStageLandmark();
     this.rebuildInstances();
+  }
+
+  applyStagePalette(palette) {
+    this.stagePalette = { ...DEFAULT_PALETTE, ...(palette ?? {}) };
+    const apply = (material, key) => material?.color?.setHex?.(this.stagePalette[key]);
+    apply(this.materials.sand, "sand");
+    apply(this.materials.shallowRock, "shallowRock");
+    apply(this.materials.green, "green");
+    apply(this.materials.darkGreen, "darkGreen");
+    apply(this.materials.leaf, "leaf");
+
+    // Les mornes utilisent des couleurs de sommet. Modifier uniquement les
+    // matériaux `green` et `darkGreen` ne changeait donc pas leur rendu.
+    const THREE = this.THREE;
+    const sand = new THREE.Color(this.stagePalette.sand);
+    const green = new THREE.Color(this.stagePalette.green);
+    const dark = new THREE.Color(this.stagePalette.darkGreen);
+    const rock = new THREE.Color(this.stagePalette.shallowRock);
+    const scratch = new THREE.Color();
+    for (const geometry of this.islandGeometries) {
+      const altitudes = geometry.userData.altitudes;
+      const attribute = geometry.attributes?.color;
+      if (!altitudes || !attribute?.array) continue;
+      for (let index = 0; index < altitudes.length; index++) {
+        const t = altitudes[index];
+        if (t < 0.16) scratch.copy(sand).lerp(green, t / 0.16);
+        else if (t < 0.88) scratch.copy(green).lerp(dark, (t - 0.16) / 0.72);
+        else scratch.copy(dark).lerp(rock, Math.pow((t - 0.88) / 0.12, 1.5));
+        attribute.array[index * 3] = scratch.r;
+        attribute.array[index * 3 + 1] = scratch.g;
+        attribute.array[index * 3 + 2] = scratch.b;
+      }
+      attribute.needsUpdate = true;
+    }
+  }
+
+  clearStageLandmark() {
+    if (!this.landmarkRoot) return;
+    while (this.landmarkRoot.children.length) {
+      this.landmarkRoot.remove(this.landmarkRoot.children[0]);
+    }
+    this.landmarkIslands.length = 0;
+    this.islandIndexDirty = true;
+  }
+
+  addLandmarkMesh(geometry, material, x, y, z, sx, sy, sz, rotationY = 0) {
+    const mesh = new this.THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(sx, sy, sz);
+    mesh.rotation.y = rotationY;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.landmarkRoot.add(mesh);
+    return mesh;
+  }
+
+  addStaticLandmarkCollider(x, z, rx, rz, rotation = 0) {
+    const descriptor = {
+      x,
+      z,
+      rx,
+      rz,
+      landmark: true,
+      collisionShapes: [{
+        offsetX: 0,
+        offsetZ: 0,
+        rx,
+        rz,
+        rotation,
+        kind: "landmark"
+      }]
+    };
+    this.landmarkIslands.push(descriptor);
+    this.islandIndexDirty = true;
+    return descriptor;
+  }
+
+  addLandmarkIsland(x, z, rx, rz, rng) {
+    const descriptor = { x, z, rx, rz, landmark: true };
+    const visual = this.createIslandVisual(descriptor, rng);
+    visual.position.set(x, -0.3, z);
+    this.landmarkRoot.add(visual);
+    this.landmarkIslands.push(descriptor);
+    this.islandIndexDirty = true;
+    return descriptor;
+  }
+
+  buildStageLandmark() {
+    this.clearStageLandmark();
+    const landmark = this.stageProfile.landmark;
+    if (!landmark?.type || !this.landmarkRoot) return;
+    const rng = new RNG((this.seed ^ 0x4c414e44) >>> 0);
+    const progress = clamp(landmark.progress ?? 0.68, 0.28, 0.90);
+    const z = this.stageDistance * progress;
+    const side = landmark.side === -1 ? -1 : 1;
+    const offset = landmark.offset ?? 142;
+    const x = routeCenter(z) + side * offset;
+
+    if (landmark.type === "pointe-marin") {
+      this.addLandmarkIsland(x, z, 31, 52, rng);
+      this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.landmarkIvory,
+        x - side * 4, 7.0, z - 6, 2.5, 13, 2.5);
+      this.addLandmarkMesh(this.landmarkConeGeometry, this.materials.landmarkRoof,
+        x - side * 4, 14.4, z - 6, 3.2, 3.7, 3.2);
+    } else if (landmark.type === "ilets-francois") {
+      this.addLandmarkIsland(x, z, 18, 27, rng);
+      this.addLandmarkIsland(x + side * 31, z + 19, 12, 19, rng);
+      this.addLandmarkIsland(x - side * 27, z - 23, 10, 16, rng);
+    } else if (landmark.type === "baie-robert") {
+      this.addLandmarkIsland(x, z, 34, 45, rng);
+      this.addLandmarkIsland(x + side * 48, z + 28, 16, 24, rng);
+      for (let index = -2; index <= 2; index++) {
+        this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.darkGreen,
+          x + index * 6, 4.1 + Math.abs(index) * 0.45, z - 8 + Math.abs(index) * 2,
+          2.2, 8 + Math.abs(index), 2.2);
+      }
+    } else if (landmark.type === "pelee") {
+      this.addStaticLandmarkCollider(x, z, 82, 68);
+      const geometry = this.islandGeometries[3];
+      this.addLandmarkMesh(geometry, this.materials.island, x, -1.4, z,
+        78, 118, 66, side * 0.08);
+      this.addLandmarkMesh(geometry, this.materials.island, x - side * 46, -1.2, z + 12,
+        42, 66, 38, -side * 0.16);
+    } else if (landmark.type === "baie-fdf") {
+      this.addLandmarkIsland(x, z, 48, 60, rng);
+      for (let index = -4; index <= 4; index++) {
+        const height = 5 + (Math.abs(index * 17) % 8);
+        this.addLandmarkMesh(this.landmarkBoxGeometry, this.materials.landmarkTown,
+          x + index * 6.2, height * 0.5 + 0.4, z - 8 + (index % 2) * 4,
+          4.5, height, 5.5);
+      }
+    } else if (landmark.type === "diamant") {
+      this.addStaticLandmarkCollider(x, z, 30, 25, side * 0.12);
+      this.addLandmarkMesh(this.rockGeometry, this.materials.basalt, x, 20, z,
+        25, 41, 21, side * 0.12);
+      this.addLandmarkMesh(this.rockGeometry, this.materials.darkGreen,
+        x - side * 5, 9, z + 2, 18, 17, 16, -side * 0.18);
+    } else if (landmark.type === "cap-salomon") {
+      this.addLandmarkIsland(x, z, 47, 66, rng);
+      this.addLandmarkMesh(this.landmarkBoxGeometry, this.materials.basalt,
+        x - side * 20, 8, z - 10, 19, 16, 35, side * 0.22);
+    } else if (landmark.type === "sainte-anne") {
+      this.addLandmarkIsland(x, z, 36, 58, rng);
+      for (let index = -2; index <= 2; index++) {
+        const poleX = x + index * 7;
+        this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.landmarkIvory,
+          poleX, 5.5, z - 12, 0.35, 11, 0.35);
+        const flag = this.addLandmarkMesh(this.landmarkFlagGeometry, this.materials.landmarkAccent,
+          poleX + side * 1.8, 9.4, z - 12, 3.6, 1.5, 1, side * Math.PI * 0.5);
+        flag.castShadow = false;
+      }
+    }
+  }
+
+  /**
+   * Donne à chaque étape du Tour son littoral déterministe et sa propre teinte.
+   * La géométrie de base reste mutualisée : aucun chargement ni allocation GPU
+   * supplémentaire entre deux étapes.
+   */
+  setStage(seed, palette = null, stage = null, distance = 1600) {
+    this.seed = seed >>> 0;
+    this.stageProfile = resolveStageProfile(stage);
+    this.stageDistance = Math.max(600, Number(distance) || 1600);
+    this.applyStagePalette(palette);
+    this.reset();
   }
 
   /**
@@ -435,6 +781,7 @@ export class WorldStreamer {
       for (const chunk of this.chunks) {
         for (const island of chunk.islands) this.islandIndex.push(island);
       }
+      for (const island of this.landmarkIslands) this.islandIndex.push(island);
       this.islandIndexDirty = false;
     }
     const scratch = this.islandScratch;
@@ -447,46 +794,43 @@ export class WorldStreamer {
   }
 
   coastPenalty(x, z) {
-    let penalty = 0;
-    for (const island of this.nearestIslands(z, 10)) {
-      const nx = (x - island.x) / island.rx;
-      const nz = (z - island.z) / island.rz;
-      const distance = Math.hypot(nx, nz);
-      if (distance < 1.15) penalty = Math.max(penalty, clamp((1.15 - distance) / 0.25, 0, 1));
-    }
-    return penalty;
+    const surface = this.nearestSurface(x, z, this.coastSurface || (this.coastSurface = {}));
+    if (!surface.island) return 0;
+    // Frein progressif en mètres réels : il ne dépend plus de l'allongement de
+    // l'ellipse et prévient avant le contact ferme.
+    return clamp((4.6 - surface.distance) / 5.8, 0, 1);
   }
 
-  /** Signed distance approximation to the nearest elliptical island boundary. */
+  /** Distance signée à l'enveloppe radiale des lobes elliptiques orientés. */
   nearestSurface(x, z, out = {}) {
     let best = Infinity;
     let bestIsland = null;
-    let bestNx = 0;
-    let bestNz = 0;
     for (const island of this.nearestIslands(z, 12)) {
-      const dx = x - island.x;
-      const dz = z - island.z;
-      const ex = dx / island.rx;
-      const ez = dz / island.rz;
-      const length = Math.hypot(ex, ez) || 1;
-      const boundaryX = island.x + (ex / length) * island.rx;
-      const boundaryZ = island.z + (ez / length) * island.rz;
-      const worldDistance = Math.hypot(x - boundaryX, z - boundaryZ) * (length < 1 ? -1 : 1);
-      if (worldDistance < best) {
-        best = worldDistance;
+      const contact = distanceToIslandCollider(
+        island,
+        x,
+        z,
+        out.islandScratch || (out.islandScratch = {})
+      );
+      if (contact && contact.distance < best) {
+        best = contact.distance;
         bestIsland = island;
-        // Gradient of ellipse equation; normalized in world space.
-        const gx = dx / Math.max(0.001, island.rx * island.rx);
-        const gz = dz / Math.max(0.001, island.rz * island.rz);
-        const gl = Math.hypot(gx, gz) || 1;
-        bestNx = gx / gl;
-        bestNz = gz / gl;
+        out.x = contact.x;
+        out.z = contact.z;
+        out.nx = contact.nx;
+        out.nz = contact.nz;
+        out.shape = contact.shape;
       }
     }
     out.distance = best;
     out.island = bestIsland;
-    out.nx = bestNx;
-    out.nz = bestNz;
+    if (!bestIsland) {
+      out.nx = 0;
+      out.nz = 0;
+      out.x = x;
+      out.z = z;
+      out.shape = null;
+    }
     return out;
   }
 
@@ -495,34 +839,50 @@ export class WorldStreamer {
    * This stays deterministic and avoids a heavyweight static physics world.
    */
   resolveBoatCollision(boat, margin = 1.35, out = {}) {
-    const surface = this.nearestSurface(boat.x, boat.z, out.surface || (out.surface = {}));
+    const surface = out.surface || (out.surface = {});
+    this.nearestSurface(boat.x, boat.z, surface);
     if (!surface.island || surface.distance >= margin) {
       out.hit = false;
       out.severity = 0;
       return out;
     }
-    const penetration = margin - surface.distance;
-    const inwardSpeed = -(boat.dynamics.vx * surface.nx + boat.dynamics.vz * surface.nz);
-    boat.dynamics.x += surface.nx * penetration;
-    boat.dynamics.z += surface.nz * penetration;
+
+    const firstNx = surface.nx;
+    const firstNz = surface.nz;
+    const firstBoundaryX = surface.x;
+    const firstBoundaryZ = surface.z;
+    const firstPenetration = margin - surface.distance;
+    const inwardSpeed = -(boat.dynamics.vx * firstNx + boat.dynamics.vz * firstNz);
+
+    // Sortie directe sur le point de frontière exact, puis quelques itérations
+    // bornées pour l'union plage + morne. Cela couvre aussi le centre exact :
+    // closestPointOnEllipse y fournit une normale de secours déterministe.
+    const solveMargin = margin + 0.05;
+    for (let iteration = 0; iteration < 14; iteration++) {
+      if (!surface.island || surface.distance >= solveMargin - 1e-5) break;
+      boat.dynamics.x = surface.x + surface.nx * solveMargin;
+      boat.dynamics.z = surface.z + surface.nz * solveMargin;
+      this.nearestSurface(boat.x, boat.z, surface);
+    }
+
     if (inwardSpeed > 0) {
       const restitution = 0.18;
-      boat.dynamics.vx += surface.nx * inwardSpeed * (1 + restitution);
-      boat.dynamics.vz += surface.nz * inwardSpeed * (1 + restitution);
+      boat.dynamics.vx += firstNx * inwardSpeed * (1 + restitution);
+      boat.dynamics.vz += firstNz * inwardSpeed * (1 + restitution);
     }
-    const tangentX = -surface.nz;
-    const tangentZ = surface.nx;
+    const tangentX = -firstNz;
+    const tangentZ = firstNx;
     const tangentSpeed = boat.dynamics.vx * tangentX + boat.dynamics.vz * tangentZ;
     boat.dynamics.vx -= tangentX * tangentSpeed * 0.08;
     boat.dynamics.vz -= tangentZ * tangentSpeed * 0.08;
     out.hit = true;
-    out.penetration = penetration;
+    out.penetration = firstPenetration;
     out.inwardSpeed = inwardSpeed;
-    out.severity = clamp((Math.max(0, inwardSpeed) + penetration * 4) / 16, 0.08, 1.25);
-    out.x = boat.x - surface.nx * margin;
-    out.z = boat.z - surface.nz * margin;
-    out.nx = surface.nx;
-    out.nz = surface.nz;
+    out.severity = clamp((Math.max(0, inwardSpeed) + firstPenetration * 4) / 16, 0.08, 1.25);
+    out.x = firstBoundaryX;
+    out.z = firstBoundaryZ;
+    out.nx = firstNx;
+    out.nz = firstNz;
     return out;
   }
 
@@ -539,13 +899,27 @@ export class WorldStreamer {
       const z = target.z + dz * t;
       const surface = this.nearestSurface(x, z, this.cameraSurface || (this.cameraSurface = {}));
       if (surface.distance < 2.4) {
-        safeT = Math.max(0.16, (index - 1.35) / samples);
+        safeT = Math.max(0, (index - 1.25) / samples);
         break;
       }
     }
     if (safeT < 1) {
       out.x = target.x + dx * safeT;
       out.z = target.z + dz * safeT;
+      out.y = Math.max(out.y, target.y + 3.8);
+    }
+    // Le rayon discret choisit un intervalle ; cette projection finale donne
+    // la garantie continue, y compris lorsque la cible elle-même longe la plage.
+    const cameraMargin = 2.55;
+    for (let iteration = 0; iteration < 8; iteration++) {
+      const surface = this.nearestSurface(
+        out.x,
+        out.z,
+        this.cameraResolveSurface || (this.cameraResolveSurface = {})
+      );
+      if (!surface.island || surface.distance >= cameraMargin - 1e-5) break;
+      out.x = surface.x + surface.nx * cameraMargin;
+      out.z = surface.z + surface.nz * cameraMargin;
       out.y = Math.max(out.y, target.y + 3.8);
     }
     return out;

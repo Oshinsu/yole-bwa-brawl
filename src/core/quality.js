@@ -34,18 +34,37 @@ const WORK_HEADROOM_MS = 8.5;
  * `pointer: coarse` est le bon signal, et pas `maxTouchPoints` : un portable à
  * écran tactile a les deux, mais il a aussi un vrai GPU.
  */
-export function palierInitial(memorise = null) {
-  if (Number.isInteger(memorise) && memorise >= 0 && memorise <= 2) return memorise;
+export function isCoarsePerformanceDevice() {
+  // QA reproductible dans un navigateur de bureau : le viewport mobile seul
+  // ne change pas le type de pointeur dans tous les harnais.
   try {
-    if (globalThis.matchMedia?.("(pointer: coarse)")?.matches) return 0;
+    if (typeof location !== "undefined"
+      && new URLSearchParams(location.search).has("mobileperf")) return true;
+  } catch { /* URLSearchParams indisponible dans certains mocks */ }
+  try {
+    return Boolean(globalThis.matchMedia?.("(pointer: coarse)")?.matches);
   } catch { /* environnement sans matchMedia : on retombe sur le défaut */ }
+  return false;
+}
+
+export function palierInitial(memorise = null) {
+  // Un ancien HQ automatique ne doit jamais condamner la première minute d'un
+  // téléphone. Le choix MANUEL reste réappliqué plus tard par Game ; ici on ne
+  // traite que la mémoire de l'adaptation automatique.
+  if (isCoarsePerformanceDevice()) return 0;
+  if (Number.isInteger(memorise) && memorise >= 0 && memorise <= 2) return memorise;
   return 2;
 }
 
 export class QualityManager {
-  constructor(onApply, initialTier = 2) {
+  constructor(onApply, initialTier = 2, options = {}) {
     this.onApply = onApply;
-    this.tier = initialTier;
+    this.mobilePerformance = options.mobilePerformance
+      ?? isCoarsePerformanceDevice();
+    // En automatique, un téléphone peut gagner le MQ, jamais le HQ. Le HQ
+    // reste disponible manuellement : le joueur garde donc le dernier mot.
+    this.autoCeiling = this.mobilePerformance ? 1 : 2;
+    this.tier = clamp(initialTier | 0, 0, this.autoCeiling);
     this.manual = false;
     this.frameAverage = 16.7;
     // Moyenne du temps de TRAVAIL par image, distincte de l'intervalle : c'est
@@ -71,13 +90,27 @@ export class QualityManager {
 
   profiles() {
     const dpr = Math.max(1, globalThis.devicePixelRatio || 1);
+    if (this.mobilePerformance) {
+      return [
+        // Sur mobile le coût dominant est le remplissage : résolution,
+        // post-traitement et transparences passent avant le nombre de triangles.
+        // Tous les profils gardent les ombres coupées afin qu'un changement
+        // automatique ne recompile pas brutalement la scène entière.
+        { label: "LQ", pixelRatio: Math.min(0.68, dpr), particles: 0.24, shadows: false, postFX: true, fastComposite: true, bloom: 0, streak: 0, ropeIterations: 2, samples: 0, mobile: true, rivalCrewDetail: 1 },
+        { label: "MQ", pixelRatio: Math.min(0.84, dpr), particles: 0.46, shadows: false, postFX: true, fastComposite: true, bloom: 0, streak: 0, ropeIterations: 3, samples: 0, mobile: true, rivalCrewDetail: 1 },
+        // HQ mobile est volontairement manuel. Il remonte la netteté et les
+        // détails, sans réintroduire les ombres et le MSAA responsables des
+        // plus gros à-coups sur les GPU intégrés.
+        { label: "HQ", pixelRatio: Math.min(1.0, dpr), particles: 0.72, shadows: false, postFX: true, fastComposite: false, bloom: 0.12, streak: 0, ropeIterations: 4, samples: 0, mobile: true, rivalCrewDetail: 2 }
+      ];
+    }
     return [
       // `bloom` à 0 ne fait pas que couper le halo : la chaîne de bloom (trois
       // passes en demi puis quart de résolution) est alors sautée entièrement.
       // `streak` est la traînée anamorphique du soleil, quatre prises de plus.
-      { label: "LQ", pixelRatio: Math.min(0.78, dpr), particles: 0.32, shadows: false, postFX: true, bloom: 0, streak: 0, ropeIterations: 2, samples: 0 },
-      { label: "MQ", pixelRatio: Math.min(1.0, dpr), particles: 0.66, shadows: true, postFX: true, bloom: 0.22, streak: 0.18, ropeIterations: 4, samples: 2 },
-      { label: "HQ", pixelRatio: Math.min(1.35, dpr), particles: 1.0, shadows: true, postFX: true, bloom: 0.52, streak: 0.34, ropeIterations: 6, samples: 4 }
+      { label: "LQ", pixelRatio: Math.min(0.78, dpr), particles: 0.32, shadows: false, postFX: true, fastComposite: true, bloom: 0, streak: 0, ropeIterations: 2, samples: 0, mobile: false, rivalCrewDetail: 1 },
+      { label: "MQ", pixelRatio: Math.min(1.0, dpr), particles: 0.66, shadows: true, postFX: true, fastComposite: false, bloom: 0.22, streak: 0.18, ropeIterations: 4, samples: 2, mobile: false, rivalCrewDetail: 2 },
+      { label: "HQ", pixelRatio: Math.min(1.35, dpr), particles: 1.0, shadows: true, postFX: true, fastComposite: false, bloom: 0.52, streak: 0.34, ropeIterations: 6, samples: 4, mobile: false, rivalCrewDetail: 2 }
     ];
   }
 
@@ -93,7 +126,7 @@ export class QualityManager {
   }
 
   setTier(tier, manual = true) {
-    this.tier = clamp(tier | 0, 0, 2);
+    this.tier = clamp(tier | 0, 0, manual ? 2 : this.autoCeiling);
     this.manual = Boolean(manual);
     this.highTimer = 0;
     this.lowTimer = 0;
@@ -109,6 +142,10 @@ export class QualityManager {
     this.manual = false;
     this.highTimer = 0;
     this.lowTimer = 0;
+    if (this.tier > this.autoCeiling) {
+      this.tier = this.autoCeiling;
+      this.apply();
+    }
     return this.tier;
   }
 
@@ -162,7 +199,7 @@ export class QualityManager {
       this.highTimer = 0;
       this.cooldown = 8;
       this.apply();
-    } else if (this.lowTimer > 10 && this.tier < 2) {
+    } else if (this.lowTimer > 10 && this.tier < this.autoCeiling) {
       this.tier++;
       this.lowTimer = 0;
       this.cooldown = 12;

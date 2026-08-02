@@ -227,7 +227,7 @@ const classList = () => ({
   assert.equal(ui.replay.disabled, true);
   assert.equal(ui.downloadReplay.disabled, true);
   assert.match(ui.replayStatus.textContent, /Replay désactivé/);
-  assert.match(ui.rematch.textContent, /REVANCHE DUEL LOCAL/);
+  assert.match(ui.rematch.textContent, /REVANCHE MÊLÉE LOCALE/);
 }
 
 console.log("versus-mode contracts: deterministic J2 input, no AI, shared camera and replay isolation OK");
