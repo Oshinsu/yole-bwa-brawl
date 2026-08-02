@@ -156,7 +156,17 @@ Les trames sans changement ne sont pas répétées. Le player reconstruit l’en
 
 ## 11. PWA et monofichier
 
-Le build modulaire est la version de travail. Le script `tools/build_single_file.py` retire les imports, ordonne les modules et produit une page autonome hors Three.js. Le service worker est contrôlé statiquement afin que tout module runtime figure dans le cache. Three.js 0.185.1 est livré dans `vendor/` (cache strict à l'install, offline réel après la première visite) et le monofichier sécurise son chargement CDN par une importmap avec empreintes SRI sha384.
+Le build modulaire est la version de travail. Le script
+`tools/build_single_file.py` retire les imports et ordonne les modules dans une
+page unique, mais cette page conserve les textures, modèles, sons et icônes
+comme dépendances voisines : « monofichier » décrit le code HTML/CSS/JS, pas une
+archive entièrement autonome. Three.js est la seule dépendance chargée par CDN
+dans cette variante, avec une importmap et des empreintes SRI sha384.
+
+La PWA modulaire livre Three.js 0.185.1 dans `vendor/`. Le service worker est
+contrôlé statiquement afin que tout module runtime figure dans le cache ; il ne
+purge que les caches préfixés par ce jeu et laisse intacts les autres produits
+hébergés sur la même origine.
 
 ### Icônes : deux jeux, deux rôles
 
@@ -203,8 +213,10 @@ harnais le refuse ; il tourne dans `npm run verify`.
 - points à la place (4/3/2/1, zéro pour les non-finisseurs) et classement général cumulé ;
 - règles isolées dans `updateTourStage` / `endTourStage` ; la Combat Box conserve `updateRound` ;
 - seed déterministe dérivée par étape (`baseSeed + (étape+1)·0x9e3779b9`) : chaque legs a sa météo, rejouable à l'identique ;
-- replay sauvegardé par étape ; lancer une relecture quitte le mode Tour pour ne jamais re-scorer ;
-- vengeance et bouton dédié désactivés en mode Tour (la Frappe du Grain reste un sel de la Combat Box).
+- replay sauvegardé par étape ; la relecture reconstruit l'étape, son décor et
+  ses règles sans écrire dans la progression ni re-scorer le Tour ;
+- une élimination est définitive pendant l'étape, comme pendant une manche de
+  Combat Box : la caméra passe en spectateur jusqu'au résultat.
 
 ## 12. Directeur d'impact
 
@@ -234,14 +246,19 @@ gel, zéro flash et zéro mouvement de caméra.
 
 ## 13. Audio
 
-`src/core/audio.js` synthétise 22 voix en `AudioBuffer` au premier démarrage :
-aucun fichier externe, donc le monofichier et la PWA restent autonomes. La
-banque est rendue par tranches de 4 ms dans un ordre de priorité (voix de
-contact et lit d'eau d'abord) pour ne pas hoqueter au coup d'envoi.
+`src/core/audio.js` expose 29 voix. Quinze disposent d'un échantillon MP3 sous
+`assets/audio/`; les quatorze autres, ou tout sample indisponible, utilisent le
+générateur `AudioBuffer` de secours. La banque synthétique est rendue par
+tranches de 4 ms dans un ordre de priorité (voix de contact et lit d'eau
+d'abord) pour ne pas hoqueter au coup d'envoi.
 
-Trois lits continus sont pilotés chaque frame par l'état de jeu : eau (vitesse,
-embrun), Mur du Grain (distance) et câble du harpon (tension réelle). Aucun son
-n'entre dans le checksum.
+Six lits continus sont pilotés chaque frame par l'état de jeu : eau (vitesse,
+embrun), Mur du Grain (distance), câble du harpon (tension réelle), voile
+(charge aérodynamique), bois (gîte, chocs et dégâts) et sargasses
+(engluement). Chaque lit possède aussi un filtre de tonalité dynamique. Aucun
+son n'entre dans le checksum. Les huit musiques de `zik/` sont streamées à la
+demande et volontairement absentes du précache ; une session hors ligne reste
+jouable mais peut être sans musique.
 
 ## 14. Modèles
 

@@ -1,0 +1,930 @@
+{
+  "metadata": {
+    "document_id": "yole_bwa_brawl_hud_asset_prompts_sota",
+    "schema_version": "1.0.0",
+    "project": "YOLE: BWA BRAWL — Tropical Mayhem V3.2",
+    "title": "Production manifest — SOTA HUD asset prompts",
+    "locale": "fr-FR",
+    "prompt_language": "en",
+    "created_at": "2026-07-30",
+    "status": "production_spec_and_runtime_v8_generated",
+    "owner": "art_direction_and_ui",
+    "asset_count": 4,
+    "purpose": "Spécification exécutable de quatre bitmaps HUD haut de gamme, détourés sur chroma magenta, ancrés dans la yole ronde de Martinique et dans une direction bois, cordage, cuivre, turquoise et carnaval maîtrisée.",
+    "scope": [
+      "status frame",
+      "balance bwa rail",
+      "hull silhouette",
+      "flow/sail motif"
+    ],
+    "out_of_scope": [
+      "modification de style.css, index.html ou src/game/hud.js",
+      "texte, chiffres, valeurs, couleurs d'équipe ou états cuits dans les bitmaps",
+      "modification de la géométrie ou de la physique de la yole"
+    ],
+    "source_precedence": [
+      "Les deux photographies fournies par le propriétaire et docs/YOLE_VISUAL_REFERENCE.md font foi pour l'anatomie de la yole.",
+      "La grande voile moderne doit être haute et quadrangulaire ou trapézoïdale; toute ancienne prescription générique de voile triangulaire est non normative pour ces quatre assets.",
+      "art-source/ui_hud_direction_v4.png ne fait foi que pour la hiérarchie, la finesse et l'échelle du HUD; sa yole, ses personnages, ses textes et sa composition exacte ne doivent pas être reproduits.",
+      "docs/ART_DIRECTION.md fait foi pour la lisibilité mobile, le madras interdit et la rareté des ornements."
+    ]
+  },
+  "execution": {
+    "executed_at": "2026-07-30",
+    "tool": "built-in-imagegen",
+    "result_manifest": "assets/textures/v8/asset-pack.json",
+    "runtime_total_bytes": 618527,
+    "reference_images_used_for_authenticity_only": [
+      "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+      "C:/Users/Gary/Downloads/images (4).jpg"
+    ],
+    "generated_calls": [
+      {
+        "asset_id": "hud_status_frame_sota",
+        "call_id": "call_YibBGpo2czrbqYMJVspy5YR7",
+        "runtime_path": "assets/textures/v8/hud/status_frame.webp"
+      },
+      {
+        "asset_id": "hud_balance_bwa_rail_sota",
+        "call_id": "call_IJ2In1X95mSdhghXT6xKb3zq",
+        "runtime_path": "assets/textures/v8/hud/balance_track.webp"
+      },
+      {
+        "asset_id": "hud_hull_silhouette_sota",
+        "call_id": "call_vtiSezBf2qIwMB980jMeEYGQ",
+        "runtime_path": "assets/textures/v8/hud/hull_silhouette.webp"
+      },
+      {
+        "asset_id": "hud_flow_sail_motif_sota",
+        "call_id": "call_9QaeCq8w3mfUqLEyR4CULwMH",
+        "runtime_path": "assets/textures/v8/hud/flow_sail.webp"
+      }
+    ],
+    "postprocess_applied": [
+      "border chroma sampling",
+      "soft alpha matte",
+      "magenta despill",
+      "one-pixel edge contraction",
+      "alpha-bounds crop for instrument assets",
+      "Lanczos runtime resize"
+    ],
+    "runtime_validation": {
+      "desktop_921x912": "passed",
+      "mobile_landscape_844x390": "passed",
+      "portrait_rotation_pause_390x844": "passed",
+      "overlap_status_actions_px": 0
+    }
+  },
+  "local_references": {
+    "image_inputs": {
+      "ref_yole_action_owner_photo": {
+        "path": "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+        "exists_at_spec_time": true,
+        "role": "Référence d'authenticité rapprochée: coque longue et très étroite, forte gîte, bwa amovibles portés côté au vent, densité et posture de l'équipage.",
+        "rights_status": "user_provided_reference_only",
+        "allowed_use": "visual_reference_for_generation_only",
+        "never_copy": [
+          "visages ou personnes identifiables",
+          "logos",
+          "sponsors",
+          "numéros",
+          "livrée exacte",
+          "texte"
+        ]
+      },
+      "ref_yole_sail_owner_photo": {
+        "path": "C:/Users/Gary/Downloads/images (4).jpg",
+        "exists_at_spec_time": true,
+        "role": "Référence d'authenticité pour la grande voile haute quadrangulaire ou trapézoïdale, le gréement, la coque basse et la lecture aérienne d'une yole ronde moderne.",
+        "rights_status": "user_provided_reference_only",
+        "allowed_use": "visual_reference_for_generation_only",
+        "never_copy": [
+          "UFR",
+          "GRANFLOR",
+          "tout sponsor ou logo",
+          "lettres",
+          "numéros",
+          "livrée exacte",
+          "personnes identifiables"
+        ]
+      },
+      "ref_hud_direction_v4": {
+        "path": "art-source/ui_hud_direction_v4.png",
+        "exists_at_spec_time": true,
+        "role": "Référence de hiérarchie, d'échelle, de densité périphérique et de centre de jeu dégagé uniquement.",
+        "rights_status": "project_owned_generated",
+        "allowed_use": "layout_and_density_reference_only",
+        "never_copy": [
+          "la yole représentée",
+          "l'anatomie du bateau",
+          "les rameurs",
+          "le HUD complet",
+          "la composition exacte",
+          "les textes",
+          "les chiffres",
+          "les icônes",
+          "les couleurs d'équipe"
+        ]
+      },
+      "ref_current_course": {
+        "path": "previews/03_course.png",
+        "exists_at_spec_time": true,
+        "role": "Référence du gabarit runtime actuel, des tailles d'affichage et des problèmes à corriger; pas une cible stylistique à recopier.",
+        "rights_status": "project_owned",
+        "allowed_use": "runtime_scale_and_integration_reference_only",
+        "never_copy": [
+          "texte",
+          "chiffres",
+          "états de jauge",
+          "composition complète",
+          "défauts de silhouette des yoles"
+        ]
+      },
+      "ref_existing_panel_v5": {
+        "path": "assets/textures/v5/hud/ui_panel_9slice.webp",
+        "exists_at_spec_time": true,
+        "role": "Référence technique de découpe 9-slice et de finesse, à dépasser matériellement sans épaissir le cadre.",
+        "rights_status": "project_owned",
+        "allowed_use": "technical_baseline_only",
+        "never_copy": [
+          "motif central",
+          "proportions exactes",
+          "palette uniforme bleu métal"
+        ]
+      },
+      "ref_existing_gauge_frame": {
+        "path": "assets/textures/ui_jauge_frame.webp",
+        "exists_at_spec_time": true,
+        "role": "Référence technique du rail actuellement branché et de son rapport hauteur/largeur.",
+        "rights_status": "project_owned",
+        "allowed_use": "technical_baseline_only",
+        "never_copy": [
+          "texture exacte",
+          "embouts exacts",
+          "remplissage"
+        ]
+      }
+    },
+    "technical_sources": [
+      {
+        "path": "docs/YOLE_VISUAL_REFERENCE.md",
+        "role": "invariants anatomiques et ordre de validation"
+      },
+      {
+        "path": "docs/ART_DIRECTION.md",
+        "role": "palette, lisibilité mobile, interdits et langage HUD"
+      },
+      {
+        "path": "docs/ASSET_PROMPTS_GUIDE.md",
+        "role": "workflow ImageGen, détourage, droits, QA et promotion"
+      },
+      {
+        "path": "docs/ASSET_CONTRACT.md",
+        "role": "gabarit technique de la coque; longueur 11,10 m, demi-largeur maximale 1,08 m, absence de quille saillante et de gouvernail"
+      },
+      {
+        "path": "index.html",
+        "role": "structure DOM réellement pilotée par le runtime"
+      },
+      {
+        "path": "style.css",
+        "role": "dimensions CSS, états et couches visuelles actuels"
+      },
+      {
+        "path": "src/game/hud.js",
+        "role": "valeurs, classes d'état et largeurs de jauges pilotées au runtime"
+      }
+    ],
+    "rights_policy": [
+      "Les photographies utilisateur sont des références de travail et ne sont jamais copiées dans le paquet distribué.",
+      "Aucun nom, visage, sponsor, logo, numéro ou motif de livrée réelle ne doit être reproduit, même partiellement ou déformé.",
+      "Les sorties doivent être des créations originales et ne doivent pas imiter l'identité d'une équipe réelle."
+    ]
+  },
+  "visual_system": {
+    "creative_north_star": "A Martinican round-skiff racing instrument built by a premium crash-racer studio: authentic nautical construction, disciplined carnival energy, immediate mobile readability.",
+    "palette": {
+      "ui_ink": "#031724",
+      "deep_sea_teal": "#0d4f63",
+      "lagoon_turquoise": "#2fb9c4",
+      "foam_ivory": "#eefaff",
+      "warm_wood": "#c98a45",
+      "dark_burned_wood": "#6f421f",
+      "natural_rope": "#d8b77a",
+      "aged_copper": "#b87333",
+      "patinated_copper": "#7f9d8b",
+      "carnival_gold": "#ffc531",
+      "danger_brick": "#d65338",
+      "chroma_key_reserved_only": "#ff00ff"
+    },
+    "material_hierarchy": [
+      "Encre marine mate pour la structure et le contraste.",
+      "Bois chaud salé ou légèrement brûlé sur des pièces fonctionnelles, jamais en gros cadre de taverne.",
+      "Cordage naturel uniquement aux ligatures et points d'ancrage crédibles.",
+      "Cuivre vieilli en filet mince, rivets rares et repères.",
+      "Turquoise et ivoire comme accents d'eau, d'écume et de lisibilité.",
+      "Carnaval par chevrons francs et micro-signature djab originale, jamais par surcharge folklorique."
+    ],
+    "carnival_rule": {
+      "allowed": [
+        "chevrons angulaires originaux",
+        "petites incisions inspirées d'un djab abstrait",
+        "rythme cuivre, or, turquoise et ivoire",
+        "asymétrie contrôlée qui suggère vitesse et gîte"
+      ],
+      "forbidden": [
+        "madras",
+        "tiki",
+        "masque polynésien",
+        "pirate",
+        "plumes",
+        "perles décoratives",
+        "motif de carnaval générique de brochure",
+        "drapeau ou emblème national"
+      ]
+    },
+    "mobile_readability": {
+      "target_viewports": [
+        "720p landscape coarse pointer",
+        "900px landscape",
+        "1200px and wider desktop"
+      ],
+      "minimum_feature_at_delivery_px": 6,
+      "minimum_visible_line_at_runtime_px": 1,
+      "rule": "La silhouette et les deux niveaux de matière principaux doivent rester lisibles après réduction; tout détail qui disparaît à la taille CSS réelle doit être supprimé."
+    }
+  },
+  "global_non_negotiables": [
+    "La yole ronde de Martinique est une coque unique en bois, longue, très étroite, légère, à faible tirant d'eau, sans flotteur latéral, sans second corps, sans quille saillante et sans gouvernail moderne.",
+    "Les bwa sont de longues perches amovibles de rappel humain; ils ne constituent jamais un balancier, un outrigger, une cage symétrique ou une plateforme de catamaran.",
+    "Quand une voile est visible, elle est haute et quadrangulaire ou trapézoïdale comme sur la photographie utilisateur récente; ne jamais substituer une voile bermudienne triangulaire de yacht.",
+    "Le langage graphique doit évoquer une pièce d'instrument de course réellement construite, pas un cadre fantasy, un accessoire pirate ou un cockpit de science-fiction.",
+    "Bois, corde et cuivre doivent avoir une fonction lisible: longeron, ligature, rivet, filet ou renfort; aucun matériau ne sert de remplissage décoratif massif.",
+    "Aucun texte, chiffre, unité, label, lettre, logo, sponsor, numéro, watermark, faux état ou faux remplissage ne doit être peint.",
+    "Les couleurs d'équipe, les niveaux, les états stable/surf/drift/recover/danger/critical et les valeurs restent entièrement pilotés par HTML, CSS et JavaScript.",
+    "Chaque sortie représente un seul asset isolé, jamais une planche, une grille, un mockup d'écran ou une scène complète.",
+    "Le sujet est entouré d'un fond parfaitement plat #ff00ff, y compris dans les trous et évidements destinés à devenir transparents.",
+    "#ff00ff et les roses ou violets voisins sont interdits dans le sujet afin de protéger le détourage.",
+    "Aucune ombre portée, ombre de contact, réflexion, sol, vignette, halo de fond, gradient de fond ou variation d'éclairage ne doit toucher le chroma.",
+    "Les bords doivent être nets, fermés et suffisamment épais pour un soft matte propre, avec au moins 8% de marge chroma sur chaque bord du canvas source."
+  ],
+  "global_negative_constraints": [
+    "catamaran",
+    "trimaran",
+    "Polynesian outrigger canoe",
+    "bamboo outrigger cage",
+    "wide fishing canoe",
+    "rowing shell",
+    "speedboat",
+    "yacht cockpit",
+    "steering wheel",
+    "modern rudder",
+    "visible keel",
+    "generic triangular yacht sail",
+    "pirate ship",
+    "tiki",
+    "madras plaid",
+    "generic Caribbean tourism ornament",
+    "thick tavern frame",
+    "rope border around the whole widget",
+    "baroque carving",
+    "steampunk machinery",
+    "sci-fi glass HUD",
+    "cyberpunk neon",
+    "chrome",
+    "plastic bevel",
+    "photorealistic scene",
+    "screen mockup",
+    "multiple assets",
+    "contact sheet",
+    "text",
+    "letters",
+    "numbers",
+    "logos",
+    "sponsors",
+    "watermarks",
+    "drop shadow",
+    "floor plane",
+    "background texture",
+    "background gradient",
+    "magenta inside the subject",
+    "pink or purple edge highlights"
+  ],
+  "generation_contract": {
+    "tool_mode": "built_in_imagegen",
+    "intent": "generate",
+    "taxonomy_slug": "stylized-concept",
+    "one_distinct_asset_per_call": true,
+    "calls_required": 4,
+    "batch_or_contact_sheet_forbidden": true,
+    "reference_handling": "Passer exactement les referenced_image_paths de chaque asset dans l'ordre indiqué; les rôles Image 1, Image 2 et Image 3 du prompt correspondent à cet ordre.",
+    "prompt_handling": "Envoyer prompt_exact_en verbatim. Ne pas le résumer, ne pas ajouter de texte dans l'image et ne pas fusionner deux assets dans un même appel.",
+    "quality_gate_before_next_call": "Valider silhouette, chroma et absence de texte de l'asset courant avant de lancer le suivant.",
+    "save_policy": {
+      "source": "Copier la sortie ImageGen retenue vers source_chroma_path sans écraser une version déjà revue.",
+      "candidate": "Détourer vers candidate_alpha_path; incrémenter v02, v03, etc. lors d'une nouvelle génération.",
+      "runtime": "Promouvoir vers runtime_path seulement après tous les tests QA et la revue visuelle en moteur.",
+      "never_leave_project_asset_only_under_codex_home": true
+    },
+    "chroma_key_profile": {
+      "key_color": "#ff00ff",
+      "background": "perfectly flat, uniform, unlit solid magenta",
+      "required_transparency_regions": [
+        "all four canvas corners",
+        "all exterior margin around the subject",
+        "every intentional hole, open center or cutout inside the subject"
+      ],
+      "subject_color_exclusions": [
+        "#ff00ff",
+        "hot magenta",
+        "fuchsia",
+        "pink-violet",
+        "purple edge glow"
+      ],
+      "no_background_effects": [
+        "shadow",
+        "gradient",
+        "texture",
+        "reflection",
+        "floor plane",
+        "vignette",
+        "noise",
+        "light bloom"
+      ]
+    }
+  },
+  "postprocess": {
+    "method": "remove_chroma_key",
+    "tool_source": "ImageGen skill local helper",
+    "tool_path_windows": "%USERPROFILE%/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
+    "shell": "PowerShell",
+    "command_template": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input \"<source_chroma_path>\" --out \"<candidate_alpha_path>\" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "single_retry_if_fringe_remains": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input \"<source_chroma_path>\" --out \"<candidate_alpha_path>\" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill --edge-contract 1",
+    "retry_policy": [
+      "N'utiliser --edge-contract 1 qu'après inspection d'une frange magenta réelle.",
+      "Ne pas ajouter edge-feather par défaut; il ramollirait les petites ligatures et les filets cuivre.",
+      "Si le deuxième passage détruit les détails ou laisse une frange, arrêter et régénérer avec des bords plus simples.",
+      "Ne pas basculer vers une transparence native ou un autre modèle sans approbation explicite."
+    ],
+    "conversion_after_qa": {
+      "candidate_master": "PNG RGBA non destructif",
+      "runtime": "WebP RGBA lossless ou near-lossless",
+      "resize_filter": "Lanczos",
+      "premultiply_alpha": false,
+      "color_space": "sRGB",
+      "preserve_master_png": true
+    },
+    "per_asset_commands": {
+      "hud_status_frame_sota": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input \"art-source\\generated-sota\\hud\\hud_status_frame_sota_chroma_source.png\" --out \"art-source\\generated-sota\\hud\\hud_status_frame_sota_candidate_v01.png\" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+      "hud_balance_bwa_rail_sota": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input \"art-source\\generated-sota\\hud\\hud_balance_bwa_rail_sota_chroma_source.png\" --out \"art-source\\generated-sota\\hud\\hud_balance_bwa_rail_sota_candidate_v01.png\" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+      "hud_hull_silhouette_sota": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input \"art-source\\generated-sota\\hud\\hud_hull_silhouette_sota_chroma_source.png\" --out \"art-source\\generated-sota\\hud\\hud_hull_silhouette_sota_candidate_v01.png\" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+      "hud_flow_sail_motif_sota": "python \"$env:USERPROFILE\\.codex\\skills\\.system\\imagegen\\scripts\\remove_chroma_key.py\" --input \"art-source\\generated-sota\\hud\\hud_flow_sail_motif_sota_chroma_source.png\" --out \"art-source\\generated-sota\\hud\\hud_flow_sail_motif_sota_candidate_v01.png\" --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill"
+    }
+  },
+  "global_integration_contract": {
+    "runtime_owns": [
+      "all copy and labels",
+      "speed and percentage values",
+      "balance, flow and hull levels",
+      "team and weapon colors",
+      "stable, surf, drift, recover, danger and critical states",
+      "animation, cooldown, focus, hover, pressed and accessibility states"
+    ],
+    "bitmap_owns": [
+      "material identity",
+      "static silhouette",
+      "thin frame structure",
+      "non-semantic micro-ornament",
+      "neutral readable texture"
+    ],
+    "dom_invariants": [
+      "Conserver #balanceBar, #flowBar, #hullBar, #balanceText, #flowText et #hullText.",
+      "Ne jamais remplacer une valeur DOM par du texte raster.",
+      "Ne pas réduire les zones tactiles ni intercepter les pointeurs; tous les overlays bitmap utilisent pointer-events:none.",
+      "Préserver les classes .status-surf, .status-drift, .status-recover, .status-danger et .status-critical.",
+      "Préserver prefers-reduced-motion et body.reduced-impact; aucun asset ne contient d'animation."
+    ],
+    "loading_and_cache": [
+      "Promouvoir seulement les quatre runtime_path validés.",
+      "Déclarer les chemins promus dans le manifeste d'assets approprié.",
+      "Ajouter les chemins réellement chargés au service-worker.js.",
+      "Vérifier le démarrage offline et l'absence de 404.",
+      "Le monofichier autonome doit garder un fallback CSS si les bitmaps externes ne sont pas embarqués."
+    ],
+    "fallback": "Si un asset manque ou échoue au chargement, le HUD CSS actuel reste entièrement fonctionnel et lisible.",
+    "performance_budget": {
+      "runtime_files": 4,
+      "combined_max_kb": 400,
+      "preferred_combined_kb": 260,
+      "gpu_textures": "Réutiliser une seule texture par asset; ne pas dupliquer par yole ou par état.",
+      "no_layout_shift": true
+    }
+  },
+  "assets": [
+    {
+      "id": "hud_status_frame_sota",
+      "display_name": "Status frame — coque/instrument",
+      "category": "ui/hud/frame",
+      "priority": "P0",
+      "status": "generated_runtime_v8",
+      "purpose": "Cadre 9-slice principal de .status, suffisamment premium pour porter vitesse, équilibre, turbo, coque et intégrité sans masquer la course.",
+      "reference_inputs": [
+        {
+          "image_index": 1,
+          "reference_id": "ref_hud_direction_v4",
+          "path": "art-source/ui_hud_direction_v4.png",
+          "use_only_for": "finesse, densité et hiérarchie périphérique"
+        },
+        {
+          "image_index": 2,
+          "reference_id": "ref_current_course",
+          "path": "previews/03_course.png",
+          "use_only_for": "échelle réelle du panneau et quantité de contenu"
+        },
+        {
+          "image_index": 3,
+          "reference_id": "ref_yole_action_owner_photo",
+          "path": "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "use_only_for": "matière du bois, ligatures et construction nautique"
+        }
+      ],
+      "imagegen_call": {
+        "referenced_image_paths": [
+          "C:/Users/Gary/Desktop/yole_bwa_brawl_threejs_tropical_mayhem_v3_2/art-source/ui_hud_direction_v4.png",
+          "C:/Users/Gary/Desktop/yole_bwa_brawl_threejs_tropical_mayhem_v3_2/previews/03_course.png",
+          "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg"
+        ],
+        "prompt_field": "prompt_exact_en"
+      },
+      "output_contract": {
+        "source_chroma_path": "art-source/generated-sota/hud/hud_status_frame_sota_chroma_source.png",
+        "candidate_alpha_path": "art-source/generated-sota/hud/hud_status_frame_sota_candidate_v01.png",
+        "runtime_path": "assets/textures/v8/hud/status_frame.webp",
+        "generation_composition_ratio": "2:1 landscape",
+        "working_crop_px": [
+          1536,
+          768
+        ],
+        "delivery_px": [
+          1024,
+          512
+        ],
+        "format_master": "PNG RGBA",
+        "format_runtime": "WebP RGBA",
+        "alpha": true,
+        "max_kb": 170,
+        "nine_slice": {
+          "enabled": true,
+          "slice_insets_delivery_px": {
+            "top": 80,
+            "right": 96,
+            "bottom": 80,
+            "left": 96
+          },
+          "center_must_be_transparent": true,
+          "edge_mode": "stretch straight runs; corners and rope knots never stretch",
+          "minimum_css_size_px": [
+            180,
+            84
+          ],
+          "maximum_css_size_px": [
+            320,
+            240
+          ]
+        }
+      },
+      "prompt_exact_en": "Use case: stylized-concept\nAsset type: production game HUD status-frame cutout, designed for nine-slice scaling\nPrimary request: Create one premium, thin, functional status-panel frame for a Martinican round-skiff crash-racer. It must feel hand-built from a restrained combination of matte marine ink, warm salt-worn wood, two short natural-rope lashings, aged copper corner reinforcements, turquoise patina and tiny carnival-gold chevrons. The result must read as an elite racing instrument, not a tavern sign or fantasy prop.\nInput images: Image 1 is layout and frame-thickness reference only; do not copy its boat, text, icons or complete HUD. Image 2 is runtime scale and content-density reference only; do not copy any text, values or current styling. Image 3 is material and authentic lashing reference only; do not copy people, logos, sponsors, numbers or livery.\nScene/backdrop: A perfectly flat, perfectly uniform solid #ff00ff chroma-key background, also visible through the entire open center and every intentional hole. No floor, no shadow, no gradient, no texture, no reflection and no lighting variation in the background.\nSubject: One isolated wide rectangular frame with clipped, slightly prow-like corners. The frame is very thin: matte deep-sea ink structure, narrow warm-wood rails only along short functional sections, four small aged-copper corner plates, exactly two compact rope lashings at believable anchor points, subtle turquoise patina and two tiny original chevron cuts. Keep the whole interior open for live DOM content. Use a faint abstract djab notch only as a micro-signature in one corner, never as a large face or logo.\nStyle/medium: Crisp premium raster game-UI painting, stylized realism, restrained hand-made nautical materials, clean production edges, high-end AAA mobile racing readability.\nComposition/framing: Exact 2:1 landscape composition. One centered frame occupying about 88% of canvas width and 72% of canvas height, with at least 8% clean chroma margin on every side. Straight side runs must be visually uniform for nine-slice stretching. Corners, lashings and ornaments stay entirely inside protected corner caps. The open center occupies at least 72% of the width and 58% of the height.\nLighting/mood: Controlled warm golden-hour rim on the wood and copper, matte dark body, cool turquoise edge accents. No cast shadow, contact shadow, bloom or external glow.\nColor palette: matte #031724 and #0d4f63, turquoise #2fb9c4, foam ivory #eefaff, warm wood #c98a45, dark burned wood #6f421f, natural rope #d8b77a, aged copper #b87333, rare carnival gold #ffc531. Never use #ff00ff, hot magenta, fuchsia, pink-violet or purple highlights inside the subject.\nMaterials/textures: Fine salt-worn wood grain, compact twisted fiber only on the two lashings, brushed and lightly oxidized copper, matte painted marine structure. Material variation must remain broad enough to survive reduction; no micro-noise.\nText (verbatim): none\nConstraints: one asset only; frame only; fully open chroma center; no panel fill; no labels; no digits; no icons; no fake gauges; no team colors; no weapon colors; no shadows; no watermark; crisp closed silhouette; corner details must survive at 180 pixels wide; carnival influence must remain an abstract chevron rhythm, never folkloric decoration.\nAvoid: thick wood border, rope around the whole perimeter, barrel, ship wheel, anchor cliché, pirate, tiki, madras, baroque carving, steampunk, cyberpunk, sci-fi glass, chrome, plastic bevel, generic Caribbean souvenir, complete screen mockup, multiple frames, contact sheet, text, letters, numbers, logos, sponsors, watermark, magenta contamination, pink or purple edge light.",
+      "integration_contract": {
+        "targets": [
+          "index.html .status",
+          "style.css .status",
+          "style.css .status::before",
+          "src/game/hud.js status mode classes"
+        ],
+        "recommended_layer": ".status::after as a pointer-events:none absolute nine-slice overlay, or an equivalent dedicated decorative child",
+        "z_order": {
+          "panel_css_background": 0,
+          "dom_content": 1,
+          "frame_overlay": 2,
+          "focus_or_critical_runtime_cue": 3
+        },
+        "rules": [
+          "Ne pas cuire de fond opaque dans le centre: conserver le fond CSS et son contraste dynamique.",
+          "Ne pas remplacer .status::before si son libellé runtime reste utilisé.",
+          "Les classes danger et critical doivent pouvoir recolorer ou surligner le filet sans nécessiter une seconde texture.",
+          "Les nœuds DOM et les jauges restent au-dessus du centre transparent.",
+          "Le cadre ne doit pas changer la largeur, la hauteur, le padding ou la zone tactile."
+        ],
+        "fallback": "background et border CSS actuels"
+      },
+      "qa": {
+        "visual": [
+          "Lecture premium à 320×160, 260×130, 188×94 et 180×84 CSS px.",
+          "Bois, corde et cuivre identifiables mais jamais dominants.",
+          "Le centre du cadre demeure réellement vide et ne crée aucun voile sur les valeurs.",
+          "Aucun faux texte ou pseudo-glyphe n'apparaît après réduction."
+        ],
+        "technical": [
+          "PNG maître RGBA 1024×512.",
+          "Alpha 0 aux quatre coins et dans 100% du rectangle central défini par les insets.",
+          "Aucun pixel #ff00ff visible pour alpha supérieur à 16.",
+          "Test 9-slice aux tailles 180×84, 260×130 et 320×240 sans étirer les coins, les rivets ni les ligatures.",
+          "Poids WebP runtime inférieur ou égal à 170 Ko."
+        ],
+        "in_engine": [
+          "Lisible sur mer turquoise en plein soleil.",
+          "Lisible devant le Grain #160f2f.",
+          "Stable, surf, drift, recover, danger et critical restent discernables par CSS.",
+          "Aucun chevauchement avec les actions, le joystick ou la yole en paysage court."
+        ]
+      }
+    },
+    {
+      "id": "hud_balance_bwa_rail_sota",
+      "display_name": "Balance rail — bwa de rappel",
+      "category": "ui/hud/gauge_frame",
+      "priority": "P0",
+      "status": "generated_runtime_v8",
+      "purpose": "Rail d'équilibre inspiré des vrais bwa et de leurs ligatures, sans faux remplissage, qui encadre #balanceBar et son repère central.",
+      "reference_inputs": [
+        {
+          "image_index": 1,
+          "reference_id": "ref_yole_action_owner_photo",
+          "path": "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "use_only_for": "diamètre visuel des bwa, chaleur du bois et logique de ligature"
+        },
+        {
+          "image_index": 2,
+          "reference_id": "ref_existing_gauge_frame",
+          "path": "assets/textures/ui_jauge_frame.webp",
+          "use_only_for": "rapport de finesse et zone centrale à préserver"
+        },
+        {
+          "image_index": 3,
+          "reference_id": "ref_current_course",
+          "path": "previews/03_course.png",
+          "use_only_for": "taille CSS réelle et position bas-centre"
+        }
+      ],
+      "imagegen_call": {
+        "referenced_image_paths": [
+          "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "C:/Users/Gary/Desktop/yole_bwa_brawl_threejs_tropical_mayhem_v3_2/assets/textures/ui_jauge_frame.webp",
+          "C:/Users/Gary/Desktop/yole_bwa_brawl_threejs_tropical_mayhem_v3_2/previews/03_course.png"
+        ],
+        "prompt_field": "prompt_exact_en"
+      },
+      "output_contract": {
+        "source_chroma_path": "art-source/generated-sota/hud/hud_balance_bwa_rail_sota_chroma_source.png",
+        "candidate_alpha_path": "art-source/generated-sota/hud/hud_balance_bwa_rail_sota_candidate_v01.png",
+        "runtime_path": "assets/textures/v8/hud/balance_track.webp",
+        "generation_composition_ratio": "3:1 landscape with a thin centered rail",
+        "working_crop_px": [
+          1536,
+          288
+        ],
+        "delivery_px": [
+          1024,
+          192
+        ],
+        "format_master": "PNG RGBA",
+        "format_runtime": "WebP RGBA",
+        "alpha": true,
+        "max_kb": 80,
+        "stretch_contract": {
+          "horizontal_endcap_px": 92,
+          "vertical_protected_px": 36,
+          "inner_lane_delivery_px": {
+            "x": 92,
+            "y": 68,
+            "width": 840,
+            "height": 56
+          },
+          "inner_lane_must_be_transparent": true,
+          "minimum_runtime_height_px": 9,
+          "preferred_runtime_height_px": 12
+        }
+      },
+      "prompt_exact_en": "Use case: stylized-concept\nAsset type: isolated horizontal balance-gauge frame for a production game HUD\nPrimary request: Create one extremely readable horizontal balance rail inspired by the real removable bwa poles used on a Martinican round skiff. Translate authentic warm wood, compact rope lashings and aged copper protection into a thin racing instrument. The rail must frame a live balance fill and a live center marker; it must never look like an outrigger assembly or a decorative bamboo cage.\nInput images: Image 1 is the sole anatomy and material reference for real bwa poles and lashings; do not copy people, logos, sponsors, numbers or livery. Image 2 is a technical thickness and empty-lane reference only; redesign it completely. Image 3 is runtime scale and placement reference only; do not copy text, values or screen composition.\nScene/backdrop: A perfectly flat, perfectly uniform solid #ff00ff chroma-key background, including the full empty gauge lane and all gaps. No floor, shadow, gradient, texture, reflection, bloom or lighting variation in the background.\nSubject: One isolated, very wide and very thin gauge frame. Two slender salt-worn wooden bwa rails run horizontally as the upper and lower structural edges, held only at both protected endcaps by four compact natural-rope bindings and small aged-copper collars. The endcaps taper into original inward-facing speed chevrons. A tiny copper notch indicates the geometric center, but the center marker itself and all colored fill remain absent and transparent. Add restrained turquoise patina and foam-ivory edge cuts for readability.\nStyle/medium: Crisp premium raster game-UI asset, stylized nautical realism, high-end arcade racing finish, clean antialiased production edges.\nComposition/framing: One centered rail occupying about 88% of canvas width and no more than 34% of canvas height. Maintain at least 8% pure chroma margin around it. Keep the long central lane fully open and transparent. All knots, collars and chevrons stay inside the left and right 9% protected endcaps so the middle can stretch horizontally. Strong simple silhouette that remains readable at 9 pixels high.\nLighting/mood: Dry matte wood, one controlled warm highlight on copper, cool turquoise patina. No cast shadow, contact shadow, external glow or bloom.\nColor palette: matte marine ink #031724, deep teal #0d4f63, turquoise #2fb9c4, foam ivory #eefaff, warm wood #c98a45, dark wood #6f421f, natural rope #d8b77a, aged copper #b87333 and very rare carnival gold #ffc531. Never use #ff00ff, hot magenta, fuchsia, pink-violet or purple highlights in the subject.\nMaterials/textures: Broad salt-worn wood grain aligned with the rail, compact twisted rope fibers only at the endcaps, brushed copper collars with slight turquoise oxidation. No tiny scratches that turn into noise.\nText (verbatim): none\nConstraints: one empty rail only; no fill; no colored level; no scale; no ticks except one tiny neutral center notch; no labels; no numbers; no crew; no boat; no sail; no fake animation; open transparent lane; symmetric functional geometry with slight hand-built material variation; robust closed edges for chroma removal.\nAvoid: outrigger, catamaran beam, bamboo cage, ladder, rowing oar, ship wheel, anchor, pirate, tiki, madras, full rope border, thick wood plaque, steampunk, cyberpunk, sci-fi glass, chrome, neon, text, letters, numbers, logos, sponsors, watermark, multiple rails, contact sheet, shadow, magenta contamination, pink or purple rim light.",
+      "integration_contract": {
+        "targets": [
+          "index.html .meter.balance",
+          "index.html #balanceBar",
+          "index.html .meter.balance > em",
+          "style.css .meter",
+          "src/game/hud.js balanceBar width and balanceText"
+        ],
+        "recommended_layer": ".meter.balance::after as a pointer-events:none frame overlay above #balanceBar and below the live center marker",
+        "z_order": {
+          "css_lane_background": 0,
+          "runtime_fill_balanceBar": 1,
+          "bitmap_rail_frame": 2,
+          "runtime_center_marker": 3
+        },
+        "rules": [
+          "Ne pas utiliser le bitmap comme remplissage de #balanceBar.",
+          "Ne pas masquer, ralentir ou remplacer la largeur pilotée par src/game/hud.js.",
+          "Conserver le repère central DOM au-dessus de l'asset.",
+          "Les états status-surf, status-drift, status-recover, status-danger et status-critical restent des accents CSS.",
+          "Le rail peut s'étirer uniquement entre les endcaps protégés; les ligatures ne s'étirent jamais.",
+          "Si le détail de corde ne survit pas à 9 px, conserver la silhouette bois/cuivre et supprimer la fibre plutôt que d'augmenter la hauteur du HUD sans revue."
+        ],
+        "fallback": "assets/textures/ui_jauge_frame.webp et fond CSS actuel"
+      },
+      "qa": {
+        "visual": [
+          "Silhouette lisible à 70, 190, 300, 512 et 1024 px de large.",
+          "Bwa authentique perçu comme deux perches fonctionnelles, jamais comme bambou ou balancier.",
+          "Centre libre et repère DOM clairement visibles.",
+          "Aucun faux niveau n'est suggéré par la texture."
+        ],
+        "technical": [
+          "PNG maître RGBA 1024×192.",
+          "Alpha 0 aux quatre coins et dans toute la lane x=92..931, y=68..123 hors bord fonctionnel.",
+          "Aucun pixel #ff00ff visible pour alpha supérieur à 16.",
+          "Étirement à 70, 190, 300 et 512 px sans déformation des ligatures.",
+          "Poids WebP runtime inférieur ou égal à 80 Ko."
+        ],
+        "in_engine": [
+          "Le remplissage équilibre reste animé sans clipping parasite.",
+          "Le repère 50% reste au centre exact.",
+          "Stable, danger et critical se distinguent sur mer claire et dans le Grain.",
+          "Aucun changement de layout en paysage court."
+        ]
+      }
+    },
+    {
+      "id": "hud_hull_silhouette_sota",
+      "display_name": "Hull silhouette — yole ronde authentique",
+      "category": "ui/hud/status_glyph",
+      "priority": "P0",
+      "status": "generated_runtime_v8",
+      "purpose": "Silhouette neutre de coque pour l'intégrité, reconnaissable comme yole ronde martiniquaise et exploitable comme masque alpha sans déformer la géométrie.",
+      "reference_inputs": [
+        {
+          "image_index": 1,
+          "reference_id": "ref_yole_action_owner_photo",
+          "path": "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "use_only_for": "étroitesse, ligne de flottaison, étrave et faible franc-bord"
+        },
+        {
+          "image_index": 2,
+          "reference_id": "ref_yole_sail_owner_photo",
+          "path": "C:/Users/Gary/Downloads/images (4).jpg",
+          "use_only_for": "lecture aérienne de la coque longue et basse; ignorer intégralement le sponsor"
+        }
+      ],
+      "imagegen_call": {
+        "referenced_image_paths": [
+          "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "C:/Users/Gary/Downloads/images (4).jpg"
+        ],
+        "prompt_field": "prompt_exact_en"
+      },
+      "output_contract": {
+        "source_chroma_path": "art-source/generated-sota/hud/hud_hull_silhouette_sota_chroma_source.png",
+        "candidate_alpha_path": "art-source/generated-sota/hud/hud_hull_silhouette_sota_candidate_v01.png",
+        "runtime_path": "assets/textures/v8/hud/hull_silhouette.webp",
+        "generation_composition_ratio": "3:1 landscape",
+        "working_crop_px": [
+          1536,
+          512
+        ],
+        "delivery_px": [
+          768,
+          256
+        ],
+        "format_master": "PNG RGBA",
+        "format_runtime": "WebP RGBA",
+        "alpha": true,
+        "max_kb": 72,
+        "mask_contract": {
+          "alpha_body_contiguous": true,
+          "internal_alpha_holes_forbidden": true,
+          "orientation": "strict overhead orthographic, stern left, prow right",
+          "target_length_to_beam_ratio": "5.8:1 to 6.3:1",
+          "subject_coverage": "82% to 88% width, 40% to 46% height",
+          "minimum_runtime_size_px": [
+            48,
+            16
+          ],
+          "preferred_runtime_size_px": [
+            72,
+            24
+          ]
+        }
+      },
+      "prompt_exact_en": "Use case: stylized-concept\nAsset type: authentic Martinican round-skiff hull silhouette for a production HUD integrity indicator\nPrimary request: Create one clean, unmistakable overhead orthographic silhouette of the wooden hull of a Martinican yole ronde. This is the hull only, designed to become an alpha mask for a live damage indicator. Accuracy of the long narrow single hull matters more than decoration.\nInput images: Image 1 is the primary authenticity reference for the narrow low wooden hull, waterline, bow and transom; do not copy people, logos, sponsors, numbers or livery. Image 2 is an elevated reference for the hull's extreme slenderness and low profile; ignore and do not reproduce UFR, GRANFLOR, any letters, logos, sail graphics, people or team colors.\nScene/backdrop: A perfectly flat, perfectly uniform solid #ff00ff chroma-key background around the entire silhouette. No floor, shadow, gradient, texture, reflection, bloom, vignette or lighting variation in the background.\nSubject: One isolated hull seen from directly overhead, stern to the left and prow to the right. It is a single approximately eleven-meter wooden hull with a visual length-to-beam ratio near 6:1, very narrow waist, fine ends, low freeboard, a subtly L-shaped raised prow reading at the right edge and a firm single-piece transom at the left. Suggest the rounded bottom only through a restrained inner ivory rim and two broad warm-wood strakes; never draw an external keel. Keep the entire hull body alpha-contiguous and solid so it can be used as a mask. Add three tiny aged-copper fasteners and one short turquoise patina line, but no emblem.\nStyle/medium: Crisp premium raster game-UI glyph, stylized technical realism, broad readable shapes, precise closed contour, not a blueprint and not a photograph.\nComposition/framing: Exact horizontal orthographic presentation, no perspective and no tilt. One hull only, centered, occupying 82% to 88% of canvas width and 40% to 46% of canvas height, with generous pure chroma padding on all sides. The hull itself must measure between 5.8:1 and 6.3:1 from prow to transom versus maximum beam. The outline must remain unmistakable at 48 by 16 pixels.\nLighting/mood: Nearly flat material lighting with one restrained foam-ivory upper rim and a dark marine-ink underside. No cast shadow, contact shadow, reflection or glow.\nColor palette: marine ink #031724, deep teal #0d4f63, foam ivory #eefaff, warm wood #c98a45, dark wood #6f421f, aged copper #b87333 and a tiny turquoise #2fb9c4 accent. Never use #ff00ff, hot magenta, fuchsia, pink-violet or purple highlights in the subject.\nMaterials/textures: Broad plank direction and restrained salt wear only; no micro-scratches, no photoreal grain, no transparency holes inside the hull.\nText (verbatim): none\nConstraints: hull only; one body; solid contiguous alpha interior; real yole ronde proportions; no keel; no rudder; no wheel; no cockpit; no deck cabin; no second hull; no lateral float; no bwa; no mast; no sail; no crew; no paddle; no sponsor; no number; no team livery; no watermark; closed crisp edge; original neutral design suitable for runtime tinting.\nAvoid: canoe, wide pirogue, kayak, rowing shell, Polynesian outrigger, catamaran, trimaran, fishing boat, yacht, speedboat, visible keel, rudder, propeller, cockpit, cabin, perspective view, side view, three-quarter view, exploded diagram, blueprint labels, multiple silhouettes, contact sheet, text, letters, numbers, logos, sponsors, watermark, shadow, magenta contamination, pink or purple rim light.",
+      "integration_contract": {
+        "targets": [
+          "index.html .meter.hull",
+          "index.html #hullBar",
+          "index.html #hullText",
+          "src/game/hud.js hullBar width and hullText"
+        ],
+        "preferred_wiring": "Utiliser l'alpha comme mask-image sur deux couches de taille fixe: une silhouette de fond et une silhouette de niveau révélée par clip-path ou mask-position.",
+        "required_runtime_change_before_mask_mode": "Faire piloter une custom property --hull-ratio sur .meter.hull au lieu de réduire géométriquement la largeur de la silhouette; une silhouette compressée horizontalement est refusée.",
+        "rules": [
+          "Ne jamais appliquer width:<pourcentage> directement à l'image de coque si cela la compresse.",
+          "Conserver #hullText comme valeur lisible et accessible.",
+          "Le niveau peut clipper la silhouette de gauche à droite sans en modifier les proportions.",
+          "La couleur de niveau reste CSS; le bitmap fournit uniquement l'alpha et la matière neutre.",
+          "Si l'intégration masque n'est pas implémentée, utiliser l'asset comme petit glyphe fixe près du libellé COQUE et conserver la barre actuelle."
+        ],
+        "fallback": ".meter.hull et gradient #hullBar actuels"
+      },
+      "qa": {
+        "authenticity": [
+          "Ratio longueur/largeur mesuré entre 5,8:1 et 6,3:1.",
+          "Un seul corps de coque.",
+          "Aucun flotteur, cadre d'outrigger, quille saillante, gouvernail ou cockpit.",
+          "Étrave et tableau arrière différenciés sans caricature.",
+          "Revue croisée avec les deux photographies utilisateur avant promotion."
+        ],
+        "technical": [
+          "PNG maître RGBA 768×256.",
+          "Alpha intérieur continu sans trou involontaire.",
+          "Alpha 0 aux quatre coins.",
+          "Aucun pixel #ff00ff visible pour alpha supérieur à 16.",
+          "Silhouette lisible à 48×16, 72×24, 128×43 et 256×85 px.",
+          "Poids WebP runtime inférieur ou égal à 72 Ko."
+        ],
+        "in_engine": [
+          "La coque ne change jamais de rapport longueur/largeur entre 100%, 50% et 10% d'intégrité.",
+          "Le texte #hullText reste lisible.",
+          "Le contraste est suffisant sur mer claire et dans le Grain.",
+          "La lecture ne dépend pas uniquement de la couleur."
+        ]
+      }
+    },
+    {
+      "id": "hud_flow_sail_motif_sota",
+      "display_name": "Flow motif — grande voile et écume",
+      "category": "ui/hud/status_motif",
+      "priority": "P1",
+      "status": "generated_runtime_v8",
+      "purpose": "Motif neutre de grande voile moderne et de flux d'écume, utilisé comme signature discrète de la jauge Turbo/Flow sans cuire sa valeur ni sa couleur dynamique.",
+      "reference_inputs": [
+        {
+          "image_index": 1,
+          "reference_id": "ref_yole_sail_owner_photo",
+          "path": "C:/Users/Gary/Downloads/images (4).jpg",
+          "use_only_for": "géométrie de grande voile haute quadrangulaire ou trapézoïdale et gréement"
+        },
+        {
+          "image_index": 2,
+          "reference_id": "ref_yole_action_owner_photo",
+          "path": "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "use_only_for": "énergie de gîte, direction du vent et matière nautique"
+        },
+        {
+          "image_index": 3,
+          "reference_id": "ref_hud_direction_v4",
+          "path": "art-source/ui_hud_direction_v4.png",
+          "use_only_for": "lisibilité d'un motif compact en périphérie; ne pas copier voile, texte ou icône"
+        }
+      ],
+      "imagegen_call": {
+        "referenced_image_paths": [
+          "C:/Users/Gary/Downloads/images (4).jpg",
+          "C:/Users/Gary/Downloads/le_tour_des_yoles.jpg",
+          "C:/Users/Gary/Desktop/yole_bwa_brawl_threejs_tropical_mayhem_v3_2/art-source/ui_hud_direction_v4.png"
+        ],
+        "prompt_field": "prompt_exact_en"
+      },
+      "output_contract": {
+        "source_chroma_path": "art-source/generated-sota/hud/hud_flow_sail_motif_sota_chroma_source.png",
+        "candidate_alpha_path": "art-source/generated-sota/hud/hud_flow_sail_motif_sota_candidate_v01.png",
+        "runtime_path": "assets/textures/v8/hud/flow_sail.webp",
+        "generation_composition_ratio": "1:1 square",
+        "working_crop_px": [
+          1024,
+          1024
+        ],
+        "delivery_px": [
+          512,
+          512
+        ],
+        "format_master": "PNG RGBA",
+        "format_runtime": "WebP RGBA",
+        "alpha": true,
+        "max_kb": 78,
+        "motif_contract": {
+          "silhouette": "one high quadrilateral or trapezoidal sail with short raked mast segment and three directional foam strokes",
+          "negative_space_ratio_min": 0.42,
+          "internal_holes": "broad and chroma-clean only",
+          "minimum_runtime_size_px": [
+            24,
+            24
+          ],
+          "preferred_runtime_size_px": [
+            36,
+            36
+          ]
+        }
+      },
+      "prompt_exact_en": "Use case: stylized-concept\nAsset type: isolated sail-and-flow motif for a production game HUD\nPrimary request: Create one compact original motif that communicates wind flow, acceleration and a real modern Martinican yole ronde. Combine the unmistakable silhouette of one high quadrilateral or trapezoidal racing sail with three fast foam-and-wind strokes. It must feel like a premium nautical racing glyph with restrained carnival energy, not a generic yacht icon or a team logo.\nInput images: Image 1 is the primary reference for the authentic high quadrilateral or trapezoidal sail and rig geometry; do not reproduce UFR, GRANFLOR, any letters, sponsors, people, colors or exact livery. Image 2 is reference for heel, wind direction and functional nautical material only; do not copy people, logos, sponsors, numbers or livery. Image 3 is compact HUD readability reference only; do not copy its sail, icon, text, colors or composition.\nScene/backdrop: A perfectly flat, perfectly uniform solid #ff00ff chroma-key background, visible around the entire motif and through all intentional negative spaces. No floor, shadow, gradient, texture, reflection, vignette, bloom or lighting variation in the background.\nSubject: One isolated compact glyph made from a slightly raked short warm-wood mast segment, one tall off-white quadrilateral or trapezoidal sail with a visibly wider foot and narrower but still substantial head, and three directional turquoise foam strokes wrapping past the leech. The sail contains one original copper-and-gold chevron cut and one tiny abstract djab eye-notch as material accents, never as a logo or face. The foam strokes remain separate, bold and simple. The whole shape leans forward slightly to imply speed while preserving the authentic non-triangular sail geometry.\nStyle/medium: Crisp premium raster game-UI motif, stylized nautical realism, strong icon silhouette, broad clean shapes, AAA mobile arcade-racing finish.\nComposition/framing: One centered square asset. The combined motif occupies 68% to 76% of canvas width and height with at least 10% pure chroma clearance on every side. Keep at least 42% negative space. Use one sail only, one short mast segment only and exactly three flow strokes. All internal gaps must be broad enough for clean chroma removal and readability at 24 pixels.\nLighting/mood: Warm golden edge on mast and copper, matte sail, cool luminous-but-not-glowing turquoise foam. No cast shadow, contact shadow, reflection, bloom or external glow.\nColor palette: marine ink #031724, deep teal #0d4f63, turquoise #2fb9c4, foam ivory #eefaff, warm wood #c98a45, natural rope #d8b77a, aged copper #b87333 and rare carnival gold #ffc531. Never use #ff00ff, hot magenta, fuchsia, pink-violet or purple highlights in the subject.\nMaterials/textures: Broad aged sailcloth weave, one tiny believable rope tie at the mast, salt-worn wood and brushed copper. Texture must remain subordinate to silhouette and survive at 24 pixels.\nText (verbatim): none\nConstraints: one motif only; authentic high quadrilateral or trapezoidal yole sail; not triangular; no full boat; no crew; no team identity; no sponsor; no letters; no numbers; no fill percentage; no speed lines beyond exactly three foam strokes; no shadow; original neutral design; closed robust edges; clean chroma holes; readable at 24 pixels.\nAvoid: generic triangular sailboat icon, Bermuda rig, yacht, windsurf sail, pirate sail, lateen sail, catamaran, outrigger canoe, second sail, full scene, photoreal ocean, circular badge, shield logo, team crest, tiki, madras, feathers, baroque ornament, steampunk, cyberpunk, sci-fi neon, text, letters, numbers, logos, sponsors, UFR, GRANFLOR, watermark, multiple motifs, contact sheet, shadow, magenta contamination, pink or purple rim light.",
+      "integration_contract": {
+        "targets": [
+          "index.html .meter.flow",
+          "index.html #flowBar",
+          "index.html #flowText",
+          "style.css .meter.flow",
+          "src/game/hud.js flowBar width and flowText"
+        ],
+        "recommended_layer": ".meter.flow::after as a small pointer-events:none motif anchored to the trailing edge, or a fixed glyph beside the TURBO label",
+        "rules": [
+          "Ne pas utiliser le motif comme remplissage étiré de #flowBar.",
+          "Ne pas faire varier la largeur ou le rapport du motif avec le pourcentage.",
+          "Limiter l'opacité de watermark à 0,14–0,22 si le motif recouvre la lane; préférer un glyphe fixe de 24–36 px.",
+          "Conserver #flowBar et #flowText comme sources de valeur.",
+          "La couleur de Flow et les états low/ready restent en CSS.",
+          "Ne pas faire tourner ou pulser le bitmap; les micro-interactions runtime restent soumises à reduced-motion."
+        ],
+        "fallback": "gradient .meter.flow i actuel, sans motif"
+      },
+      "qa": {
+        "authenticity": [
+          "La voile reste clairement quadrangulaire ou trapézoïdale à 24 px.",
+          "La têtière n'est jamais réduite à une pointe de voile triangulaire.",
+          "Aucune marque, lettre ou géométrie de sponsor de la photo n'est reconnaissable.",
+          "Le motif ne ressemble pas à un voilier de plaisance générique."
+        ],
+        "technical": [
+          "PNG maître RGBA 512×512.",
+          "Alpha 0 aux quatre coins et dans tous les espaces négatifs.",
+          "Aucun pixel #ff00ff visible pour alpha supérieur à 16.",
+          "Lisible à 24, 32, 36, 48 et 72 px.",
+          "Poids WebP runtime inférieur ou égal à 78 Ko."
+        ],
+        "in_engine": [
+          "Le niveau Flow reste lisible à 0%, 15%, 50% et 100%.",
+          "Le motif ne se confond pas avec un bouton d'action.",
+          "Le contraste fonctionne sur mer claire et dans le Grain.",
+          "Aucun mouvement n'est requis pour comprendre sa fonction."
+        ]
+      }
+    }
+  ],
+  "qa_release_gate": {
+    "automated_checks": [
+      "JSON valide UTF-8 et exactement quatre ids d'assets uniques.",
+      "Tous les local reference paths existent avant génération.",
+      "Chaque asset possède un prompt_exact_en non vide, un source_chroma_path, un candidate_alpha_path, un runtime_path, un contrat d'intégration et une QA.",
+      "Les quatre prompts contiennent exactement le chroma #ff00ff, interdisent texte, logo, watermark et ombres de fond.",
+      "Les quatre candidats possèdent un canal alpha et quatre coins entièrement transparents.",
+      "Aucun runtime_path n'est promu sans fichier maître PNG conservé."
+    ],
+    "manual_contact_sheet": {
+      "required": true,
+      "backgrounds": [
+        "checkerboard alpha",
+        "flat #2fb9c4 lagoon turquoise",
+        "flat #eefaff foam ivory",
+        "flat #160f2f Grain"
+      ],
+      "scales": [
+        "100%",
+        "50%",
+        "actual CSS desktop",
+        "actual CSS landscape mobile"
+      ],
+      "rule": "La planche de QA est assemblée après génération; elle n'est jamais demandée à ImageGen."
+    },
+    "authenticity_review_order": [
+      "coque unique et très étroite",
+      "absence de quille, gouvernail, flotteur et second corps",
+      "bwa compris comme perches de rappel et non comme outrigger",
+      "voile haute quadrangulaire ou trapézoïdale",
+      "seulement ensuite matériaux, cuivre, turquoise et carnaval"
+    ],
+    "runtime_screenshots": [
+      "720p paysage tactile, course calme",
+      "900p paysage, course calme",
+      "desktop 1440p, course calme",
+      "mêmes trois formats dans le Grain",
+      "status stable, surf, drift, recover, danger et critical",
+      "balance à 0%, 50% et 100%",
+      "flow à 0%, 15%, 50% et 100%",
+      "hull à 10%, 50% et 100%"
+    ],
+    "rejection_conditions": [
+      "Un asset ressemble à un catamaran, trimaran, pirogue à balancier, yacht ou voilier générique.",
+      "La voile devient triangulaire.",
+      "Un logo, sponsor, lettre, chiffre, visage ou motif réel est copié.",
+      "Le bois ou le cordage épaissit le HUD au point d'évoquer une taverne.",
+      "Le carnaval devient madras, tiki, pirate ou folklore générique.",
+      "Une frange magenta reste visible.",
+      "Un détail s'effondre en bruit à la taille CSS réelle.",
+      "Le bitmap porte une information dynamique ou réduit la lisibilité accessible.",
+      "Le fallback CSS ne fonctionne plus sans le fichier."
+    ],
+    "approval_required_from": [
+      "direction artistique",
+      "référent authenticité yole",
+      "UI/accessibilité",
+      "performance mobile"
+    ],
+    "definition_of_done": "Les quatre masters détourés passent la QA alpha, l'authenticité et les tailles réelles; les quatre WebP restent sous le budget; l'intégration conserve toutes les données runtime, le fallback CSS, l'offline et la lisibilité sur mer claire comme dans le Grain."
+  }
+}

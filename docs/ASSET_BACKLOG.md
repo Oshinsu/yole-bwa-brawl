@@ -8,12 +8,60 @@
 > inventaire depuis `src/render/assets.js`, `index.html`, `style.css` et
 > `service-worker.js` avant de conclure qu’un asset est absent, actif ou caché.
 > `verify_static.py` ne constitue pas à lui seul une vérification inverse de tous
-> les nouveaux fichiers livrés.
+> les nouveaux fichiers livrés. **Pour toute image contenant une yole,
+> `YOLE_VISUAL_REFERENCE.md` prévaut sur ces anciens prompts : ils ne doivent
+> pas être relancés avant révision.**
 
-État à la Passe 18 (voir [CHANGELOG](../CHANGELOG.md) — le journal est numéroté par passes, pas daté). Le contrat d'export est dans `ASSET_CONTRACT.md`, la
-direction artistique dans `ART_DIRECTION.md`.
+## État courant — 30 juillet 2026
 
-## Ce qui est livré et branché
+- **0 asset technique manquant** : chaque fichier déclaré par le runtime et le
+  précache est présent, et les fallbacks procéduraux restent disponibles.
+- Les **6 anciens bitmaps V6 montrant des yoles** —
+  `menu_hero_backdrop`, les quatre cartes de mode et
+  `versus_lobby_backdrop` — restent physiquement sous
+  `assets/textures/v6/menu/` pour héritage, comparaison et audit. Ils sont
+  **débranchés de l'interface et du précache**, et exclus par
+  `tools/release.py` : aucun n'est téléchargé, affiché ou distribué par le
+  parcours courant.
+- **Aucun bitmap de yole généré n'est actif.** Le menu principal et l'atelier
+  montrent directement `YoleVisual`, c'est-à-dire le même modèle 3D runtime,
+  la même coque, les mêmes bwa, le même équipage et le même gréement que pendant
+  une course. Il n'existe donc plus de backlog de six remplacements requis pour
+  ces écrans.
+- Les deux badges sans yole de la V6 restent actifs dans la Mêlée locale et dans
+  le précache. Le manifeste V6 reste conservé pour tracer les huit sorties
+  historiques.
+- Toute éventuelle future image contenant une yole devra suivre
+  [`YOLE_VISUAL_REFERENCE.md`](YOLE_VISUAL_REFERENCE.md) et être validée sur la
+  coque, les bwa, l'équipage, le gréement et la gîte avant branchement.
+
+### Personnalisation runtime disponible
+
+L'atelier n'attend aucun rendu bitmap supplémentaire. Il applique en direct au
+modèle 3D :
+
+- **6** peintures de coque ;
+- **6** accents de bordage ;
+- **4** finitions de bois ;
+- **6** tenues d'équipage ;
+- **4** livrées de voile ;
+- **3** profils de gréement ;
+- une soute de **2 armes parmi 4**.
+
+La couleur cosmétique de coque reste séparée de la couleur d'identité utilisée
+par le HUD, les impacts et la marque de voile.
+
+Le nombre « 21 » ci-dessous appartient à l'inventaire historique de la Passe 18
+et ne décrit plus le paquet actuel.
+
+## Archive historique — Passe 18 (ne pas utiliser pour compter l'état courant)
+
+Voir [CHANGELOG](../CHANGELOG.md) — le journal est numéroté par passes, pas
+daté. Le contrat d'export est dans `ASSET_CONTRACT.md`, la direction artistique
+dans `ART_DIRECTION.md`. Les nombres et états ci-dessous décrivent cet ancien
+instantané ; le runtime actuel déclare bien davantage d'entrées.
+
+### Ce qui était livré et branché
 
 **Rien ne manque de ce que le code déclare** : 4 assets déclarés, 4 présents. Le
 jeu tourne complet, et chaque pièce absente retomberait de toute façon sur son
@@ -30,7 +78,7 @@ jeu tourne complet, et chaque pièce absente retomberait de toute façon sur son
 `models/reference/`, et les sources haute définition dans `assets/source/` — ni
 les uns ni les autres ne sont livrés au joueur.
 
-## Livré depuis (7 août)
+### Livré dans l'instantané historique (date « 7 août » non fiable)
 
 | Asset | Poids | État |
 |---|---:|---|
@@ -58,7 +106,7 @@ joystick) il faut le mode seuil, sinon le trou central reste opaque.
 - `menu_pause` : jamais apparu dans le listing des générations.
 - `bouee` : concept téléchargé, en attente de conversion 3D ou de sprite.
 
-## Ce qui manque pour atteindre les maquettes
+### Backlog historique pour atteindre les anciennes maquettes
 
 **21 fichiers**, soit **~35 générations** (l'atlas d'icônes se produit glyphe par
 glyphe : un modèle d'image ne sort pas 17 pictogrammes cohérents d'un coup).
@@ -110,7 +158,7 @@ glyphe** puis s'assemble.
 ⚠️ Prérequis : `build_single_file.py` ne sait pas embarquer de binaire — le
 monofichier perdrait toute l'UI. À étendre avant de lancer ce chantier.
 
-## Budget
+### Budget historique
 
 | Poste | Générations | Crédits |
 |---|---:|---:|
@@ -145,6 +193,8 @@ chargement différé.
 3. **JPEG dès qu'il n'y a pas d'alpha.**
 4. **Aucune image sous licence virale** dans un générateur (voir la note CC BY-SA
    dans le CHANGELOG du 28 juillet).
-5. **Tout fichier livré doit figurer dans `service-worker.js`**, sinon
-   `verify_static.py` fait échouer le build — et à l'inverse un fichier listé
-   mais absent le fait échouer aussi.
+5. **Tout fichier actif nécessaire hors ligne doit figurer dans
+   `service-worker.js`**, sinon `verify_static.py` fait échouer le build — et à
+   l'inverse un fichier listé mais absent le fait échouer aussi. Les archives
+   d'audit explicitement débranchées, comme les six bitmaps V6 de yoles, ne
+   doivent justement pas être ajoutées au précache.

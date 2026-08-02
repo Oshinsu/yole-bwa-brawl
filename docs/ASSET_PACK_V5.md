@@ -6,7 +6,7 @@ armes, au HUD et aux effets visuels. Le manifeste consolidé
 pour les identifiants, les chemins de travail, les fichiers finaux et leur mode
 d’intégration runtime.
 
-L’atlas `assets/textures/v5/vfx/spell_vfx_atlas.png` est un fichier runtime
+L’atlas `assets/textures/v5/vfx/spell_vfx_atlas.webp` est un fichier runtime
 additionnel construit à partir des 18 VFX. Il n’est donc pas compté comme un
 63e asset.
 
@@ -14,10 +14,10 @@ additionnel construit à partir des 18 VFX. Il n’est donc pas compté comme un
 
 | Catégorie | Nombre | Fichiers finaux | Intégration |
 | --- | ---: | --- | --- |
-| Icônes de commandes | 18 | `assets/textures/v5/icons/*.png` | Images de fond CSS |
-| Icônes d’armes | 8 | `assets/textures/v5/icons/icon_weapon_*.png` | Images de fond CSS |
+| Icônes de commandes | 18 | `assets/textures/v5/icons/*.webp` | Images de fond CSS |
+| Icônes d’armes | 8 | `assets/textures/v5/icons/icon_weapon_*.webp` | Images de fond CSS |
 | HUD et menus | 18 | `assets/textures/v5/hud/*` | Images de fond CSS |
-| VFX | 18 | `assets/textures/v5/vfx/*.png` | Atlas additif Three.js |
+| VFX | 18 | `assets/textures/v5/vfx/*.webp` | Atlas additif Three.js |
 | **Total compté** | **62** |  |  |
 
 ### Icônes de commandes
@@ -105,8 +105,8 @@ La DA associe le sport nautique martiniquais à une énergie de
 - libellés, états, scores, couleurs d’équipe, cooldowns et informations de
   mini-carte restent produits par le runtime.
 
-Les icônes et les éléments HUD sont livrés en PNG avec transparence, à
-l’exception du fond de fin de course `menu_end_backdrop.jpg`. Les VFX gardent
+Les icônes et les éléments HUD sont livrés en WebP avec transparence, à
+l’exception du fond de fin de course `menu_end_backdrop.webp`. Les VFX gardent
 un fond noir pur : le shader les compose en mode additif.
 
 ## Sources, finals et manifests de prompts
@@ -148,8 +148,9 @@ Lors du remplacement d’un asset :
 
 ### VFX
 
-Les 18 PNG finaux sont les cellules sources de
-`assets/textures/v5/vfx/spell_vfx_atlas.png`. L’atlas est une grille **5 × 4**,
+Les 18 WebP finaux sont les cellules sources de production de
+`assets/textures/v5/vfx/spell_vfx_atlas.webp`. Le runtime ne charge que cet
+atlas, une grille **5 × 4**,
 dont les slots 0 à 17 sont utilisés. `src/render/assets.js` charge cet atlas et
 `src/render/vfx.js` le rend par billboards additifs.
 
@@ -163,10 +164,11 @@ Toute reconstruction de l’atlas doit :
 
 ### Hors ligne
 
-Les 62 fichiers finaux et l’atlas VFX additionnel figurent dans la liste du
-service worker. Une modification de nom ou de chemin implique donc une mise à
-jour coordonnée du manifeste consolidé, du consommateur runtime et du cache
-hors ligne.
+Le service worker ne précache que les finals réellement consommés par
+l'interface et l'atlas VFX ; les 18 cellules individuelles restent des artefacts
+de production. Une modification de nom ou de chemin implique une mise à jour
+coordonnée du manifeste consolidé, du consommateur runtime et du cache hors
+ligne.
 
 ## Contrôle avant livraison
 

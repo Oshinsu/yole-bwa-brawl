@@ -394,7 +394,6 @@
       "covers": [
         "#stormWarning",
         "#message",
-        "#revengeBtn",
         ".kill"
       ],
       "output": {
@@ -452,7 +451,6 @@
         "targets": [
           "#stormWarning",
           "#message",
-          "#revengeBtn",
           ".kill"
         ],
         "runtime_wiring": "candidate_not_wired"
@@ -3871,9 +3869,6 @@
         "ui_action_button_idle_v4",
         "ui_action_button_pressed_v4",
         "ui_action_glyph_family_v4"
-      ],
-      "revengeBtn": [
-        "ui_alert_9slice_v4"
       ],
       "customCloseBtn": [
         "ui_button_primary_idle_v4",

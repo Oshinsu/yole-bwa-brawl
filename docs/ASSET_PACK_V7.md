@@ -17,11 +17,11 @@ L’atlas n’est donc pas une cinquième signature artistique : c’est un fich
 
 | Signature | Rôle | Final | Dimensions | Format |
 | --- | --- | --- | ---: | --- |
-| `harpoon_anchor_tear` | Morsure du harpon, tension et rappel élastique | `assets/textures/v7/juice/harpoon_anchor_tear.png` | 512×512 | PNG RGB |
-| `coconut_shockwave` | Impact coco, gerbe et large anneau de pression | `assets/textures/v7/juice/coconut_shockwave.png` | 512×512 | PNG RGB |
-| `mine_detonation` | Détonation de mine, concussion et débris | `assets/textures/v7/juice/mine_detonation.png` | 512×512 | PNG RGB |
-| `perfect_counterheel` | Validation spectaculaire d’une contre-gîte parfaite | `assets/textures/v7/juice/perfect_counterheel.png` | 512×512 | PNG RGB |
-| `juice_vfx_atlas` | Agrégation 2×2 des quatre signatures | `assets/textures/v7/juice/juice_vfx_atlas.png` | 1024×1024 | PNG RGB |
+| `harpoon_anchor_tear` | Morsure du harpon, tension et rappel élastique | `assets/textures/v7/juice/harpoon_anchor_tear.webp` | 512×512 | WebP RGB |
+| `coconut_shockwave` | Impact coco, gerbe et large anneau de pression | `assets/textures/v7/juice/coconut_shockwave.webp` | 512×512 | WebP RGB |
+| `mine_detonation` | Détonation de mine, concussion et débris | `assets/textures/v7/juice/mine_detonation.webp` | 512×512 | WebP RGB |
+| `perfect_counterheel` | Validation spectaculaire d’une contre-gîte parfaite | `assets/textures/v7/juice/perfect_counterheel.webp` | 512×512 | WebP RGB |
+| `juice_vfx_atlas` | Agrégation 2×2 des quatre signatures | `assets/textures/v7/juice/juice_vfx_atlas.webp` | 1024×1024 | WebP RGB |
 
 Les quatre sources ImageGen sont conservées en PNG RGB 1254×1254 sous `art-source/generated-v7/juice/`.
 
@@ -49,7 +49,7 @@ Le fichier est préparé pour regrouper les quatre signatures derrière **une te
 
 - **Présence :** 4/4 sources, 4/4 finals et 1/1 atlas.
 - **Dimensions :** sources 1254×1254 ; finals 512×512 ; atlas 1024×1024.
-- **Formats :** tous les fichiers sont des PNG RGB opaques.
+- **Formats :** les sources restent en PNG RGB ; tous les finals sont des WebP RGB opaques.
 - **Fond additif :** les quatre coins de chaque final et de l’atlas sont noirs ; le canal maximal observé est 2/255 après réduction et 3/255 dans les sources haute définition.
 - **Contenu :** harpon/câble, coco/onde circulaire, mine/débris et contre-gîte symétrique sont présents dans les cellules attendues.
 - **Atlas :** quadrants et coordonnées UV vérifiés. Le quadrant harpon est pixel-identique à son final ; les trois autres restent visuellement sans perte avec un delta maximal de 2/255 par canal et un delta moyen inférieur ou égal à 0,015/255.

@@ -13,6 +13,543 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 70 — l'équipage respire, sans un seul asset
+
+La couche d'actions de la passe 68 était livrée mais **dormante** : sans clip,
+six corps restaient rigoureusement immobiles entre deux gestes de simulation, et
+un corps parfaitement figé se lit comme un mannequin même à treize pixels.
+
+- `makeDefaultIdleClip()` fabrique la respiration **en code**. Aucun asset, aucun
+  droit, rien à produire. Elle s'efface d'elle-même dès qu'un GLB apporte une
+  action du même nom.
+- Respiration **déphasée par équipier** via `this.phase` (= `crewIndex × CREW_LAG`),
+  pas par tirage aléatoire : deux relectures d'un même replay montrent
+  exactement la même chose. Six respirations synchrones se liraient comme un bug
+  d'animation — même raisonnement que la gorgée de rhum échelonnée.
+- Le poids s'efface sous impact, trébuchement et traversée : quand le corps
+  encaisse, la simulation a mieux à dire qu'un souffle de repos.
+- **Bug réel attrapé à la mesure — deux sémantiques de clip coexistent.** Un clip
+  glTF porte la rotation **absolue** du nœud (spec) et remplace le repos ; un
+  clip fabriqué en code porte un **offset** à composer avec lui. Les confondre
+  faisait slerper le repos vers l'identité : l'os `LeftArm` ayant un repos à 81°
+  de l'identité, un offset de 0,9° mélangé à 0,16 déplaçait l'os de **~13° au
+  lieu de 0,15°**. Un drapeau `relative` explicite règle la question, et le test
+  le verrouille dans les deux sens.
+- Mesuré dans le jeu après correction : **0,016° à 0,272°** d'amplitude, en
+  oscillation propre sur `Spine`. C'est l'échelle du vivant, comme voulu.
+- ⚠️ **Trois mesures fausses avant la bonne**, toutes du même genre : comparer
+  deux passes aux états lissés divergents, puis comparer une pose post-IK à une
+  pose pré-IK. Les 18° attribués au souffle étaient en fait l'IK. Isoler exige
+  de rejouer `syncRig()` **seul**, à la même frame, des deux côtés.
+
+## Passe 76 — un arbitrage assumé, et l'invariant qu'il faudrait réexaminer
+
+Passe courte : une tentative, une capture, une annulation, et surtout une
+question rendue explicite plutôt que laissée implicite dans le code.
+
+- Les images vidéo montrent les équipiers assis **juste au-delà du plat-bord**,
+  pas à trois mètres et demi au large. `CREW_RAIL` a donc été ramené à ses
+  anciennes valeurs — puis **remis** sur capture : le retour fait réapparaître
+  **1,13 m de perche nue** au-delà du dernier homme, c'est-à-dire exactement le
+  défaut de « râteau » signalé par le propriétaire du projet.
+- **Les deux ne peuvent pas être satisfaits simultanément**, et la raison est un
+  invariant : `crew-seating` verrouille `porteeAuVentMin > 4.40`, hérité de
+  `YOLE_VISUAL_REFERENCE.md`. Tant que les bwa doivent porter à 4,4 m, quelqu'un
+  doit occuper ce bout de bois — sinon il reste nu.
+- Choix retenu : **l'équipage au bout**, parce que c'est ce qui se lit le mieux
+  à la distance de jeu. Mais le vrai arbitrage est ailleurs — **c'est la portée
+  minimale de 4,40 m qu'il faudrait réexaminer au vu des images**, et cette
+  décision appartient au propriétaire du projet. C'est écrit dans le code, à
+  côté de la constante, plutôt que perdu ici.
+- Leçon de la journée, une de plus : corriger un symptôme visible **déplace** le
+  défaut, il ne le supprime pas. La poussée de `CREW_RAIL` de la passe 74 était
+  un contournement du mauvais espacement des bwa ; une fois le gréement botté
+  (passe 75), elle est devenue un choix, pas une correction.
+
+## Passe 75 — les bwa bottelés, et les pieds enfin sur le bois
+
+Passe déclenchée par des **images vidéo de course** fournies par le propriétaire
+du projet. Elles ont montré en quelques secondes ce que quatre photos fixes et
+six heures de mesures n'avaient pas donné.
+
+- **LES BWA ÉTAIENT TROIS FOIS TROP ÉTALÉS, et c'était le défaut principal.**
+  Espacement réel sur les images : **40 à 60 cm**, les perches forment presque
+  une plateforme continue. Le jeu les espaçait d'environ **1 m** sur 5,9 m de
+  coque. Ramené à ~0,60 m, envergure 5,9 → 3,6 m.
+
+  La conséquence est la clé de tout le problème d'équipage : **sur la vidéo les
+  hommes se touchent parce que LEURS PERCHES se touchent**. La densité de la
+  grappe n'est pas un réglage de position, c'est une conséquence de la densité
+  du gréement. Trois passes avaient cherché à resserrer les hommes ; il fallait
+  resserrer le bois.
+- **Les pieds prennent appui sur le bois, ils ne pendent plus.** L'ancienne
+  cible visait `beamY - 0.08` — donc SOUS la perche — à `z = -0,26` dans le
+  repère tourné de l'homme : même défaut de repère que les mains, corrigé à la
+  passe 73. Les jambes tombaient dans le vide à 77-83° de l'horizontale.
+  Elles se replient désormais **vers la coque**, pieds calés sur la perche en
+  deçà du bassin, comme sur les images.
+- `APPUI_PIEDS = 0,34` et non 0,42 : c'est la plus grande valeur que la portée
+  de l'IK atteint réellement. Balayée contre `crew-animation-v2`, qui plafonne
+  `contactError` à 0,72 — à 0,42 la cible sortait à 0,753, donc les pieds
+  restaient en l'air, **plus loin qu'avant la correction**.
+- ⚠️ Le « L » que la passe 71 avait mesuré existait bien, mais il pointe vers
+  **l'intérieur du bateau**, pas vers le bas. Chercher à tendre ces jambes
+  (passe 69, annulée) allait donc à l'opposé de la réalité.
+
+## Passe 74 — la yole lisait comme un râteau à la distance où on la regarde
+
+Passe déclenchée par une capture de **jeu réel** envoyée par le propriétaire du
+projet. Elle a montré ce qu'aucun des cinq cadrages du harnais ne pouvait
+montrer : à la distance du joueur, le détail de pose est invisible et seule
+compte la **silhouette d'ensemble**.
+
+- **Les bwa dépassaient de 2,52 m en moyenne au-delà du dernier homme**, jusqu'à
+  3,47 m. L'équipage ne sortant qu'à 3,9 m, plus de la moitié de chaque perche
+  ne portait personne. Longueurs ramenées de 5,3-6,7 m à 5,3-6,0 m — le plancher
+  `porteeAuVentMin > 4.40` interdit d'aller plus loin, et on est à 4,50.
+- **`margeMinAuBoutDuBois` valait 1,13 m** : plus d'un mètre de bois que
+  personne n'occupait jamais. `CREW_RAIL` poussé de 0,80 m — les hommes
+  atteignent maintenant le bout de leur perche, comme sur les photos. Marge
+  résiduelle 0,33 m, seuil 0,20.
+- **`06_vue_de_jeu` ajouté au harnais.** Les cinq cadrages existants étaient tous
+  des gros plans d'atelier ; ils servent à juger une pose et mentent sur
+  l'ensemble. Un défaut majeur n'était visible que d'ici.
+- ⚠️ **Troisième table de vérité recopiée trouvée dans un test.**
+  `crew-seating.test.mjs` portait `BEAM_Z` et `BEAM_LEN` en dur. Le jour où les
+  perches ont raccourci, la copie est restée figée : le test a calculé des
+  pointes qui n'existaient plus et rapporté 1,11 m de débord sous le vent pour
+  une valeur réelle de 0,76. Les deux tables se lisent désormais **à la source**,
+  comme `HULL_STATIONS` depuis la passe 66.
+- ⚠️ **Gain honnête : incrémental, pas transformant.** À la distance de jeu, la
+  yole reste un peigne de perches parallèles avec des points régulièrement
+  espacés dessus. Les photos montrent une masse humaine compacte qui domine la
+  silhouette. Combler cet écart demande plus d'équipiers, ou un groupement plus
+  serré — donc une décision de conception, pas un réglage.
+
+## Passe 73 — la cible de prise était décrite dans le mauvais repère
+
+Deuxième défaut géométrique de la journée, trouvé par la même méthode : mesurer
+où la cible tombe réellement, au lieu de croire ce que le code annonce.
+
+- **`solveLimbContact` interprète ses coordonnées dans le repère LOCAL de
+  l'équipier**, or ce repère est tourné par le lacet — jusqu'à 78° à pleine
+  sortie. L'ancien décalage de `-0,17` en Z, censé placer la main « en arrière
+  du bassin », ressortait donc à **13,8 cm hors de l'axe du bois**.
+- Mesuré avant correction : la cible tombait à **2,1 cm au-dessus du bwa**, donc
+  juste en hauteur — mais la main finissait à **24 cm de côté**, le long de la
+  coque. Les hommes n'ont jamais rien tenu, et l'IK visait consciencieusement
+  un point à côté de la perche.
+- La prise se décrit désormais dans le repère de la **yole** — écartement le
+  long du bois, décalage transversal nul — puis se convertit dans le repère
+  tourné de l'homme en défaisant le lacet.
+- **Distance main ↔ axe du bwa : 0,25 m → 0,113 m en moyenne.** Deux équipiers
+  sur six touchent maintenant réellement le bois (0,061 et 0,065 m, pour un
+  rayon de perche de 0,058). C'est mieux, ce n'est pas fini.
+- ⚠️ **Correction d'un diagnostic faux de la passe 71.** J'avais conclu « corps
+  penché à 35° au lieu de 80° ». C'était un artefact de mesure : je prenais
+  l'axe `Hips → Head`, or `head.rotation.x` contre-tourne de **0,62 × recline**
+  (ligne 1235). Mesuré sur le vrai buste (`Hips → Spine02`) : **17,5° à 25,8°**
+  de l'horizontale, soit exactement la plage des photos. Le buste allait bien
+  depuis le début.
+- **Le vrai défaut de posture est aux JAMBES** : mesurées à 77,5° à 82,9° de
+  l'horizontale, c'est-à-dire pendantes à la verticale. L'homme forme un « L » —
+  buste à plat, jambes droit en bas. C'est ce que la passe 69 corrigeait, et sa
+  capture était pourtant pire : une planche FLOTTANTE lit comme un noyé, un
+  « L » flottant lit comme un accroupi. **La planche ne devient juste qu'une
+  fois le contact établi** — d'où l'ordre : les mains d'abord.
+
+## Passe 72 — l'équipage rigué s'asseyait 12 cm au-dessus du bois
+
+Un vrai défaut, trouvé en mesurant ce que la vue de dessus avait rendu suspect.
+Et un verrou qui mesurait la mauvaise chose depuis le début.
+
+- **Le bassin des équipiers rigués flottait de 7 à 17 cm AU-DESSUS du bwa**,
+  12,1 cm en moyenne. D'où des hommes en appui dans le vide, et des mains à
+  **18-25 cm** de la perche qu'elles sont censées tenir.
+- **Cause : une constante valable pour un seul des deux corps.** `seat` valait
+  `CREW_BEAM_Y - 0.38`, où 0,38 est la hauteur de bassin du corps
+  **procédural**. Le rig GLB est normalisé en hauteur par `measureRigHeight` :
+  son bassin tombe ~12 cm plus bas. `measureHipHeight()` relève désormais la
+  vraie valeur à la liaison du rig, et l'assise suit le corps réellement utilisé.
+- **Pourquoi aucun test ne pouvait l'attraper.** En Node il n'y a pas de
+  `GLTFLoader` : la suite n'exerce QUE le corps procédural, pour lequel 0,38 est
+  exact. Le verrou `pireAssise` était donc vert en permanence tout en ne voyant
+  jamais le corps concerné.
+- `crew-seating.test.mjs` mesure maintenant **l'os réel** quand il existe, et
+  retombe sur l'approximation pour le corps procédural.
+- ⚠️ **Ce que ça ne corrige pas.** Les trois défauts visibles sur les captures
+  restent : un homme par bwa régulièrement espacé là où les photos montrent une
+  grappe compacte, aucune main sur le bois, et des corps penchés à 35° au lieu
+  de couchés à 80°. Le gain visuel de cette passe est réel mais modeste.
+- Deux angles ajoutés au harnais, dont le décisif : **`04_dessus`**. Les trois
+  cadrages existants étaient tous de profil et masquaient la densité, le contact
+  et la monotonie de l'équipage — des propriétés de l'ENSEMBLE, qu'aucune mesure
+  d'angle articulaire ne peut détecter.
+- ⚠️ **Correction d'une affirmation fausse de la passe précédente.** J'avais
+  annoncé, vue de dessus à l'appui, que les perches TRAVERSAIENT les corps.
+  Mesure faite : elles passent 9 à 52 cm à côté. Vue de dessus, un bois situé
+  40 cm plus bas *paraît* traverser — c'est un artefact de projection. Le défaut
+  réel n'était pas l'interpénétration mais l'absence totale de contact.
+
+## Passe 71 — ce que les captures ont montré : le corps est EN TRAVERS du bwa
+
+Première passe où le rendu a été réellement **regardé** au lieu d'être seulement
+mesuré. Elle annule la passe 69 et remplace sa conclusion par la vraie.
+
+- **La correction de jambes de la passe 69 est ANNULÉE.** Elle était juste pour
+  une vraie yole et fausse pour ce rendu : captures à l'appui, les hommes sont
+  passés de « accroupis » à « pendus raides ». Redresser les jambes d'un homme
+  qui pend perpendiculairement ne fait que mieux montrer qu'il pend.
+- **Le vrai défaut, mesuré :** le torse est à **68-87° de l'axe du bwa** — donc
+  presque perpendiculaire, alors que les photos le montrent couché LE LONG — et
+  à seulement **34-38° de la verticale** quand les photos donnent 75-85°. Les
+  jambes sont à **88-90°** du bois.
+- **Et le renversement n'est pas le levier.** Balayé de 0,94 à 3,0 de `posture`,
+  soit un triplement : `torseVertical` ne bouge que de 38° à 49°, et `torseBwa`
+  reste collé à **87-90°**. Le défaut est dans l'AXE du renversement, pas son
+  amplitude. Le commentaire affirme que « +Z local pointe vers le large » ; la
+  mesure dit le contraire.
+- `tools/capture_crew_pose.py` enfin réparé pour de bon. Deux blocages cumulés :
+  l'**Initiation express** s'interpose depuis qu'elle existe et le harnais
+  photographiait le tutoriel plein écran ; et attendre `tick > 60` était inutile
+  autant qu'impossible sous swiftshader, puisque le harnais coupe de toute façon
+  `setAnimationLoop` et pilote `visual.update()` lui-même.
+- Leçon de méthode : quatre mesures numériques concordantes ont validé une
+  correction que la première capture d'écran a démolie en une seconde. Mesurer
+  n'est pas voir.
+
+## Passe 69 (ANNULÉE par la passe 71) — assis à califourchon, puis allongé
+
+Première correction du projet menée **contre des photographies de course**, et
+elle a d'abord servi à corriger une affirmation fausse de ma part.
+
+- **Le renversement n'était pas le problème.** Mesuré en direct dans le jeu, il
+  atteint **74,5°** à pleine sortie, pas les « ~50° » qu'annonce le commentaire
+  de `CREW_HIKE_RECLINE`. Les photos donnent ~80° au taquet : l'écart était donc
+  bien plus petit qu'annoncé, et rien n'a été touché de ce côté.
+- **Le vrai défaut était aux jambes, et le modèle était inversé.** Le code
+  faisait CROÎTRE l'écart des cuisses et leur repli avec la sortie. Les photos
+  montrent deux postures distinctes : à mi-sortie on est **assis à califourchon**,
+  genoux pliés ; au taquet on est **allongé, jambes droites et jointes**, dans le
+  prolongement du corps. Le califourchon est une posture de transit, pas l'état
+  de rappel.
+- L'annulation de l'héritage du bassin (`-recline` sur les cuisses) se lève
+  maintenant avec l'extension. Sans ça, un homme renversé gardait des cuisses
+  verticales : un « L » que rien dans les photos ne montre.
+- Mesuré sur l'équipage complet, au repos puis en contre-gîte :
+
+  | poste | 1,15 m | 1,85 | 2,50 | 1,50 | 2,20 | 2,85 |
+  |---|---|---|---|---|---|---|
+  | écart au repos | 8,6° | 10,9° | 3,8° | 9,5° | 9,9° | **1,9°** |
+  | écart en contre-gîte | 6,5° | **0°** | **0°** | 2,4° | **0°** | **0°** |
+
+- **Gain non planifié :** `CREW_RAIL` échelonne déjà les six postes de 1,15 à
+  2,85 m pour dessiner la diagonale. Chaque homme ayant son propre `hike`,
+  l'équipage affiche désormais un **dégradé** de postures — assis près de la
+  coque, allongé au bout — sans une constante de plus. C'est exactement ce que
+  montrent les photos.
+- `test/crew-hike-posture.test.mjs` verrouille le califourchon près de la coque,
+  la planche au taquet, la forme **unimodale** de la courbe et le dégradé
+  d'équipage. Une première version exigeait une décroissance monotone : c'était
+  faux, on s'écarte en sortant avant de s'allonger.
+- `tools/capture_crew_pose.py` réparé : il attendait `tick > 60` sans savoir que
+  le départ 3-2-1-GO gèle le tick, et expirait sans rien dire d'utile. Il attend
+  désormais le décompte d'abord. Il reste trop lent sous swiftshader logiciel
+  pour cette passe — la validation a été faite par **mesure d'angles en direct**
+  dans le navigateur, pas par capture d'image.
+
+## Passe 68 — la place est faite pour les cinq actions d'équipage
+
+Réponse au point « priorité moyenne n°5 » de l'audit d'authenticité. Le code est
+livré et testé ; **les clips n'existent pas encore**, et leur production est
+conditionnée au volet droits — pas à la technique.
+
+- `src/render/crew-clips.js` indexe et échantillonne des actions courtes, puis
+  tire **faiblement** la pose de repos vers elles :
+  `repos → clip → procédural → IK`. La règle « le jeu pilote le squelette, il ne
+  joue pas d'animation » n'est pas levée : le clip n'apporte pas la pose, il
+  apporte la **texture humaine**. Gîte, rappel et position sur le bwa restent
+  entièrement calculés.
+- **Plafond de mélange à 0,35, dans `setClipBlend()` et non chez l'appelant** :
+  aucun site d'appel ne peut le contourner. Au-delà, l'équipage suivrait le clip
+  plutôt que la mer.
+- À poids nul, `syncRig()` calcule exactement ce qu'il calculait avant — vérifié
+  **composante par composante**, pas via `angleTo`. Une première version du test
+  échouait sur 2,98e-8 de bruit : `angleTo` fait un `acos` au voisinage de 1, où
+  4e-16 d'erreur sur le produit scalaire ressort en 3e-8 d'angle.
+- Un clip d'une seule frame est **refusé** : c'est une pose, pas une animation.
+  Le GLB d'équipage en porte justement un (`Armature|clip0|baselayer`), déjà
+  signalé par l'audit Blender. Un clip sans piste de rotation l'est aussi —
+  position et échelle déplaceraient le corps hors du bwa.
+- Un os que le clip n'anime pas garde son repos : une action partielle reste
+  utilisable au lieu de figer le reste du corps.
+- Le slerp est écrit à la main, et ce n'est pas gratuit : `THREE.Quaternion.slerp`
+  lit les champs **privés** de sa cible (`qb._w`…), donc un littéral
+  `{x, y, z, w}` rend un NaN silencieux — la première version s'y est fait
+  prendre. Construire un vrai Quaternion par appel allouerait 18 os × 32 corps
+  par frame. Le module ne dépend plus de Three du tout.
+- Le garde-fou du projet a fait son travail : `verify_static.py` a refusé le
+  build tant que le nouveau module n'était ni dans le précache ni dans le
+  monofichier. Les deux sont à jour, 198 fichiers précachés.
+- Pipeline de production, contrat des clips et **tableau des trois droits à
+  obtenir** (auteur de la vidéo, image de chaque yoleur, marques et sponsors) :
+  [`docs/CREW_CLIP_LIBRARY.md`](docs/CREW_CLIP_LIBRARY.md).
+- **Une voie sans aucune vidéo est ouverte, et c'est la recommandation.**
+  `breatheKeyframes()` + `CrewClipLibrary.fromKeyframes()` fabriquent une action
+  vivante à partir d'**une seule pose** — celle qu'on pose à la main dans
+  Blender contre une photo de référence, en vingt minutes, sans captation ni
+  droit à l'image.
+
+  Le raisonnement : les cinq actions sont des ÉTATS, la simulation pilote déjà
+  les transitions, et le plafond de 0,35 fait que le clip apporte la vie et non
+  la pose. Ce qu'il faut par état est donc une pose juste plus un souffle — et
+  une photo donne exactement la pose juste. L'audit disait que le trou restant
+  était « pas chaque angle de bassin » : une photo, c'est l'angle de bassin.
+
+  Les amplitudes sont minuscules à dessein — 0,03 rad × 0,35 arrive à l'écran
+  comme un demi-degré. La boucle se referme exactement (repos → inspiration →
+  repos), faute de quoi un saut apparaîtrait à chaque cycle, ce qui est pire que
+  l'immobilité. Un os absent d'une seule clé est écarté plutôt que de produire
+  une piste trouée.
+- Pour mémoire, **Kimodo** (NVIDIA, mars 2026) fait texte → mouvement en open
+  source sur 700 h de mocap commercialement exploitable — donc sans problème de
+  droits. Écarté comme source principale : « un homme en rappel sur une perche
+  au-dessus de l'eau » n'est pas dans 700 heures de mocap standard.
+
+## Passe 67 — on a enfin REGARDÉ le rig au lieu de le mesurer
+
+Première passe menée avec Blender piloté en direct depuis l'assistant. Le rig a
+été importé dans une session ouverte, inspecté, puis entièrement retiré — la
+scène a été rendue dans l'état exact où elle avait été trouvée.
+
+- **Le pole target dérivé du repos est visuellement confirmé.** Le personnage
+  est une station debout humaine normale de 1,67 m ; l'épaule est à `y ≈ 0`, le
+  coude ressort à `+0,066` et la main revient à `−0,044`. Le coude pointe donc
+  bien vers l'arrière, main vers l'avant. Écart re-mesuré en direct : **8,83 cm**
+  hors de la corde épaule→main, direction `(0,014 · 0,996 · −0,088)`. Les
+  assertions numériques de la passe 65 décrivaient bien la réalité.
+- **L'`Icosphere` n'est pas ce que l'audit croyait.** Elle était décrite comme
+  « non skinnée, visible et indépendante de l'armature ». C'est en fait le
+  **widget d'affichage des os**, référencé en `custom_shape` par les **24** os
+  du rig — d'où une boîte englobante d'armature de 15,7 m pour un personnage de
+  1,67 m. Le masquage par nom au chargement reste correct, mais le vrai
+  correctif est de vider les `custom_shape` avant export : le nœud disparaîtrait
+  alors du GLB au lieu d'être chargé puis caché.
+- Cette boîte de 15 m a d'ailleurs saboté trois cadrages successifs pendant
+  l'inspection, dont un `view_selected` parti à 27 m de distance. C'est
+  précisément le genre de piège qu'aucune mesure headless ne révèle.
+
+## Passe 66 — la yole flotte enfin là où on la voit, et la voile a du creux
+
+⚠️ **`SIMULATION_VERSION` passe à `4.0.0`. Les replays antérieurs sont refusés à
+la lecture.** Majeure et non mineure : un replay qui se lance et dérive en
+silence est pire qu'un replay qui s'annonce incompatible. La replayothèque et la
+progression du Tour enregistrées avant cette passe ne sont plus relisibles.
+
+- Les seize points de flottabilité débordaient jusqu'à **18 cm** de la coque
+  visible : `HULL_STATIONS` avait gardé ses largeurs d'origine alors que le
+  rendu affine la coque de 0,84 depuis le 30 juillet. Chaque station vaut
+  désormais la demi-largeur réelle du mesh livré, multipliée par 0,84. Débord
+  résiduel : **0 cm**.
+- **L'effet sur le ressenti est l'inverse de celui attendu.** Rétrécir le bras
+  de levier du couple de flottabilité devait assouplir la yole ; mesurée
+  (`tools/probe_roll_stability.mjs`), elle est très légèrement plus raide :
+  gîte médiane depuis 40° 10,5° → 9,9°, retour sous 20° 1,10 s → 1,07 s. Le
+  redressement est dominé par le ressort `impactRecovery`, indépendant de la
+  géométrie. Le commentaire de code annonçait d'abord l'inverse — il avait été
+  écrit avant la mesure, il a été corrigé.
+- `keel` et `volume` **n'ont pas bougé**. La quille du mesh est pourtant 12 à
+  33 cm plus creuse que celle déclarée : la yole flotte plus haut qu'elle n'en a
+  l'air. C'est une seconde décision, distincte, et elle n'est pas prise.
+- `HULL_STATIONS` est exportée et `test/hull-contract.test.mjs` la lit **à la
+  source**. Le test en gardait une copie — le défaut exact qu'il dénonce — et
+  cette copie a menti dès la première correction, annonçant encore 18 cm de
+  débord alors que la physique était déjà recalée.
+- **La voile n'est plus un rectangle plat.** Creux de repos (0,12 m, sommet à
+  38 % de corde), rond de guindant (0,15 m) et roach net (0,21 m) sont cuits
+  dans la géométrie. Les rangs sont répartis de façon non uniforme, resserrés
+  vers la bordure où la corde fait 3,65 m contre 1,31 m à la têtière — un
+  facteur 2,78 de densité de texels que la grille uniforme ignorait.
+- **Zéro sommet de plus** : 117 avant, 117 après. `updateSail` réécrit ce
+  maillage à chaque frame pour quatre yoles ; la densité vient d'une
+  répartition, pas d'un ajout. `updateSail` lit désormais les coordonnées
+  paramétriques réelles (`paramU`/`paramV`), sans quoi le ventre de vent se
+  poserait trop haut sur une grille non uniforme.
+- `test/sail-shape.test.mjs` verrouille topologie, cordes, creux, rond de
+  guindant, roach et budget de sommets. Sa métrique de roach englobe le rond de
+  guindant — c'est documenté dans le test, et le roach net y est isolé.
+
+## Passe 65 — le coude plie du bon côté
+
+- **Dernier point rouge de l'audit d'équipage fermé, et sans toucher au rig.**
+  L'audit demandait quatre pole targets dans le prochain GLB. Mesure faite dans
+  Blender 5.2 (`tools/inspect_crew_bend.py`) : inutile. La pose de repos fléchit
+  de 35° au coude et 15° au genou, écartant le milieu de 8,8 cm et 4,5 cm de la
+  corde racine→extrémité — le plan de flexion était déjà encodé.
+- Le pole se dérive donc du repos et se réapplique après le CCD par une rotation
+  **autour de l'axe racine→extrémité**. L'effecteur étant sur cet axe, il ne
+  bouge pas : le contact que le solveur vient d'obtenir est conservé intact.
+  Vérifié à moins de 2 mm de dérive sur douze frames.
+- Trois avantages sur la solution demandée : aucun asset à réexporter, aucun os
+  supplémentaire à charger pour 32 corps, et n'importe quel Mixamo standard
+  fonctionne sans préparation.
+- Un membre **tendu** au repos ne définit aucun plan : sa chaîne reste sans pole
+  et seul le limiteur d'oscillation agit. Inventer une direction à partir de
+  bruit serait pire que ne rien faire — c'est testé explicitement.
+- `test/crew-pole-target.test.mjs` couvre la capture, le refus sur membre tendu,
+  le retour d'un coude retourné de 2,2 rad, l'immobilité de l'effecteur et le
+  budget anatomique. Contrôle négatif effectué : le test échoue bien lorsque la
+  capture est désactivée.
+- Une première version de ce test était fausse — elle injectait elle-même une
+  rotation hors budget puis reprochait à la correction de ne pas la réparer. La
+  fonction sortait par sa garde « pole parallèle à la corde », qui est le bon
+  comportement. Le test mesure désormais la propriété réelle, et le commentaire
+  explique pourquoi le reclampage interne est défensif : `maxStep` étant
+  inférieur à `maxSwing` sur les quatre chaînes, une passe ne peut pas saturer.
+
+## Passe 64 — Blender pilotable, et la coque enfin vérifiée
+
+- Blender MCP officiel (Blender Lab) installé : add-on `mcp` 1.0.0 dans
+  Blender 5.2, pont `blender-mcp` 1.27.0, 26 outils. `.mcp.json` à la racine,
+  procédure et avertissement de sécurité dans `docs/BLENDER_MCP.md`. Règle
+  posée : **MCP produit un `.blend`, les scripts produisent le `.glb`** — les
+  assets restent régénérables, donc vérifiables.
+- **Le GLB de coque livré au joueur n'était testé par rien.**
+  `crew-seating.test.mjs` mesure bien un ratio, mais en Node il n'y a pas de
+  `GLTFLoader` : il mesurait la coque procédurale de repli.
+  `test/hull-contract.test.mjs` décode désormais le fichier réel.
+- Le contrat affirmait que la coque devait tenir à ±5 % « sous peine de
+  désaccorder la physique ». **C'est faux** : la simulation a sa propre table
+  (`HULL_STATIONS`) et ne lit jamais le mesh. Il existe trois descriptions de
+  coque dans le projet, et elles divergent — maître-bau à `z=0` pour le gabarit
+  contre `z=+0,65` pour la physique, quille 12 cm plus creuse dans le mesh.
+- Mesuré : une fois `HULL_VISUAL_WIDTH_SCALE` appliqué, **les points de
+  flottabilité tombent jusqu'à 18 cm hors de la coque visible**. Rien n'est
+  corrigé — déplacer une station est autoritaire et invaliderait la
+  replayothèque. L'écart est mesuré et borné à 20 cm par le test.
+- Le facteur de largeur 0,84 vit dans le code et pas dans le mesh : un artiste
+  qui ouvre `yole_hull.glb` voit un ratio de 5,14, une silhouette de canot.
+  S'il le « corrige » à 6,12, le runtime rétrécit une seconde fois. Le test
+  refuse maintenant toute coque pré-rétrécie, avec le message qui explique
+  pourquoi. Vérifié en fabriquant le piège : le garde-fou se déclenche.
+- Les quatre cadres de HUD V8 étaient les seuls PNG du dépôt, tous précachés :
+  **604 Ko → 166 Ko (−73 %)** en WebP q88, mesuré à 37,9–40,8 dB de PSNR sur
+  RGB prémultiplié. Références recâblées dans `style.css`, `service-worker.js`
+  et le manifeste V8.
+- `assets/textures/v6/menu/README.md` explique enfin pourquoi six bitmaps
+  débranchés restent dans le dépôt : ce sont des pièces d'audit, pas des assets
+  en attente.
+- Deux trous d'outillage révélés par cette conversion, et bouchés :
+  `convertir_webp.py` ne recâblait ni `test/` ni `docs/` — il a laissé douze
+  références mortes derrière lui, invisibles pour `verify_static.py` et fatales
+  douze étapes plus loin ; `refresh-asset-metadata.mjs` s'arrêtait à V7, si bien
+  que les `sha256` de V8 et V9 étaient vérifiés par les tests sans qu'aucun
+  outil sache les régénérer.
+- La validation d'image de `hud-instruments.test.mjs` passe de PNG à WebP sans
+  rien perdre : elle exige désormais le conteneur VP8X, le drapeau alpha **et**
+  la présence effective du chunk `ALPH`. Le drapeau peut mentir, le chunk non.
+
+## Passe 63 — le téléphone ne paie plus le rendu PC
+
+- Un appareil tactile repart systématiquement en LQ automatique, même si une
+  ancienne session avait mémorisé HQ. L'auto peut remonter jusqu'en MQ mais le
+  HQ reste un choix manuel.
+- Les trois profils mobiles coupent ombres et MSAA. LQ rend à 68 % du DPR, MQ à
+  84 %, avec un composite tropical à une seule lecture de scène ; ACES, sRGB,
+  danger, tempête, aplats et flash d'impact restent présents.
+- Les sept bwa de chaque yole partagent désormais un `InstancedMesh` tout en
+  gardant leurs flexions, changements de bord et dégâts : 24 draw calls retirés
+  sur une flotte de quatre yoles.
+- Les rivaux mobiles gardent trois dresseurs animés à proximité et retirent les
+  spécialistes hors budget. Le joueur conserve toujours ses huit rôles visuels.
+- Mesuré dans Chromium à 844×390 : LQ tactile 573×265, généralement 96 à 118
+  draw calls ; MQ tactile 708×327, environ 115 à 168 selon le chaos. Aucun
+  avertissement ou erreur WebGL sur le passage complet.
+
+## Passe 62 — la yole sort de l’eau dans l’atelier
+
+- Le showroom ne réutilise plus la flottaison, la gîte et la vitesse de la
+  course : la quille est entièrement dégagée et la coque reste presque à plat.
+- Une yole chavirée revient propre dans l’atelier. `sink`, eau embarquée,
+  équipage par-dessus bord et dégâts visuels ne contaminent plus l’aperçu.
+- Le cadrage Coque recule, vise plus bas et décale le modèle dans la baie libre
+  afin que la voile et le panneau de personnalisation ne masquent plus la coque.
+- Une garde automatisée injecte désormais une épave coulée avant d’ouvrir le
+  showroom et vérifie sa remise en état.
+
+## Passe 61 — algues lourdes, équipage volant et yole sonore
+
+- Une nappe de sargasses retire immédiatement 65 % de l'erre au premier contact,
+  puis continue à freiner tant que la coque reste engluée.
+- Chaque impact direct d'arme retire désormais un yoleur du poste de rappel et
+  déclenche sa vraie chute à la mer. Les dégâts résiduels, comme le feu ou la
+  tension du câble, n'éjectent pas en boucle.
+- Le plancher artificiel de deux équipiers est supprimé : les six postes peuvent
+  réellement être vidés.
+- Le soundscape passe de trois à six lits réactifs avec voile, craquements du
+  bois et frottement des sargasses. Des signatures dédiées accompagnent
+  l'entrée dans les algues, l'éjection et le verrouillage du Pwason.
+- Les vrais samples respectent enfin le `playbackRate` demandé par les mixages,
+  ce qui rend les variantes d'impact réellement audibles.
+
+## Passe 60 — la yole reste dans l’image
+
+- Le bootstrap local désinscrit les anciens workers et purge seulement les
+  caches YOLE avant de charger les modules : le serveur de développement ne
+  mélange plus deux versions du moteur d’animation.
+- Les contrats `assets/crew-v2` et `handling/swell-v2` portent désormais une
+  version identique dans les imports et dans le précache. Une constante de
+  houle absente ne peut plus transformer la matrice de la yole en `NaN`.
+- Le cadrage de poursuite vise moins loin devant la proue : coque, équipage,
+  gîte et rebond restent visibles dans le tiers inférieur, même sur un viewport
+  presque carré.
+- La yole du joueur n’est jamais supprimée par le culling de bord d’écran ; les
+  trois adversaires conservent l’optimisation.
+
+## Passe 59 — la mer reprend le premier rôle
+
+Les catamarans, scooters et danseuses hors-course sont retirés du runtime, du
+cache hors ligne et du paquet d'assets. Ils détournaient l'attention sans
+atteindre le niveau visuel de la yole.
+
+Lors d'un chavirage, les huit personnes visibles sont maintenant projetées avec
+le véritable GLB `yole_crew`, son squelette, sa texture d'équipe et ses coiffes.
+Le mannequin procédural ne sert plus que de repli si le modèle est absent.
+
+Les sargasses reçoivent une nouvelle texture transparente sans déchets, six
+volumes instanciés par nappe, un suivi de la pente de houle et des fragments au
+contact de la coque. Les caisses flottent sur la vague, tournent, portent un
+noyau de butin et éclatent en planches lors du ramassage.
+
+Enfin, le rendu de coque lit l'écart de hauteur d'eau entre proue et centre :
+à vitesse élevée, une vague rencontrée produit jusqu'à environ 8 cm de heave et
+5° de cabrage visuel, sans modifier la simulation ni les replays.
+
+## Passe 58 — une élimination est une élimination
+
+Le repêchage automatique de Combat Box et de Mêlée locale est supprimé. Une
+yole éliminée reste hors course jusqu'à la fin de la manche ; en Tour, elle
+attend la fin de l'étape. La caméra garde brièvement l'épave puis suit une yole
+encore active. En Mêlée, elle privilégie le dernier pilote humain vivant, puis
+le leader IA si les deux humains sont éliminés.
+
+La Frappe de Sable post-mort et son bouton ont également été retirés : le joueur
+éliminé regarde réellement la fin, sans action cachée. Le bit 16 reste libre
+pour ne pas renuméroter les commandes déterministes suivantes.
+
+Le protocole gameplay passe à `tropical-mayhem-v3-12-no-rescue`. Un test dédié
+avance quinze secondes au-delà de l'ancien délai de 8,5 s, vérifie que la yole
+reste éliminée, puis que seule la manche suivante la remet en jeu.
+
+Cette nouvelle règle a révélé deux contaminations inter-manches :
+
+- les compteurs Brume, Sargasse et collision des yoles sont maintenant remis à
+  zéro dans `Boat.reset()` ;
+- `WakeGrid.clear()` remet aussi son origine et sa phase fixe à zéro.
+
+Sans le second correctif, la première étape du Tour et sa relecture divergeaient
+dès le tick 10. Le smoke compare désormais leurs checksums à chaque tick.
+
 ## Passe 57 — 3 · 2 · 1 · GO, et on sait enfin ce qu'on regarde quand on est mort
 
 ### Le départ

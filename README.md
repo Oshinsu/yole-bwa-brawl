@@ -1,15 +1,25 @@
 # YOLE: BWA BRAWL — Tropical Mayhem V3.2
 
-**▶ Jouer : https://oshinsu.github.io/yole-bwa-brawl/**
+**Démo publique existante : https://oshinsu.github.io/yole-bwa-brawl/**
+
+> **Statut de cette copie : `ready`, droits audio `owner-attested`.** Le
+> propriétaire du projet a explicitement autorisé le 30 juillet 2026 la
+> publication avec les 8 musiques et 15 effets audio. Aucune pièce individuelle
+> de licence ou de cession n'a toutefois été fournie au dépôt et aucune
+> vérification juridique indépendante n'est revendiquée. L'URL ci-dessus peut
+> servir une build antérieure jusqu'au prochain déploiement. Voir
+> `release-manifest.json` et `AUDIO_RIGHTS.md`.
 
 Prototype jouable **Three.js 0.185.1**, mobile-first, de combat racer martiniquais tropical, rapide et volontairement WTF.
 
 Cette édition ajoute le cœur arcade demandé : **Turbo avant**, **Bwa Dash latéral**, **Canon Coco**, **Spider-Harpon avec slingshot**, **Mine Tsunami à vagues concentriques**, caméra tactique zoomable, soleil massif, palmiers renforcés, explosions plus généreuses et Mur du Grain plus permissif.
 
-L’état V7 s’appuie sur la simulation/replay **3.6.0** et consolide la maniabilité,
-les impacts, l’haptique configurable et les micro-interactions accessibles.
+La candidate locale est **3.2.0**. Les numéros internes restent volontairement
+séparés : schéma replay 2, simulation **3.7.0** et protocole gameplay
+`tropical-mayhem-v3-12-no-rescue`. Ils servent à refuser un ancien replay
+incompatible, pas à nommer le jeu.
 
-La passe suivante corrige le **pipeline colorimétrique** — les shaders custom
+Une passe majeure corrige le **pipeline colorimétrique** — les shaders custom
 sortaient en linéaire sans jamais être ré-encodés en sRGB, ce qui affichait toute
 la mer et tout le ciel ~2,2 gamma trop sombres — et remplace le bloom par une
 chaîne séparable. Voir [CHANGELOG](CHANGELOG.md), Passe 35.
@@ -33,35 +43,72 @@ chmod +x play.sh
 
 Ouvrir `YOLE_BWA_BRAWL_TROPICAL_MAYHEM_V3_2_SINGLE_FILE_ONLINE.html` avec une connexion Internet.
 
-Three.js 0.185.1 est livré dans `vendor/` : le jeu se lance sans téléchargement préalable et, grâce au service worker, fonctionne hors ligne après la première visite.
+Three.js 0.185.1 est livré dans `vendor/` : le jeu se lance sans téléchargement
+préalable et, grâce au service worker, fonctionne hors ligne après une première
+visite complète. Les pistes musicales, volontairement streamées, ne font pas
+partie du précache.
 
 ## Modes de jeu
 
-- **Combat Box** — l'arène élimination historique : Mur du Grain, Takedowns, premier à 5 points.
-- **Tour des Yoles 2026** — les 8 étapes du 40e Tour (Sainte-Anne → Vauclin → Robert → Trinité → Saint-Pierre → Fort-de-France → Anses d'Arlet → Rivière-Pilote → Sainte-Anne) : 4/3/2/1 points à la place de chaque étape, classement général cumulé, étape « montagne » Trinité → Saint-Pierre de 2 400 m, bouées vertes de ligne, seed déterministe par étape et replay d'étape sauvegardé.
-- **Duel local** — deux pilotes humains sur le même clavier, deux rivaux IA, entrées à 60 Hz, caméra partagée dynamique et revanche locale. Les replays sont volontairement désactivés pour ce mode à deux flux.
+- **Combat Box** — l'arène élimination historique : Mur du Grain, Takedowns,
+  premier à 5 points. Une yole chavirée est éliminée jusqu'à la fin de la
+  manche : aucun repêchage automatique.
+- **Tour des Yoles 2026** — huit étapes avec littoral, palette, météo et seed
+  propres, progression locale automatique lorsque le stockage est disponible
+  (session seule sinon), carte de campagne, points 4/3/2/1 aux finisseurs
+  (0 pour un DNF) et départages par victoires, podiums puis temps cumulé.
+- **Mêlée locale** — deux pilotes humains sur le même clavier et deux rivaux IA,
+  à caméra commune dynamique. Une yole chavirée reste spectatrice jusqu'à la
+  fin de la manche. Une IA peut gagner : ce mode n'est donc plus présenté
+  comme un duel 1 contre 1. Les replays restent désactivés pour ce mode à deux
+  flux humains.
+
+Le menu donne aussi accès à une **replayothèque locale** (huit courses,
+compatibilité contrôlée, lecture, export et suppression) et à un panneau
+**Yole & crédits** qui réunit repères culturels, glossaire prudent, installation
+PWA, fonctionnement hors ligne, licences et non-affiliation.
+
+## Atelier Ma Yole
+
+Le menu et l'atelier n'affichent aucune image générée de yole. Ils utilisent le
+même modèle 3D runtime que la course ; l'atelier l'isole dans un showroom
+orbital et applique les choix en temps réel. La couleur cosmétique de coque
+reste séparée de la couleur d'identité utilisée par le HUD et les impacts.
+
+Le catalogue comprend :
+
+- **6** peintures de coque et **6** accents de bordage ;
+- **4** finitions de bois et **6** tenues d'équipage ;
+- **4** livrées de voile et **3** profils de gréement ;
+- une soute de **2 armes parmi 4**, ordonnée avant le départ.
+
+Fermer avec **Sauvegarder la configuration** conserve les choix ; **Annuler**
+restaure le profil qui était actif à l'ouverture de l'atelier.
 
 ## Contrôles
 
 | Action | Clavier | Mobile | Manette |
 |---|---|---|---|
-| Diriger | `A/D` ou `←/→` | premier doigt / joystick | stick gauche / croix |
+| Diriger | `Q/D` sur AZERTY (`A/D` physique) ou `←/→` | premier doigt / joystick | stick gauche / croix |
 | **Border la voile (accélérer)** | `↑` | joystick vers le haut | stick gauche vers le haut |
 | **Choquer la voile (freiner)** | `↓` | joystick vers le bas | stick gauche vers le bas |
 | Viser et tirer | clic droit, glisser, relâcher | second doigt, glisser, relâcher | stick droit + A / ✕ |
 | *(la visée suit l'écran : droite = droite, **haut = cloche, bas = tendu**)* | | | |
 | Utiliser l'arme active | `Espace` | bouton de soute | A / ✕ |
-| Sélectionner Coco / Harpon / Mine / Rhum | `&` `é` `"` `'` (`Digit1…4`) | soute | — |
+| Tirer directement les armes 1 à 8 | `&` `é` `"` `'` `(` `-` `è` `_` (`Digit1…8`) | deux tuiles de soute + tuile caisse | — |
 | Changer d'arme | `E` | ramassage / soute | X / □ |
 | Contre-gîte (Bwa Shift) | `Shift` | CONTRE-GÎTE | B / ○ |
-| Turbo avant | `W` ou `F` | TURBO | RB / R1 |
-| **Regarder derrière** (maintenu) | `C` | — | — |
-| **Bwa Dash** (double-tap) | `A A` ou `D D` (aussi `X`) | BWA DASH | LB / L1 |
+| Turbo avant | `Z` sur AZERTY (`W` physique) ou `F` | double-tap sur l'eau | RB / R1 |
+| **Regarder derrière** (maintenu) | `C` | bouton RÉTRO maintenu | — |
+| **Bwa Dash** (double-tap) | `Q Q` ou `D D` (aussi `X` / `Ctrl`) | deux poussées rapides du joystick | LB / L1 |
 | Zoom | `+` / `-` ou molette | boutons `−` / `+` | croix ↑ / ↓ |
-| Vengeance | `R` | FRAPPE DU GRAIN | Back / Select |
 | Pause/réglages | `P` ou `Échap` | boutons en haut | Start |
 
-### Duel local
+Le panneau Pause conserve toujours son rail **Reprendre / Recommencer / Menu
+principal** à l'écran. Le retour au menu passe par une confirmation ; à la
+manette, Back l'ouvre, A confirme et B annule.
+
+### Mêlée locale
 
 | Action | Joueur 1 | Joueur 2 |
 |---|---|---|
@@ -108,8 +155,8 @@ n'était écrite nulle part : on perdait du Flow sans savoir pourquoi.
 
 ### Ce qui abîme quoi
 
-La coque n'est pas indestructible — mais l'arme la plus courante ne la touche
-pas. Chaque arme a un rôle distinct :
+La coque n'est pas indestructible. Les armes privilégient l'équilibre, mais
+plusieurs d'entre elles percent aussi la structure, avec un rôle distinct :
 
 | Source | Coque | Ce qu'elle fait aussi |
 |---|---:|---|
@@ -122,7 +169,7 @@ pas. Chaque arme a un rôle distinct :
 | **Sargasses** | **10 % / s** | freinent, gîtent, embarquent de l'eau |
 | Chadron | 4 % | perce, embarque de l'eau, casse du bois |
 | Abordage de croisière | 0,5 % | une bousculade |
-| Pwason Volan | 0 % | décroche les yoleurs |
+| Pwason Volan | 15 % | torpille lobée, décroche les yoleurs |
 
 ### Balistique — deux axes
 
@@ -188,8 +235,8 @@ sauter aussitôt sur le bateau de tête.
 Au **rhum**, toute la bordée boit au goulot, gorgées échelonnées de 0,16 s.
 
 Les touches `& é " ' ( - è _` **tirent** l'arme de leur emplacement — elles ne
-faisaient que la sélectionner, et les quatre armes de caisse n'avaient aucune
-touche.
+faisaient que la sélectionner, et les quatre armes exclusivement disponibles
+en caisse n'avaient aucune touche.
 
 ⚠️ Le **dash et le turbo restent distincts** : ils partagent déjà le même
 cooldown, donc ils sont déjà exclusifs. Le turbo sert la course, le dash sert le
@@ -255,16 +302,16 @@ occurrences pour zéro bénéfice joueur.
 
 ### Lanceur
 
-Un raccourci **`▶ JOUER — YOLE BWA BRAWL`** est à la racine du dossier. Son
-icône est un `.ico` à sept tailles avec **deux cadrages** : l'artwork complet en
-grand, un recadrage serré sur la yole en 16–48 px, où le bandeau de texte
-deviendrait illisible.
-
-⚠️ Le raccourci stocke un chemin absolu : déplacer le dossier le casse.
+Le lanceur portable livré sous Windows est **`PLAY_WINDOWS.bat`**. Le raccourci
+local **`▶ JOUER — YOLE BWA BRAWL.lnk`** stocke un chemin absolu propre au poste
+de développement : il est donc volontairement exclu des checksums et de
+l'archive de release.
 
 ### Brancher un domaine
 
-Le jeu est publié sur GitHub Pages. Pour lui donner un domaine à toi :
+Le projet dispose d'une démo GitHub Pages existante. La publication et le
+branchement d'un domaine restent interdits automatiquement si
+`release-manifest.json` n'est plus `ready`. Pour brancher un domaine :
 
 ```bash
 npm run domaine bwabrawl.com                # affiche les enregistrements DNS
@@ -280,6 +327,9 @@ acheté. GitHub Pages le lit et se met à servir sous ce nom : le committer trop
 tôt casserait l'adresse `oshinsu.github.io` sans rien donner en échange.
 
 ### Mettre en ligne
+
+Ces commandes ne concernent qu'une candidate déclarée `ready`. Le workflow
+GitHub Pages exécute la même vérification d'autorisation avant tout déploiement :
 
 ```bash
 npm run stamp        # estampille le cache du service worker (OBLIGATOIRE)
@@ -310,22 +360,23 @@ on identifie l'arme de loin et on décide d'y aller. Un **écart latéral minima
 de 8,5 m** au centre de route est garanti : aucune caisse ne tombe plus sur la
 ligne idéale, donc aucune n'est gratuite.
 
-⚠️ Faire passer la mine et le rhum en caisse — pour que chaque boîte compte
-davantage encore — a été essayé, mesuré, et **retiré** : ce seul changement
-faisait diverger la relecture d'un replay. Voir la passe 48.
+La table de butin contient **six armes** : Mine, Rhum, Barik, Chadron, Lanbi et
+Pwason. Mine et Rhum restent illimités lorsqu'ils font partie de la soute ; une
+caisse ne remplace alors pas cette réserve. Une première intégration faisait
+diverger les replays parce que le pas fixe consommait un RNG visuel variable ;
+la séparation des RNG a depuis rétabli le déterminisme.
 
 ### Barre d'actions et gestes
 
-Trois tuiles : **contre-gîte, turbo, arme**. La tuile Bwa Dash a été retirée —
-mais seulement après avoir créé son remplaçant tactile, sans quoi le dash
-n'aurait plus été jouable au doigt (ses autres déclencheurs sont tous au
-clavier).
+Quatre tuiles : **contre-gîte** et **trois armes en tir direct** — les deux armes
+de soute et l'arme de caisse portée. Le Turbo passe par le double-tap sur l'eau
+et le Bwa Dash par le double-coup de barre.
 
 | Action | Clavier | Doigt |
 |---|---|---|
-| Tirer l'arme 1-8 | `& é " ' ( - è _` | tuile arme |
+| Tirer l'arme 1-8 | `& é " ' ( - è _` | tuiles soute 1 / soute 2 / caisse |
 | Contre-gîte | `Shift` | tuile |
-| Turbo | `Z` / `F` | tuile |
+| Turbo | `Z` / `F` | double-tap sur l'eau |
 | **Bwa Dash** | `X`, `Ctrl`, double-tap `A`/`D` | **double-coup de barre** |
 | Rétro | `C` | bouton 👁 |
 
@@ -370,7 +421,7 @@ tempo) :
 | Départ *(sting)* | An Nou Ay | 0:13 |
 | Course | Canoe Combat | 1:06 |
 | Tour des Yoles | Canot de Guerre | 1:34 |
-| Duel local | Turquoise Turbo | 0:55 |
+| Mêlée locale | Turquoise Turbo | 0:55 |
 | Mur du Grain | Carnival Apocalypse | 1:48 |
 | Victoire *(sting)* | Midnight Canoe | 0:15 |
 | Défaite *(sting)* | Oops, You Lost! | 0:13 |
@@ -391,15 +442,17 @@ npm run zik:analyse
 npm run check:zik
 ```
 
-### Armes : quatre en soute, quatre en caisse
+### Armes : deux en soute, quatre choix, six butins de caisse
 
-- **Toujours disponibles**, munition illimitée, cadencées par leur seul cooldown :
-  **Coco Boum** (5,4 s), **Spider-Harpon** (7,6 s), **Mine Tsunami** (7,0 s) et
-  **Rhum** (16 s) ;
-- **uniquement en caisse** : Barik Rhum, Chadron, Konk Lanbi, Pwason Volan.
+- **Deux armes choisies dans Ma Yole** parmi **Coco Boum** (5,4 s),
+  **Spider-Harpon** (7,6 s), **Mine Tsunami** (7,0 s) et **Rhum** (16 s).
+  Elles restent disponibles pendant toute la partie, avec munition illimitée et
+  cooldown propre ;
+- **butins de caisse** : Mine Tsunami, Rhum, Barik Rhum, Chadron, Konk Lanbi
+  et Pwason Volan. Les quatre derniers restent exclusivement en caisse.
 
-Une manche ne peut donc plus se jouer sans qu'un seul coup soit tiré. Les caisses
-ne décident plus *si* on se bat, mais avec quoi on surprend.
+Le garage garantit toujours une soute valide de deux armes distinctes. Les
+caisses ne décident plus *si* on se bat, mais avec quoi on surprend.
 
 ### Adversaires — trois niveaux
 
@@ -473,11 +526,20 @@ minute et ne mesure rien.
 ### Interface et assets
 
 - pack V5 : 62 icônes, boutons, contenants HUD, viseurs et VFX ;
-- pack V6 : 8 images de production pour le hero, les quatre cartes de modes, le lobby et les badges joueurs ;
+- pack V6 : 8 fichiers historiquement produits et toujours présents sur disque.
+  Les **6 bitmaps montrant des yoles** sont des archives d'audit, hors UI et
+  hors précache et hors paquet de release ; seuls les **2 badges joueurs**
+  restent actifs ;
+- le menu et l'atelier présentent la vraie yole 3D runtime : **aucun bitmap de
+  yole généré n'est actif** ;
 - pack V7 : 4 signatures Combat Juice — arrachement du harpon, onde Coco, détonation de mine et contre-gîte parfaite — regroupées dans un atlas additif 2×2 de 1024×1024 prévu pour un draw call ;
-- inventaire : **74 signatures artistiques** ; **75 fichiers de texture** lorsque l’atlas d’agrégation est compté ;
+- inventaire physique historique : **74 signatures artistiques** ; **75 fichiers
+  de texture** lorsque l’atlas d’agrégation est compté. Ce total inclut les six
+  archives V6 débranchées ;
 - prompts et sources conservés dans `art-source/generated-v5/`, `art-source/generated-v6/` et `art-source/generated-v7/` ;
-- détails et mapping UV : [Asset Pack V7](docs/ASSET_PACK_V7.md), aperçu dans [la planche-contact V7](previews/v7_juice_contact.png).
+- détails : [archive et statut du pack V6](docs/ASSET_PACK_V6.md),
+  [Asset Pack V7](docs/ASSET_PACK_V7.md), aperçu dans
+  [la planche-contact V7](previews/v7_juice_contact.png).
 
 ### Mine Tsunami
 
@@ -498,8 +560,12 @@ minute et ne mesure rien.
 
 - quatre paliers d'impact — frôlement, Bwa Slam, explosion, Takedown — avec gel, recul directionnel et flash propres à chacun ;
 - hitstop purement visuel : il ne touche ni la simulation, ni le checksum, ni les replays ;
-- 22 voix synthétisées (aucun fichier audio) : coques, gerbes, cocos, câble, tanbou de victoire ;
-- lits continus pilotés par le jeu : eau selon la vitesse, Grain selon la distance, câble selon sa tension ;
+- 29 voix avec fallback synthétique : 15 disposent d'un sample MP3 et 14 restent
+  synthétisées ; six lits continus couvrent eau, Grain, câble, voile, bois et
+  sargasses ;
+- lits continus pilotés par le jeu : eau selon la vitesse, Grain selon la
+  distance, câble selon sa tension, voile selon sa charge, bois selon les chocs
+  et sargasses selon l'engluement ;
 - réglage IMPACT `TOTAL / DOUX / SANS`, où SANS ne bouge vraiment plus la caméra.
 
 ### Haptique et micro-interactions
@@ -575,7 +641,14 @@ src/
 
 Les modèles GLB sont optionnels : `src/render/assets.js` charge les pièces
 déclarées et retombe sur la géométrie procédurale en cas d'absence. Le gabarit
-d'export est verrouillé dans `docs/ASSET_CONTRACT.md`.
+d'export est verrouillé dans `docs/ASSET_CONTRACT.md`, et `npm run test:hull`
+vérifie le GLB de coque **réellement livré** — pas son repli procédural.
+
+Blender est pilotable depuis un assistant via le serveur MCP officiel :
+installation, avertissement de sécurité et partage des rôles dans
+`docs/BLENDER_MCP.md`. La règle y tient en une ligne — **MCP produit un
+`.blend`, les scripts produisent le `.glb`** — pour que tout asset livré reste
+régénérable, donc vérifiable.
 
 ```text
 ```
@@ -588,8 +661,9 @@ La simulation ne dépend pas de Three.js. Le renderer consomme un état détermi
 npm run verify
 ```
 
-La suite contrôle syntaxe, imports, PWA, déterminisme, physique, wake, IA, replay,
-Duel local, Combat Box, shaders EGL/GLES, DOM/inputs Chromium et benchmark CPU.
+La suite contrôle syntaxe, imports, PWA, déterminisme, physique, wake, IA,
+replays et replayothèque, Tour, Mêlée locale, Combat Box, shaders EGL/GLES,
+DOM/inputs Chromium et benchmark CPU.
 Elle appelle notamment les cibles spécialisées suivantes :
 
 ```bash
@@ -605,4 +679,8 @@ Voir le [rapport de validation](TEST_REPORT.md).
 
 ## Licence
 
-Le code et les assets originaux sont réservés au projet YOLE: BWA BRAWL. Three.js est distribué sous licence MIT ; voir `THIRD_PARTY_NOTICES.md`.
+Le code et les assets originaux sont réservés au projet YOLE: BWA BRAWL.
+Three.js est distribué sous licence MIT ; voir `THIRD_PARTY_NOTICES.md`.
+La banque audio est publiée sur l'attestation explicite du propriétaire, sans
+pièces individuelles fournies au dépôt ni vérification juridique indépendante ;
+voir `AUDIO_RIGHTS.md`.
