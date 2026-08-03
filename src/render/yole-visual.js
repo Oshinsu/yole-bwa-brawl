@@ -1372,7 +1372,21 @@ export class CrewVisual {
     // rig GLB qui, lui, est normalisé en hauteur : ses six équipiers flottaient
     // de 7 à 17 cm au-dessus du bois, mains hors de portée de la perche.
     // `measureHipHeight` relève la vraie valeur à la liaison du rig.
-    const seat = CREW_BEAM_Y - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT);
+    // ⚠️ × L'ÉCHELLE. ERREUR DE REPÈRE CORRIGÉE, ET ELLE ÉTAIT VISIBLE EN JEU.
+    //
+    // `measureHipHeight` relève la hauteur du bassin dans l'espace LOCAL de la
+    // racine, donc AVANT l'échelle 0,88 que `YoleVisual` pose ensuite. Or
+    // `root.position.y` s'écrit dans l'espace du PARENT. Sans la conversion,
+    // l'assise descendait de 0,58 au lieu de 0,51 : sept centimètres de trop.
+    //
+    // Effet constaté en début de partie, bateau encore droit — les équipiers
+    // sortis à 1,8-3,8 m se retrouvaient 33 cm sous le plat-bord, donc SOUS LA
+    // SURFACE, et l'équipage paraissait avoir disparu.
+    //
+    // L'ancien `0.38` du corps procédural souffrait déjà du même défaut, en plus
+    // discret (4,6 cm) ; la conversion le corrige aussi.
+    const echelleCorps = Math.max(0.001, this.root.scale.y || 1);
+    const seat = CREW_BEAM_Y - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
     this.root.position.y = 0.28 * (1 - seated) + seat * seated
       + Math.abs(Math.sin(cycle)) * (0.035 + boostForward * 0.018) * run * (1 - seated)
       // Assis, le bassin EST le pivot sur le bois : l'abaisser pour donner du
@@ -2239,6 +2253,11 @@ varying vec3 vHullWorld;`)
     const roll = state.roll ?? 0;
     this.rollSlow = damp(this.rollSlow ?? roll, roll, 0.55, dt);
     const windward = -Math.tanh(this.rollSlow / 0.05);
+    // Part de l'equipage reellement sortie sur les bois. A plat (depart, calme,
+    // atelier) elle tombe a zero et les hommes restent dans la coque ; sous
+    // voile `|windward|` sature des 6 deg de gite et elle vaut 1. Meme signal
+    // que le choix du bord, donc jamais en desaccord avec lui.
+    const deploiement = smoothstep(0.10, 0.55, Math.abs(windward));
     // Tant que la gîte lissée est proche de zéro on conserve le bord courant :
     // le clapot ne doit jamais faire traverser six hommes. Lors d'un vrai
     // changement de bord, les racines des équipiers et leurs bwa se déplacent
@@ -2308,7 +2327,21 @@ varying vec3 vHullWorld;`)
       // BWA SHIFT reste franchement lisible sans quitter la perche.
       const spread = 1.15 + index * 0.05;
       const bailRetraction = index === bailer ? bailStrength * 0.82 : 0;
-      const x = this.crewSides[index] * (CREW_RAIL[index] - bailRetraction)
+      // ⚠️ ON NE SORT PAS SUR LES BOIS QUAND LE BATEAU EST DROIT.
+      //
+      // `crewSides[index]` est un SIGNE, pas une amplitude : l'équipage occupait
+      // donc son poste de repos plein bras QUELLE QUE SOIT la gîte. Sur la ligne
+      // de départ, manche 1, bateau parfaitement à plat, les six hommes étaient
+      // déjà au bout des perches à plat ventre — et le joueur voyait une échelle
+      // vide avec trois corps dessus, sans comprendre où était son équipage.
+      //
+      // Personne ne fait ça : on sort sur le bwa pour CONTRER une gîte. Tant
+      // qu'il n'y en a pas, on reste dans le bateau.
+      //
+      // `deploiement` suit la gîte lissée, exactement comme le choix du bord.
+      // Il ne retire rien au rappel installé — sous voile `|windward|` sature
+      // dès 6° et vaut 1 — il supprime seulement l'aberration du départ.
+      const x = this.crewSides[index] * (CREW_RAIL[index] - bailRetraction) * deploiement
         + normalized * spread + (index - 2.5) * 0.07;
       const sideProgress = this.crewSideProgress[index] ?? 1;
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08

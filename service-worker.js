@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-71950ac19a25";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-dc20616dc5c9";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 const CORE = [
   "./", "./index.html", "./style.css?v=hud-v12-2", "./legal.css", "./manifest.webmanifest",
