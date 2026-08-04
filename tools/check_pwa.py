@@ -23,8 +23,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sys
+from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 URL = os.environ.get("YOLE_URL", "http://127.0.0.1:8802/index.html")
@@ -131,6 +133,13 @@ def controles(donnees: dict) -> list[str]:
     if not sw or not sw.get("actif"):
         fautes.append(f"service worker non actif : {sw}")
 
+    musique_en_ligne = donnees.get("musiqueRuntimeOnline")
+    if musique_en_ligne and musique_en_ligne.get("statut") != 200:
+        fautes.append(
+            f"musique runtime en ligne {musique_en_ligne.get('fichier')} : "
+            f"HTTP {musique_en_ligne.get('statut')}"
+        )
+
     if "horsLigne" in donnees:
         hors = donnees["horsLigne"]
         if hors.get("rechargement") != "ok":
@@ -139,20 +148,21 @@ def controles(donnees: dict) -> list[str]:
             fautes.append(f"hors-ligne : la page se charge mais le menu est vide {hors}")
         elif not hors.get("partieLancee"):
             fautes.append(f"hors-ligne : le menu s'affiche mais la partie ne demarre pas {hors}")
-        if hors.get("rechargement") == "ok":
-            musiques = hors.get("musiques") or []
-            if len(musiques) != 8:
-                fautes.append(f"hors-ligne : {len(musiques)}/8 musiques vérifiées")
-            for musique in musiques:
-                contenu = musique.get("contenu") or ""
-                if (musique.get("statut") != 206
-                        or musique.get("octets") != 32
-                        or not contenu.startswith("bytes 0-31/")):
-                    fautes.append(
-                        f"musique hors-ligne {musique.get('fichier')} : "
-                        f"HTTP {musique.get('statut')}, plage {contenu!r}, "
-                        f"{musique.get('octets')} octets"
-                    )
+        # La musique n'appartient plus au précache atomique : exiger 8/8 sur
+        # une installation froide annulerait précisément le gain recherché.
+        # On vérifie uniquement qu'une piste demandée en ligne puis mise en
+        # cache runtime répond bien par plage une fois hors ligne.
+        musique = hors.get("musiqueRuntime")
+        if musique:
+            contenu = musique.get("contenu") or ""
+            if (musique.get("statut") != 206
+                    or musique.get("octets") != 32
+                    or not contenu.startswith("bytes 0-31/")):
+                fautes.append(
+                    f"musique runtime hors-ligne {musique.get('fichier')} : "
+                    f"HTTP {musique.get('statut')}, plage {contenu!r}, "
+                    f"{musique.get('octets')} octets"
+                )
 
     # ⚠️ Sans capture `narrow`, Chrome Android retombe sur la bandelette
     # d'installation au lieu de la fiche riche. Ce n'est pas bloquant.
@@ -167,6 +177,34 @@ def controles(donnees: dict) -> list[str]:
     return fautes
 
 
+def controle_configuration_locale() -> list[str]:
+    """Contrôle statique du vrai projet, distinct de la fixture invalide."""
+    racine = Path(__file__).resolve().parent.parent
+    worker = (racine / "service-worker.js").read_text(encoding="utf-8")
+    musique = (racine / "src" / "core" / "music.js").read_text(encoding="utf-8")
+    bloc_core = re.search(r"const CORE = \[(.*?)\];", worker, re.S)
+    bloc_runtime = re.search(r"const RUNTIME_MUSIC = \[(.*?)\];", worker, re.S)
+    core = re.findall(r'"(\./[^"]+)"', bloc_core.group(1)) if bloc_core else []
+    runtime = re.findall(r'"(\./[^"]+)"', bloc_runtime.group(1)) if bloc_runtime else []
+    attendues = [f"./zik/{nom}" for nom in re.findall(r'fichier:\s*"([^"]+\.mp3)"', musique)]
+
+    fautes = []
+    if not bloc_core:
+        fautes.append("configuration locale : tableau CORE absent")
+    if any(path.startswith("./zik/") for path in core):
+        fautes.append("configuration locale : une musique bloque encore le précache atomique")
+    if len(attendues) != 8 or len(set(attendues)) != 8:
+        fautes.append(f"configuration locale : {len(set(attendues))}/8 pistes uniques dans PISTES")
+    if set(runtime) != set(attendues):
+        fautes.append("configuration locale : RUNTIME_MUSIC ne correspond pas aux pistes utilisées")
+    for path in runtime:
+        if not (racine / path[2:]).is_file():
+            fautes.append(f"configuration locale : musique runtime absente {path}")
+    if "miseEnCacheMusique" not in worker or "reponseParPlage" not in worker:
+        fautes.append("configuration locale : cache runtime ou réponses Range absents")
+    return fautes
+
+
 def autotest() -> int:
     """Le harnais attrape-t-il les defauts qu'il pretend attraper ?
 
@@ -177,7 +215,7 @@ def autotest() -> int:
 
         python tools/check_pwa.py --autotest
     """
-    avant = {
+    fixture_invalide = {
         "nom": "YOLE: BWA BRAWL", "court": "BWA MAYHEM",
         "display": "fullscreen", "scope": "/", "start_url": "/",
         "themeManifeste": "#00b8c9", "themeMeta": "#061a29",
@@ -186,14 +224,10 @@ def autotest() -> int:
         "horsLigne": {
             "rechargement": "ok", "titreVisible": True, "boutonJouer": True,
             "partieLancee": True,
-            "musiques": [
-                {"fichier": f"piste-{index}.mp3", "statut": 206,
-                 "contenu": "bytes 0-31/100", "octets": 32}
-                for index in range(7)
-            ] + [
-                {"fichier": "piste-cassee.mp3", "statut": 503,
-                 "contenu": "", "octets": 0}
-            ]
+            "musiqueRuntime": {
+                "fichier": "piste-cassee.mp3", "statut": 503,
+                "contenu": "", "octets": 0
+            }
         },
         "icones": [
             {"src": "./icons/icon-192.png", "statut": 200, "declare": "192x192",
@@ -205,15 +239,22 @@ def autotest() -> int:
     }
     attendus = ("coins TRANSPARENTS", "cumule `any` et `maskable`",
                 "aucune capture `narrow`", "theme_color", "apple-touch-icon",
-                "musique hors-ligne")
-    fautes = controles(avant)
+                "musique runtime hors-ligne")
+    fautes = controles(fixture_invalide)
     manques = [a for a in attendus if not any(a in f for f in fautes)]
     for faute in fautes:
         print(f"  . {faute}")
     if manques:
         print(f"\n  ECHEC : le harnais n'a PAS vu {manques}")
         return 1
-    print(f"\n  autotest OK : {len(fautes)} defauts connus tous detectes")
+    fautes_locales = controle_configuration_locale()
+    if fautes_locales:
+        for faute in fautes_locales:
+            print(f"  ! {faute}")
+        print("\n  ECHEC : la configuration PWA réelle ne respecte pas le contrat runtime")
+        return 1
+    print(f"\n  autotest du harnais OK : {len(fautes)} défauts simulés détectés")
+    print("  configuration PWA réelle OK : musique hors CORE et cache runtime déclaré")
     return 0
 
 
@@ -249,6 +290,24 @@ def main():
             timeout=120000)
         donnees = page.evaluate(SONDE)
 
+        # Une seule piste est volontairement demandée en ligne. Elle représente
+        # le vrai contrat : le premier usage remplit le cache runtime ; les sept
+        # autres ne sont pas téléchargées tant que le joueur ne les écoute pas.
+        musique_runtime = page.evaluate("""async () => {
+          const { PISTES } = await import("./src/core/music.js");
+          const fichier = PISTES.menu.fichier;
+          try {
+            const response = await fetch(`./zik/${encodeURIComponent(fichier)}`);
+            const octets = (await response.arrayBuffer()).byteLength;
+            return { fichier, statut: response.status, octets };
+          } catch (erreur) {
+            return { fichier, statut: 0, octets: 0,
+                     erreur: String(erreur).slice(0, 100) };
+          }
+        }""")
+        donnees["musiqueRuntimeOnline"] = musique_runtime
+        page.wait_for_timeout(500)
+
         # ⚠️ LE SEUL TEST QUI PROUVE LE HORS-LIGNE : couper le reseau et
         # recharger. Un cache rempli ne dit rien — il faut que la navigation
         # elle-meme soit servie, et que les modules ES suivent. Un seul import
@@ -265,33 +324,28 @@ def main():
               menuAffiche: !document.getElementById('menu')?.classList.contains('hidden'),
               troisJs: typeof WebGL2RenderingContext !== "undefined"
             })""")
-            # Les HTMLAudioElement lisent les MP3 par plages. Un simple GET 200
-            # ne prouve donc pas la musique hors ligne : on reproduit les huit
-            # premières lectures `Range` avec les chemins exacts de PISTES.
-            hors_ligne["musiques"] = page.evaluate("""async () => {
-              const { PISTES } = await import("./src/core/music.js");
-              const resultats = [];
-              for (const { fichier } of Object.values(PISTES)) {
-                const chemin = `./zik/${encodeURIComponent(fichier)}`;
-                try {
-                  const response = await fetch(chemin, {
-                    headers: { Range: "bytes=0-31" }
-                  });
-                  const contenu = response.headers.get("Content-Range");
-                  const octets = (await response.arrayBuffer()).byteLength;
-                  resultats.push({
-                    fichier, statut: response.status, contenu, octets,
-                    type: response.headers.get("Content-Type")
-                  });
-                } catch (erreur) {
-                  resultats.push({
-                    fichier, statut: 0, contenu: null, octets: 0,
-                    erreur: String(erreur).slice(0, 100)
-                  });
-                }
+            # HTMLAudioElement lit par plages. La piste chaude doit donc rester
+            # lisible en 206 après la coupure, sans prétendre que les sept
+            # pistes jamais demandées sont miraculeusement hors ligne.
+            hors_ligne["musiqueRuntime"] = page.evaluate("""async (fichier) => {
+              const chemin = `./zik/${encodeURIComponent(fichier)}`;
+              try {
+                const response = await fetch(chemin, {
+                  headers: { Range: "bytes=0-31" }
+                });
+                const contenu = response.headers.get("Content-Range");
+                const octets = (await response.arrayBuffer()).byteLength;
+                return {
+                  fichier, statut: response.status, contenu, octets,
+                  type: response.headers.get("Content-Type")
+                };
+              } catch (erreur) {
+                return {
+                  fichier, statut: 0, contenu: null, octets: 0,
+                  erreur: String(erreur).slice(0, 100)
+                };
               }
-              return resultats;
-            }""")
+            }""", musique_runtime["fichier"])
             # Le menu s'affiche peut-etre, mais les GLB et les textures sont
             # chargees APRES : c'est la partie qu'il faut voir demarrer.
             page.evaluate("document.getElementById('playBtn').click()")

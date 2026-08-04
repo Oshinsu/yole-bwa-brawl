@@ -13,6 +13,7 @@ __pycache__/
 
 # Sorties reproductibles
 docs/ZIK_ANALYSE.json
+tmp/
 *.zip
 *.tar.gz
 

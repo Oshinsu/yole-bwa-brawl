@@ -138,14 +138,28 @@ export function makeDefaultIdleClip(name = "rappel_idle", periode = 3.4) {
 const MINIMUM_KEYS = 2;
 const MINIMUM_DUREE = 1e-3;
 
-// Les cinq actions attendues. Un clip absent n'est pas une erreur : la chaîne
-// retombe simplement sur la pose de repos, comme aujourd'hui.
-export const CREW_CLIPS = Object.freeze([
+// Les cinq poses macro livrées par le rig Blender. Elles décrivent la station
+// occupée sur le bwa ; le procédural conserve les réactions courtes à la houle.
+export const CREW_POSE_CLIPS = Object.freeze([
+  "pont_interieur",
+  "cale_court",
+  "demi_sorti",
+  "extension_extreme",
+  "compression_transition"
+]);
+
+// Les actions historiques restent des replis valides pour les anciens GLB.
+export const CREW_LEGACY_CLIPS = Object.freeze([
   "rappel_idle",
   "charge",
   "traversee",
   "ecoute",
   "barre"
+]);
+
+export const CREW_CLIPS = Object.freeze([
+  ...CREW_POSE_CLIPS,
+  ...CREW_LEGACY_CLIPS
 ]);
 
 // `GLTFLoader` assainit les noms de nœuds — un `arm.L` exporté depuis Blender
@@ -220,6 +234,16 @@ export class CrewClipLibrary {
 
   has(action) {
     return this.actions.has(action);
+  }
+
+  /** Première action disponible, sans créer de tableau ni d'itérateur interne. */
+  firstAvailable(candidates) {
+    if (!candidates) return null;
+    for (let index = 0; index < candidates.length; index++) {
+      const action = candidates[index];
+      if (this.actions.has(action)) return action;
+    }
+    return null;
   }
 
   /** Le clip est-il un OFFSET à composer avec le repos, ou une pose absolue ? */

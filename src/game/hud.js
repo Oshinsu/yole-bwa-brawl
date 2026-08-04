@@ -16,6 +16,17 @@ import { handlingCue } from "./handling-feedback.js";
 const DAMAGE_POOL = 14;
 const DAMAGE_LIFE = 1.15;        // secondes
 const DAMAGE_RISE_WORLD = 2.4;   // mètres de montée sur la durée de vie
+const DIAGNOSTIC_HOLD_SECONDS = 3.4;
+const DIAGNOSTIC_REASONS = Object.freeze([
+  "hull", "sail", "bwa", "crew", "water", "danger"
+]);
+const ELAN_STATES = Object.freeze(["locked", "disabled", "cooldown", "low", "ready"]);
+const ELAN_BANDS = Object.freeze([
+  "empty", "low", "turbo-ready", "dash-ready", "high", "full"
+]);
+const TURBO_FLOW_THRESHOLD = 0.16;
+const DASH_FLOW_THRESHOLD = 0.22;
+const FULL_FLOW_THRESHOLD = 0.95;
 
 const colorCss = (color) => `#${Number(color ?? 0xffffff).toString(16).padStart(6, "0")}`;
 const restartUiCue = (element, className) => {
@@ -30,6 +41,256 @@ const setCssVariable = (element, name, value) => {
   if (!element?.style) return;
   if (element.style.setProperty) element.style.setProperty(name, value);
   else element.style[name] = value;
+};
+const setAttributeIfChanged = (element, name, value) => {
+  if (!element?.setAttribute) return;
+  const next = String(value);
+  if (element.getAttribute?.(name) === next) return;
+  element.setAttribute(name, next);
+};
+
+/**
+ * Mémoire purement visuelle des diagnostics.
+ *
+ * Un dégât léger n'a pas à occuper le HUD pendant toute la manche : il ouvre
+ * une fenêtre assez longue pour être lu, puis se replie. Un seuil critique ou
+ * une gîte dangereuse reste visible tant que le danger existe.
+ */
+export function advanceHudDiagnostics(state, sample, now = 0) {
+  const memory = state && typeof state === "object" ? state : {};
+  const current = {
+    hull: clamp(Number.isFinite(sample?.hull) ? sample.hull : 1, 0, 1),
+    sail: clamp(Number.isFinite(sample?.sail) ? sample.sail : 1, 0, 1),
+    bwa: clamp(Number.isFinite(sample?.bwa) ? sample.bwa : 1, 0, 1),
+    crew: Math.max(0, Math.trunc(Number.isFinite(sample?.crew) ? sample.crew : 6)),
+    water: Math.max(0, Number.isFinite(sample?.water) ? sample.water : 0),
+    danger: Boolean(sample?.danger)
+  };
+  const time = Number.isFinite(now) ? now : 0;
+  const previous = memory.sample;
+  const triggered = [];
+  const dropped = (key, epsilon = 0.002) => (
+    previous && current[key] < previous[key] - epsilon
+  );
+
+  if (previous) {
+    if (dropped("hull")) triggered.push("hull");
+    if (dropped("sail")) triggered.push("sail");
+    if (dropped("bwa")) triggered.push("bwa");
+    if (current.crew < previous.crew) triggered.push("crew");
+    const crossedWaterBand = Math.floor(current.water / 20) > Math.floor(previous.water / 20);
+    if (current.water > previous.water + 4 || crossedWaterBand) triggered.push("water");
+    if (current.danger && !previous.danger) triggered.push("danger");
+  } else {
+    if (current.hull < 0.985) triggered.push("hull");
+    if (current.sail < 0.985) triggered.push("sail");
+    if (current.bwa < 0.985) triggered.push("bwa");
+    if (current.crew < 6) triggered.push("crew");
+    if (current.water >= 10) triggered.push("water");
+    if (current.danger) triggered.push("danger");
+  }
+
+  if (triggered.length > 0) {
+    const stillOpen = time < (memory.until ?? 0);
+    memory.latchedReasons = [...new Set([
+      ...(stillOpen ? memory.latchedReasons ?? [] : []),
+      ...triggered
+    ])];
+    memory.until = time + DIAGNOSTIC_HOLD_SECONDS;
+  }
+
+  const criticalReasons = [];
+  if (current.hull <= 0.35) criticalReasons.push("hull");
+  if (current.sail <= 0.40) criticalReasons.push("sail");
+  if (current.bwa <= 0.42) criticalReasons.push("bwa");
+  if (current.crew <= 2) criticalReasons.push("crew");
+  if (current.water >= 80) criticalReasons.push("water");
+  if (current.danger) criticalReasons.push("danger");
+
+  const noticeOpen = time < (memory.until ?? 0);
+  const reasons = [...new Set([
+    ...(noticeOpen ? memory.latchedReasons ?? [] : []),
+    ...criticalReasons
+  ])];
+  memory.sample = current;
+  memory.visible = reasons.length > 0;
+  memory.level = criticalReasons.length > 0 ? "danger" : memory.visible ? "notice" : "calm";
+  memory.reasons = reasons;
+  memory.worn = (
+    current.hull < 0.985
+    || current.sail < 0.985
+    || current.bwa < 0.985
+    || current.crew < 6
+    || current.water >= 10
+  );
+  if (!memory.visible) memory.latchedReasons = [];
+  return memory;
+}
+
+export function trainingHudPresentation(trainingMode, guide) {
+  // `trainingMode` reste volontairement vrai jusqu'à la fin de la partie :
+  // l'arsenal, lui, peut être révélé en cours de manche. Une initiation déjà
+  // validée ne doit donc plus conserver le HUD en étape 3 ni le turbo verrouillé.
+  const active = Boolean(trainingMode && guide && !guide.advancedUnlocked);
+  const step = active ? clamp(Math.trunc(guide.step ?? 0), 0, 2) : 3;
+  const systems = ["helm", "sail", "balance"];
+  if (step >= 1) systems.push("shift");
+  if (step >= 2) systems.push("weapons");
+  if (!active) systems.push("boost");
+  return {
+    active,
+    step,
+    systems,
+    shiftUnlocked: !active || step >= 1,
+    weaponsUnlocked: !active || step >= 2,
+    boostUnlocked: !active
+  };
+}
+
+/**
+ * Présentation de la réserve d'Élan, sans aucune décision de gameplay.
+ *
+ * La disponibilité et la bande de ressource sont séparées : une jauge pleine
+ * peut être en reprise, tandis que 16 % suffisent au turbo mais pas au dash.
+ */
+export function elanHudPresentation({
+  flow = 0,
+  cooldown = 0,
+  cooldownTotal = YOLE_HANDLING.boostCooldown,
+  locked = false,
+  disabled = false,
+  active = false
+} = {}) {
+  const level = clamp(Number.isFinite(flow) ? flow : 0, 0, 1);
+  const percent = Math.round(level * 100);
+  const remaining = Math.max(0, Number.isFinite(cooldown) ? cooldown : 0);
+  const total = Math.max(
+    0.001,
+    Number.isFinite(cooldownTotal) && cooldownTotal > 0
+      ? cooldownTotal
+      : YOLE_HANDLING.boostCooldown
+  );
+
+  const band = level <= 0
+    ? "empty"
+    : level < TURBO_FLOW_THRESHOLD
+      ? "low"
+      : level < DASH_FLOW_THRESHOLD
+        ? "turbo-ready"
+        : level < FULL_FLOW_THRESHOLD
+          ? "dash-ready"
+          : level < 1
+            ? "high"
+            : "full";
+  const state = locked
+    ? "locked"
+    : disabled
+      ? "disabled"
+      : remaining > 0
+        ? "cooldown"
+        : level < TURBO_FLOW_THRESHOLD
+          ? "low"
+          : "ready";
+  const activeNow = Boolean(active && state !== "locked" && state !== "disabled");
+  const seconds = Math.max(1, Math.ceil(remaining));
+  const dashReady = state === "ready" && level >= DASH_FLOW_THRESHOLD;
+
+  let text = "TURBO PRÊT";
+  let ariaValueText = `Élan prêt, réserve ${percent} pour cent`;
+  if (state === "locked") {
+    text = "VERROUILLÉ";
+    ariaValueText = `Élan verrouillé pendant l’initiation, réserve ${percent} pour cent`;
+  } else if (state === "disabled") {
+    text = "HORS COURSE";
+    ariaValueText = `Élan indisponible, réserve ${percent} pour cent`;
+  } else if (activeNow) {
+    text = "ACTIF";
+    ariaValueText = `Élan actif, réserve ${percent} pour cent`;
+  } else if (state === "cooldown") {
+    text = `REPRISE ${seconds}s`;
+    ariaValueText = `Élan en reprise, ${seconds} seconde${seconds > 1 ? "s" : ""}, réserve ${percent} pour cent`;
+  } else if (state === "low") {
+    text = "ÉLAN BAS";
+    ariaValueText = `Élan bas, ${percent} pour cent, turbo disponible à partir de 16 pour cent`;
+  } else if (level >= FULL_FLOW_THRESHOLD) {
+    text = "PLEINE CHARGE";
+    ariaValueText = `Pleine charge d’élan, réserve ${percent} pour cent`;
+  } else if (dashReady) {
+    text = "TURBO + DASH";
+    ariaValueText = `Élan prêt, turbo et dash disponibles, réserve ${percent} pour cent`;
+  } else {
+    text = "TURBO PRÊT";
+    ariaValueText = `Élan prêt, turbo disponible, réserve ${percent} pour cent`;
+  }
+
+  return {
+    level,
+    percent,
+    cooldown: remaining,
+    cooldownTotal: total,
+    cooldownLevel: clamp(remaining / total, 0, 1),
+    state,
+    band,
+    active: activeNow,
+    dashReady,
+    text,
+    ariaValueText
+  };
+}
+
+const applyElanState = (meter, presentation) => {
+  if (!meter) return;
+  for (const state of ELAN_STATES) {
+    meter.classList?.toggle?.(`turbo-${state}`, presentation.state === state);
+  }
+  for (const band of ELAN_BANDS) {
+    meter.classList?.toggle?.(`flow-${band}`, presentation.band === band);
+  }
+  meter.classList?.toggle?.("turbo-active", presentation.active);
+  setAttributeIfChanged(meter, "data-turbo-state", presentation.state);
+  setAttributeIfChanged(meter, "data-flow-band", presentation.band);
+  setAttributeIfChanged(meter, "data-turbo-active", presentation.active);
+  setAttributeIfChanged(meter, "data-dash-ready", presentation.dashReady);
+  setAttributeIfChanged(meter, "aria-valuenow", presentation.percent);
+  setAttributeIfChanged(meter, "aria-valuetext", presentation.ariaValueText);
+  // Trois décimales dépassent déjà la résolution visuelle du rail et évitent
+  // d'invalider le style pour du bruit flottant sans pixel observable.
+  setCssVariable(meter, "--flow-level", String(Math.round(presentation.level * 1000) / 1000));
+  setCssVariable(meter, "--flow-empty", `${Math.round((1 - presentation.level) * 1000) / 10}%`);
+  setCssVariable(
+    meter,
+    "--cooldown-level",
+    String(Math.round(presentation.cooldownLevel * 1000) / 1000)
+  );
+};
+
+const applyDiagnosticState = (element, state) => {
+  if (!element) return;
+  element.classList?.toggle?.("hud-diagnostics-visible", Boolean(state.visible));
+  element.classList?.toggle?.("hud-diagnostics-calm", state.level === "calm");
+  element.classList?.toggle?.("hud-diagnostics-notice", state.level === "notice");
+  element.classList?.toggle?.("hud-diagnostics-danger", state.level === "danger");
+  element.classList?.toggle?.("hud-diagnostics-worn", Boolean(state.worn));
+  for (const reason of DIAGNOSTIC_REASONS) {
+    element.classList?.toggle?.(`hud-diagnostic-${reason}`, state.reasons.includes(reason));
+  }
+  element.setAttribute?.("data-diagnostics", state.level);
+  element.setAttribute?.("data-diagnostic-reasons", state.reasons.join(" "));
+  element.setAttribute?.("data-diagnostics-visible", String(Boolean(state.visible)));
+  element.setAttribute?.("data-diagnostics-worn", String(Boolean(state.worn)));
+};
+
+const applyTrainingLock = (element, system, unlocked) => {
+  if (!element) return;
+  const locked = !unlocked;
+  element.classList?.toggle?.("training-locked", locked);
+  element.classList?.toggle?.("training-unlocked", !locked);
+  element.setAttribute?.("data-training-system", system);
+  element.setAttribute?.("data-training-locked", String(locked));
+  // Ne jamais écrire `aria-hidden=false` ni toucher `.hidden` : le réticule,
+  // l'aide de visée et la caisse possèdent leurs propres états métier.
+  if (locked) element.setAttribute?.("aria-hidden", "true");
+  else element.removeAttribute?.("aria-hidden");
 };
 
 // Instrument de rendu uniquement : la simulation garde son roulis exact, mais
@@ -474,6 +735,37 @@ export const HudSystems = {
       ctx.fill();
     }
 
+    // Les deux décisions lourdes doivent être anticipables : la sargasse ne
+    // ressemble plus à une panne de commandes et la caisse peut être choisie
+    // avant d'être déjà dépassée.
+    ctx.save();
+    for (const patch of this.sargasses ?? []) {
+      if (!visible(patch.x, patch.z, patch.size + 4)) continue;
+      const radiusX = Math.max(3, patch.size / xSpan * mapWidth);
+      const radiusZ = Math.max(3, patch.size / zSpan * mapHeight);
+      ctx.beginPath();
+      ctx.ellipse(mapX(patch.x), mapY(patch.z), radiusX, radiusZ, patch.phase ?? 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(176,137,41,.52)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(239,205,87,.82)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    for (const pickup of this.pickups ?? []) {
+      if (!pickup.active || !visible(pickup.x, pickup.z, 7)) continue;
+      const x = mapX(pickup.x);
+      const y = mapY(pickup.z);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = colorCss(pickup.color ?? 0x54f8ff);
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 7;
+      ctx.fillRect(-3.6, -3.6, 7.2, 7.2);
+      ctx.restore();
+    }
+    ctx.restore();
+
     const standings = this.minimapStandingScratch || (this.minimapStandingScratch = []);
     standings.length = 0;
     for (const boat of this.boats) standings.push(boat);
@@ -537,14 +829,48 @@ export const HudSystems = {
 
     const stormDistance = Math.max(0, player.z - this.stormZ);
     const remaining = this.tour ? Math.max(0, this.tourCourseLength() - player.z) : 0;
+    const nearestPickup = this.nearestPickup?.(player, 150) ?? null;
+    const pickupDistance = nearestPickup
+      ? Math.round(Math.hypot(nearestPickup.x - player.x, nearestPickup.z - player.z))
+      : 0;
     if (this.ui.minimapMode) this.ui.minimapMode.textContent = this.tour ? `ÉTAPE ${this.tour.stage + 1}/8` : `MANCHE ${this.round}`;
     if (this.ui.minimapStatus) {
       const position = player.eliminated ? `ÉLIMINÉ ${place}/${this.boats.length}` : `POSITION ${place}/${this.boats.length}`;
-      this.ui.minimapStatus.textContent = this.tour
+      const primary = this.tour
         ? `${position} · ARRIVÉE ${Math.round(remaining)} M`
         : `${position} · BRUME ${Math.round(stormDistance)} M`;
+      this.ui.minimapStatus.textContent = nearestPickup
+        ? `${primary} · CAISSE ${pickupDistance} M`
+        : primary;
     }
     this.ui.minimap?.classList.toggle("storm-near", stormDistance < 92);
+  },
+
+  applyTrainingHud(presentation) {
+    const hud = this.ui?.hud;
+    hud?.classList?.toggle?.("hud-training", presentation.active);
+    for (let step = 0; step <= 2; step++) {
+      hud?.classList?.toggle?.(`hud-training-step-${step}`, presentation.active && presentation.step === step);
+    }
+    hud?.setAttribute?.("data-training-active", String(presentation.active));
+    hud?.setAttribute?.("data-training-step", presentation.active ? String(presentation.step) : "complete");
+    hud?.setAttribute?.("data-training-systems", presentation.systems.join(" "));
+
+    applyTrainingLock(this.ui?.bwa, "shift", presentation.shiftUnlocked);
+    for (const weaponControl of [
+      this.ui?.weaponSlot,
+      this.ui?.weaponHold2,
+      this.ui?.weaponCrate,
+      this.ui?.weaponShortcuts
+    ]) {
+      applyTrainingLock(weaponControl, "weapons", presentation.weaponsUnlocked);
+    }
+    // Ces éléments possèdent déjà leur propre règle de visibilité. On expose
+    // seulement le verrou : le CSS peut les filtrer sans que le HUD ne force
+    // un réticule inactif à apparaître à la fin de l'initiation.
+    applyTrainingLock(this.ui?.reticle, "weapons", presentation.weaponsUnlocked);
+    applyTrainingLock(this.ui?.aimHelp, "weapons", presentation.weaponsUnlocked);
+    applyTrainingLock(this.ui?.flowMeter ?? this.ui?.flowBar, "boost", presentation.boostUnlocked);
   },
 
   updateUI() {
@@ -555,6 +881,7 @@ export const HudSystems = {
       ammo: Object.create(null),
       weaponReady: Object.create(null)
     };
+    const trainingHud = trainingHudPresentation(this.trainingMode, this.trainingGuide);
     // Après élimination (ou arrivée du Tour), les commandes ne peuvent plus
     // agir. Les laisser brillantes faisait croire à un bug de saisie et
     // surchargeait la caméra spectateur. L'état visuel suit donc l'autorité de
@@ -608,8 +935,34 @@ export const HudSystems = {
         this.ui.roundSub.textContent = player.tourFinished ? "LIGNE FRANCHIE" : `${Math.round(remaining)} M · ${ahead + 1}E/4`;
       }
     } else {
-      this.ui.roundLabel.textContent = `MANCHE ${this.round}`;
-      if (this.ui.roundSub) this.ui.roundSub.textContent = `PREMIER À ${CONFIG.targetScore}`;
+      const trainingDevice = this.inputDevice === "touch"
+        ? "touch"
+        : this.inputDevice === "gamepad" ? "gamepad" : "keyboard";
+      const trainingStepCopy = {
+        keyboard: [
+          "Q/D + ↑/↓ · BARRE + VOILE",
+          "SHIFT · QUAND ELLE PENCHE",
+          "ESPACE · TIRE COCO"
+        ],
+        touch: [
+          "GLISSE · BARRE + VOILE",
+          "BWA CENTRAL · QUAND ELLE PENCHE",
+          "COCO · TOUCHE POUR TIRER"
+        ],
+        gamepad: [
+          "STICK G · BARRE + VOILE",
+          "B · QUAND ELLE PENCHE",
+          "A · TIRE COCO"
+        ]
+      }[trainingDevice];
+      this.ui.roundLabel.textContent = trainingHud.active
+        ? `INITIATION ${trainingHud.step + 1}/3`
+        : `MANCHE ${this.round}`;
+      if (this.ui.roundSub) {
+        this.ui.roundSub.textContent = trainingHud.active
+          ? trainingStepCopy[trainingHud.step]
+          : `KO +1 · DERNIER DEBOUT +2 · 1ER À ${CONFIG.targetScore}`;
+      }
     }
     this.ui.timer.textContent = formatTime(this.roundTime);
     const speedKmh = Math.round(player.speed * 3.6);
@@ -698,11 +1051,142 @@ export const HudSystems = {
       feedback.shiftPerfect = parfait;
     }
 
-    const flowPercent = Math.round(clamp(player.flow, 0, 1) * 100);
-    setCssVariable(this.ui.flowBar, "--meter-level", String(clamp(player.flow, 0, 1)));
-    this.ui.flowBar?.parentElement?.setAttribute?.("aria-valuenow", String(flowPercent));
-    if (feedback.flowPercent !== flowPercent) this.ui.flowText.textContent = `${flowPercent}%`;
-    feedback.flowPercent = flowPercent;
+    const flowMeter = this.ui.flowMeter ?? this.ui.flowBar?.parentElement ?? null;
+    const boostSignal = this.boostHudFeedback;
+    const signalSerial = boostSignal?.serial;
+    const signalChanged = signalSerial !== undefined
+      && signalSerial !== null
+      && signalSerial !== feedback.boostHudSerial;
+    const signalOutcome = boostSignal?.outcome === "confirmed" || boostSignal?.outcome === "rejected"
+      ? boostSignal.outcome
+      : null;
+    const signalKind = boostSignal?.kind === "forward" || boostSignal?.kind === "lateral"
+      ? boostSignal.kind
+      : null;
+
+    if (signalChanged) {
+      feedback.boostHudSerial = signalSerial;
+      if (signalKind) feedback.boostHudKind = signalKind;
+      if (Number.isFinite(boostSignal?.cooldownTotal) && boostSignal.cooldownTotal > 0) {
+        feedback.boostHudCooldownTotal = boostSignal.cooldownTotal;
+      } else if (signalKind) {
+        feedback.boostHudCooldownTotal = signalKind === "lateral"
+          ? YOLE_HANDLING.lateralBoostCooldown
+          : YOLE_HANDLING.boostCooldown;
+      }
+
+      // Le reflow ne sert qu'à réarmer une animation ponctuelle. Le `serial`
+      // garantit qu'un même résultat conservé par le jeu ne la relance pas à
+      // chaque rafraîchissement du HUD.
+      if (flowMeter && signalOutcome) {
+        if (feedback.boostHudCueTimer) {
+          globalThis.clearTimeout?.(feedback.boostHudCueTimer);
+          feedback.boostHudCueTimer = null;
+        }
+        flowMeter.classList?.remove?.("turbo-confirmed", "turbo-rejected");
+        void flowMeter.offsetWidth;
+        flowMeter.classList?.add?.(`turbo-${signalOutcome}`);
+        setAttributeIfChanged(flowMeter, "data-boost-outcome", signalOutcome);
+        setAttributeIfChanged(flowMeter, "data-boost-kind", signalKind ?? "none");
+        if (signalOutcome === "rejected" && boostSignal?.reason) {
+          setAttributeIfChanged(flowMeter, "data-reject-reason", boostSignal.reason);
+        } else {
+          flowMeter.removeAttribute?.("data-reject-reason");
+        }
+        const cueSerial = signalSerial;
+        const cueTimer = globalThis.setTimeout?.(() => {
+          if (feedback.boostHudSerial !== cueSerial) return;
+          flowMeter.classList?.remove?.("turbo-confirmed", "turbo-rejected");
+          flowMeter.removeAttribute?.("data-boost-outcome");
+          feedback.boostHudCueTimer = null;
+        }, 520);
+        cueTimer?.unref?.();
+        feedback.boostHudCueTimer = cueTimer ?? null;
+      }
+      if (signalOutcome === "rejected" && boostSignal?.reason === "flow") {
+        feedback.boostHudNotice = signalKind === "lateral"
+          ? "DASH : ÉLAN BAS"
+          : "TURBO : ÉLAN BAS";
+        feedback.boostHudNoticeUntil = (this.time ?? 0) + 1;
+      }
+    }
+
+    const boostCooldown = Math.max(0, player.dynamics.boostCooldown ?? 0);
+    const physicalBoostActive = (
+      (player.dynamics.arcadeBoostForward ?? 0) > 0.015
+      || (player.dynamics.arcadeBoostLateral ?? 0) > 0.015
+    );
+    const justConfirmed = signalChanged && signalOutcome === "confirmed";
+    const rememberedKind = signalKind ?? feedback.boostHudKind ?? null;
+    const inferredCooldownTotal = rememberedKind === "lateral"
+      ? YOLE_HANDLING.lateralBoostCooldown
+      : boostCooldown > YOLE_HANDLING.boostCooldown
+        ? YOLE_HANDLING.lateralBoostCooldown
+        : YOLE_HANDLING.boostCooldown;
+    const elan = elanHudPresentation({
+      flow: player.flow,
+      cooldown: boostCooldown,
+      cooldownTotal: feedback.boostHudCooldownTotal ?? inferredCooldownTotal,
+      locked: !trainingHud.boostUnlocked,
+      disabled: Boolean(player.eliminated || player.tourFinished),
+      active: physicalBoostActive || justConfirmed
+    });
+    applyElanState(flowMeter, elan);
+    const readyNow = elan.state === "ready";
+    if (feedback.elanReady === false && readyNow) restartUiCue(flowMeter, "turbo-ready-cue");
+    feedback.elanReady = readyNow;
+
+    const activeKind = (player.dynamics.arcadeBoostLateral ?? 0) > (player.dynamics.arcadeBoostForward ?? 0)
+      ? "lateral"
+      : rememberedKind;
+    const inputDevice = this.inputDevice === "touch"
+      ? "touch"
+      : this.inputDevice === "gamepad" ? "gamepad" : "keyboard";
+    const controlHint = {
+      keyboard: "F TURBO · X DASH",
+      touch: "2× EAU · 2× JOYSTICK",
+      gamepad: "RB TURBO · LB DASH"
+    }[inputDevice];
+    const heelRisk = (readyNow || elan.active) && Math.abs(player.roll ?? 0) >= 0.40;
+    let flowHint = controlHint;
+    if (elan.state === "locked") flowHint = "APRÈS L’INITIATION";
+    else if (elan.state === "disabled") flowHint = "COMMANDES COUPÉES";
+    else if (elan.active) {
+      flowHint = activeKind === "lateral"
+        ? "DASH · REPRENDS LA BARRE"
+        : "POUSSÉE · REDRESSE APRÈS";
+    } else if (elan.state === "cooldown") flowHint = "SOUFFLE DE L’ÉQUIPAGE";
+    else if (elan.state === "low") flowHint = "SURF + CONTRE-GÎTE = ÉLAN";
+    if ((feedback.boostHudNoticeUntil ?? -1) > (this.time ?? 0)) {
+      flowHint = feedback.boostHudNotice;
+    }
+    setAttributeIfChanged(flowMeter, "data-heel-risk", heelRisk);
+    if (this.ui.flowHint && feedback.flowHint !== flowHint) this.ui.flowHint.textContent = flowHint;
+    if (this.ui.flowRisk) {
+      const riskCopy = heelRisk ? "REDRESSE D’ABORD" : "";
+      if (feedback.flowRisk !== riskCopy) this.ui.flowRisk.textContent = riskCopy;
+      setAttributeIfChanged(this.ui.flowRisk, "aria-hidden", !heelRisk);
+      feedback.flowRisk = riskCopy;
+    }
+    feedback.flowHint = flowHint;
+    setAttributeIfChanged(
+      flowMeter,
+      "aria-valuetext",
+      `${elan.ariaValueText}. ${flowHint}${heelRisk ? ". Redresse d’abord" : ""}.`
+    );
+
+    // Compatibilité avec le remplissage V8 actuel, qui lit encore la variable
+    // sur l'enfant. Le nouveau contrat stable appartient au parent.
+    setCssVariable(this.ui.flowBar, "--meter-level", String(elan.level));
+    if (this.ui.flowState && feedback.flowState !== elan.text) {
+      this.ui.flowState.textContent = elan.text;
+    }
+    const flowPercent = `${elan.percent}%`;
+    if (this.ui.flowText && feedback.flowPercent !== elan.percent) {
+      this.ui.flowText.textContent = flowPercent;
+    }
+    feedback.flowState = elan.text;
+    feedback.flowPercent = elan.percent;
     this.ui.crewDots.textContent = CREW_DOTS[player.activeCrew] ?? CREW_DOTS[0];
     if (this.ui.trimText) {
       // L'écoute est désormais pilotable au clavier : la jauge doit dire non
@@ -725,20 +1209,41 @@ export const HudSystems = {
       this.ui.hullText.style.color = coque < 35 ? "#ff6b8a" : coque < 65 ? "#ffc531" : "";
     }
     const bwaIntegrity = clamp(structure.bwa.reduce((sum, value) => sum + value, 0) / structure.bwa.length, 0, 1);
+    const bwaWeakest = clamp(Math.min(...structure.bwa), 0, 1);
     if (this.ui.mastBar) this.ui.mastBar.style.width = `${clamp(structure.mast, 0, 1) * 100}%`;
     if (this.ui.sailBar) this.ui.sailBar.style.width = `${clamp(structure.sail, 0, 1) * 100}%`;
     if (this.ui.bwaIntegrityBar) this.ui.bwaIntegrityBar.style.width = `${bwaIntegrity * 100}%`;
-    // Les diagnostics secondaires ne prennent de place que lorsqu'ils ont
-    // quelque chose à dire. La coque garde sa jauge principale dédiée.
-    const secondarySystemsIntact = structure.mast >= 0.985 && structure.sail >= 0.985 && bwaIntegrity >= 0.985;
-    this.ui.systemIntegrity?.classList?.toggle?.("hidden", secondarySystemsIntact);
+    const stormDistance = Math.max(0, player.z - this.stormZ);
+    const diagnosticState = advanceHudDiagnostics(
+      feedback.diagnostics ??= {},
+      {
+        hull: structure.hull,
+        sail: Math.min(structure.mast, structure.sail),
+        bwa: bwaWeakest,
+        crew: player.activeCrew,
+        water: player.water,
+        danger: !player.eliminated && (danger > 0.55 || stormDistance < 52)
+      },
+      this.time ?? this.roundTime ?? 0
+    );
+    applyDiagnosticState(this.ui.hud, diagnosticState);
+    applyDiagnosticState(statusPanel, diagnosticState);
+    applyDiagnosticState(this.ui.systemIntegrity, diagnosticState);
+
+    // Le rail Mât/Voile/BWA s'ouvre seulement lorsqu'un de ces systèmes vient
+    // d'être touché, ou reste critique. Les classes posées sur le HUD permettent
+    // au CSS de révéler en parallèle coque, équipage et eau selon la vraie cause.
+    const secondaryRelevant = diagnosticState.visible && (
+      diagnosticState.reasons.includes("sail")
+      || diagnosticState.reasons.includes("bwa")
+    );
+    this.ui.systemIntegrity?.classList?.toggle?.("hidden", !secondaryRelevant);
     const liveWeather = this.atmosphere.weather;
     if (this.ui.weatherChip) {
       const label = liveWeather.stormAmount > 0.72 ? "🌪 BRUME TOTALE" : liveWeather.stormAmount > 0.38 ? "🌧 MER CROISÉE" : liveWeather.windSpeed > 11 ? "💨 ALIZÉS FORTS" : "☀ ALIZÉS STABLES";
       this.ui.weatherChip.textContent = `${label} · ${Math.round(liveWeather.windSpeed)} m/s`;
       this.ui.weatherChip.style.background = liveWeather.stormAmount > 0.5 ? "rgba(73,25,96,.82)" : "rgba(2,44,59,.72)";
     }
-    const stormDistance = Math.max(0, player.z - this.stormZ);
     this.ui.stormDistance.textContent = `${Math.round(stormDistance)} m`;
     this.ui.storm.classList.toggle("hidden", stormDistance > 92 || player.eliminated);
     // La musique suit le Grain. `Carnival Apocalypse` est la piste la plus dense
@@ -785,8 +1290,19 @@ export const HudSystems = {
       const arrive = Boolean(this.tour && player.tourFinished);
       const spectating = mort || arrive;
       const tourResultReady = Boolean(this.tour && spectating && this.roundEnding > 0);
+      let liveRivals = 0;
+      for (const boat of this.boats) if (!boat.eliminated) liveRivals++;
       this.ui.spectateur.classList.toggle("hidden", !spectating);
       this.ui.skipSpectating?.classList?.toggle?.("hidden", !tourResultReady);
+      this.ui.spectatorCycle?.classList?.toggle?.("hidden", !(mort && liveRivals > 1));
+      this.ui.spectatorFast?.classList?.toggle?.(
+        "hidden",
+        !(mort && liveRivals > 0 && !this.playback && !this.versusLocal)
+      );
+      if (this.ui.spectatorFast) {
+        this.ui.spectatorFast.textContent = this.spectatorFastForward ? "VITESSE ×1" : "FIN ×4";
+        this.ui.spectatorFast.setAttribute?.("aria-pressed", String(Boolean(this.spectatorFastForward)));
+      }
       if (spectating) {
         const titre = this.ui.spectateur.querySelector?.("b");
         if (titre) titre.textContent = arrive ? "ARRIVÉE FRANCHIE" : "ÉLIMINÉ";
@@ -805,7 +1321,9 @@ export const HudSystems = {
               ? "LES RIVAUX FINISSENT · CLASSEMENT EN COURS"
               : this.tour
                 ? "ABANDON · ATTENDS LA FIN DE L'ÉTAPE"
-                : "ÉLIMINÉ · ATTENDS LA FIN DE LA MANCHE";
+                : liveRivals > 1
+                  ? "ÉLIMINÉ · CHANGE DE CAMÉRA PENDANT LA FIN"
+                  : "ÉLIMINÉ · DERNIER DUEL EN COURS";
         }
       }
     }
@@ -886,23 +1404,6 @@ export const HudSystems = {
           : ""
       );
     }
-    const boostCooldown = Math.max(0, player.dynamics.boostCooldown ?? 0);
-    const updateBoostFeedback = (element, threshold, stateKey) => {
-      if (!element) return;
-      const resourceLow = player.flow < threshold;
-      const ready = boostCooldown <= 0 && !resourceLow && !player.eliminated;
-      element.classList.toggle("cooldown", !ready);
-      element.classList.toggle("resource-low", resourceLow);
-      // ⚠️ Le diviseur DOIT suivre la constante de simulation, sinon l'anneau
-      // se vide en 0,7 s pendant que le turbo reste indisponible 3,1 s — le
-      // HUD annoncerait « prêt » à un bouton qui refuse.
-      setCssVariable(element, "--cooldown-angle", `${clamp(boostCooldown / YOLE_HANDLING.boostCooldown, 0, 1)}turn`);
-      element.setAttribute?.("aria-disabled", String(!ready));
-      if (feedback[stateKey] === false && ready) restartUiCue(element, "ready-cue");
-      feedback[stateKey] = ready;
-    };
-    updateBoostFeedback(this.ui.boostForward, 0.16, "boostForwardReady");
-    updateBoostFeedback(this.ui.boostLateral, 0.22, "boostLateralReady");
     // ── LES DEUX AUTRES TUILES ───────────────────────────────────────────
     // La première (`weaponSlot`) garde son affichage détaillé plus haut ; ces
     // deux-là sont plus simples : l'icône, le nom, l'anneau de recharge et
@@ -1011,6 +1512,7 @@ export const HudSystems = {
           : "VISÉE · CLIC DROIT OU 2E DOIGT · GLISSER · RELÂCHER";
       }
     }
+    this.applyTrainingHud?.(trainingHud);
     this.updateLeaderboard();
 
     if (this.ui.perf) {

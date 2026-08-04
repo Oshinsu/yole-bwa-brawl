@@ -5,6 +5,7 @@
 
 import { clamp } from "../core/math.js";
 import { downloadReplay } from "../sim/replay.js";
+import { YOLE_HANDLING } from "../sim/yole-physics.js";
 import { SPELL_VFX } from "../render/vfx.js";
 import { openTourHub } from "./tour-hub.js";
 import { openReplayLibrary } from "./replay-library.js";
@@ -18,7 +19,8 @@ import {
   ACTION_MINE, ACTION_SHIFT, ACTION_WAVE, ACTION_BARIK,
   ACTION_CHADRON, ACTION_LANBI, ACTION_PWASON, AI_LEVELS, WEAPONS, RIGS,
   SAIL_LIVERIES, TOUR_STAGES, ZOOM_MAX, ZOOM_MIN, CRATE_WEAPONS,
-  LOADOUT_POOL, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS
+  LOADOUT_POOL, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS,
+  trainingActionMask
 } from "./balance.js";
 
 // Écoute de voile au clavier.
@@ -92,8 +94,73 @@ const WORKSHOP_SETTING_KEYS = Object.freeze([
   "hullColor", "accentColor", "woodFinish", "crewKit", "sailLivery", "rig", "loadout"
 ]);
 const cssHex = (value) => `#${Math.max(0, Number(value) || 0).toString(16).padStart(6, "0").slice(-6)}`;
+const BOOST_FLOW_THRESHOLD = Object.freeze({
+  forward: 0.16,
+  lateral: 0.22
+});
 
 export const InputSystems = {
+  trainingBasicsLocked() {
+    return Boolean(
+      this.trainingMode
+      && this.trainingGuide
+      && !this.trainingGuide.advancedUnlocked
+    );
+  },
+
+  allowedTrainingActionMask(actions) {
+    return this.trainingMode
+      ? trainingActionMask(this.trainingGuide, actions)
+      : (Number.isInteger(actions) ? actions >>> 0 : 0);
+  },
+
+  publishBoostHudFeedback(kind, outcome, reason = null) {
+    const previousSerial = Number.isSafeInteger(this.boostHudFeedbackSerial)
+      ? this.boostHudFeedbackSerial
+      : Number.isSafeInteger(this.boostHudFeedback?.serial)
+        ? this.boostHudFeedback.serial
+        : 0;
+    const serial = previousSerial + 1;
+    const nominalCooldown = kind === "lateral"
+      ? YOLE_HANDLING.lateralBoostCooldown
+      : YOLE_HANDLING.boostCooldown;
+    // Le verrou est partagé. Après un Dash, une tentative de Turbo doit encore
+    // annoncer un total de 15 s, pas recalculer son anneau sur les 10 s propres
+    // au Turbo. La dernière confirmation physique est la source d'autorité.
+    const activeCooldown = (
+      reason === "cooldown"
+      && (
+        this.boostHudCooldownTotal === YOLE_HANDLING.boostCooldown
+        || this.boostHudCooldownTotal === YOLE_HANDLING.lateralBoostCooldown
+      )
+    ) ? this.boostHudCooldownTotal : nominalCooldown;
+    if (outcome === "confirmed") this.boostHudCooldownTotal = nominalCooldown;
+    this.boostHudFeedbackSerial = serial;
+    this.boostHudFeedback = Object.freeze({
+      serial,
+      outcome,
+      kind,
+      reason: outcome === "confirmed" ? null : reason,
+      cooldownTotal: activeCooldown
+    });
+    return this.boostHudFeedback;
+  },
+
+  boostRejectionReason(boat, kind) {
+    if (!boat || boat.eliminated) return "eliminated";
+    const dynamics = boat.dynamics ?? boat;
+    if ((dynamics.boostCooldown ?? 0) > 0) return "cooldown";
+    const flow = Number.isFinite(boat.flow)
+      ? boat.flow
+      : Number.isFinite(dynamics.flow)
+        ? dynamics.flow
+        : 0;
+    if (flow < BOOST_FLOW_THRESHOLD[kind]) return "flow";
+    // La physique peut refuser pour un garde futur que l'input ne connaît pas
+    // encore. Il doit rester visible comme verrou, jamais comme faux succès.
+    return "locked";
+  },
+
   // Pendant une relecture, seul le replay a le droit de piloter. Les handlers de
   // l'UI, le clavier et la manette restaient actifs et mutaient directement les
   // dynamics : la relecture divergeait de l'enregistrement dès qu'on touchait un
@@ -114,6 +181,7 @@ export const InputSystems = {
     // injectée (DOM, manette ou outil externe) ne doit encore toucher les IA.
     if (!this.playback && this.tour && this.boats?.[0]?.tourFinished) {
       this.input.actions = 0;
+      this.pendingBoostHudAttemptMask = 0;
       return false;
     }
     this.applyActionMask(this.input.actions);
@@ -164,6 +232,8 @@ export const InputSystems = {
       pauseMenu: byId("pauseMenuBtn"),
       endMenu: byId("endMenuBtn"),
       skipSpectating: byId("skipSpectatingBtn"),
+      spectatorCycle: byId("spectateurCycleBtn"),
+      spectatorFast: byId("spectateurFastBtn"),
       musicVolume: byId("musicVolumeSlider"),
       musicVolumeValue: byId("musicVolumeValue"),
       sfxVolume: byId("sfxVolumeSlider"),
@@ -283,7 +353,11 @@ export const InputSystems = {
     this.onboardingStep = clamp(index | 0, 0, steps.length - 1);
     steps.forEach((step, stepIndex) => step.classList?.toggle?.("hidden", stepIndex !== this.onboardingStep));
     (this.ui.onboardingDots ?? []).forEach((dot, stepIndex) => dot.classList?.toggle?.("active", stepIndex === this.onboardingStep));
-    if (this.ui.onboardingProgress) this.ui.onboardingProgress.textContent = `${this.onboardingStep + 1} / ${steps.length}`;
+    if (this.ui.onboardingProgress) {
+      this.ui.onboardingProgress.textContent = steps.length === 1
+        ? "3 GESTES"
+        : `${this.onboardingStep + 1} / ${steps.length}`;
+    }
     if (this.ui.onboardingNext) this.ui.onboardingNext.textContent = this.onboardingStep === steps.length - 1
       ? (this.pendingOnboardingStart ? "À L’EAU !" : "TERMINER")
       : "SUIVANT";
@@ -447,7 +521,24 @@ export const InputSystems = {
       this.startWithOnboarding(() => this.startVersusMatch?.());
       return true;
     }
-    this.startWithOnboarding(() => this.startMatch?.());
+    return this.startCombatFromMenu();
+  },
+
+  startCombatFromMenu() {
+    const training = !this.settings?.get?.("trainingCompleted");
+    const start = () => {
+      this.clearActiveChallenge?.();
+      this.startMatch?.({ training });
+    };
+    if (training) {
+      // Le manuel statique reste consultable depuis Aide, mais la première
+      // partie enseigne désormais en jouant. Le drapeau ne sera consommé qu'au
+      // troisième geste (ou au filet de 38 s), afin qu'un départ accidentel ne
+      // prive pas le joueur de l'aide lors de sa prochaine mise à l'eau.
+      start();
+      return true;
+    }
+    this.startWithOnboarding(start);
     return true;
   },
 
@@ -569,6 +660,7 @@ export const InputSystems = {
     this.input.left = false;
     this.input.right = false;
     this.input.actions = 0;
+    this.pendingBoostHudAttemptMask = 0;
     this.input.steer = 0;
     this.input.trim = KEYBOARD_TRIM.cruise;
     this.input.trimUp = false;
@@ -1116,8 +1208,45 @@ export const InputSystems = {
   },
 
   triggerForwardBoost(boat = this.boats[0]) {
-    if (boat === this.boats[0] && this.playerInputLocked()) return false;
-    if (!boat || boat.eliminated || !boat.triggerForwardBoost()) return false;
+    const playerAttempt = Boolean(boat && boat === this.boats?.[0]);
+    const queuedFeedback = Boolean(this.pendingBoostHudAttemptMask & ACTION_BOOST_FORWARD);
+    if (this.isApplyingReplay && queuedFeedback) {
+      this.pendingBoostHudAttemptMask &= ~ACTION_BOOST_FORWARD;
+    }
+    // Une action manette réussie est appliquée immédiatement puis inscrite dans
+    // le masque du replay. Son second passage au tick fixe est seulement l'écho
+    // d'enregistrement : il ne doit pas remplacer « confirmé » par un faux
+    // « cooldown ». Les actions clavier/tactile posent, elles, le marqueur.
+    const feedbackAttempt = playerAttempt && (
+      !this.isApplyingReplay
+      || Boolean(this.playback)
+      || queuedFeedback
+    );
+    if (this.trainingBasicsLocked()) {
+      if (feedbackAttempt) this.publishBoostHudFeedback("forward", "rejected", boat.eliminated ? "eliminated" : "locked");
+      return false;
+    }
+    if (playerAttempt && this.playerInputLocked()) {
+      if (feedbackAttempt) this.publishBoostHudFeedback("forward", "rejected", boat.eliminated ? "eliminated" : "locked");
+      return false;
+    }
+    if (!boat || boat.eliminated) {
+      if (feedbackAttempt) this.publishBoostHudFeedback("forward", "rejected", "eliminated");
+      return false;
+    }
+    if (!boat.triggerForwardBoost()) {
+      if (feedbackAttempt) {
+        this.publishBoostHudFeedback(
+          "forward",
+          "rejected",
+          this.boostRejectionReason(boat, "forward")
+        );
+      }
+      return false;
+    }
+    // Confirmation uniquement après mutation physique réussie. Le HUD peut
+    // ensuite consommer le serial à son rythme, sans aucun toast de rejet ici.
+    if (feedbackAttempt) this.publishBoostHudFeedback("forward", "confirmed");
     const forward = boat.forward(this.boostForwardScratch || (this.boostForwardScratch = { x: 0, z: 0 }));
     const tailX = boat.x - forward.x * 4.5;
     const tailZ = boat.z - forward.z * 4.5;
@@ -1140,10 +1269,40 @@ export const InputSystems = {
   },
 
   triggerLateralBoost(boat = this.boats[0], direction = null) {
-    if (boat === this.boats[0] && this.playerInputLocked()) return false;
-    if (!boat || boat.eliminated) return false;
+    const playerAttempt = Boolean(boat && boat === this.boats?.[0]);
+    const queuedFeedback = Boolean(this.pendingBoostHudAttemptMask & ACTION_BOOST_LATERAL);
+    if (this.isApplyingReplay && queuedFeedback) {
+      this.pendingBoostHudAttemptMask &= ~ACTION_BOOST_LATERAL;
+    }
+    const feedbackAttempt = playerAttempt && (
+      !this.isApplyingReplay
+      || Boolean(this.playback)
+      || queuedFeedback
+    );
+    if (this.trainingBasicsLocked()) {
+      if (feedbackAttempt) this.publishBoostHudFeedback("lateral", "rejected", boat.eliminated ? "eliminated" : "locked");
+      return false;
+    }
+    if (playerAttempt && this.playerInputLocked()) {
+      if (feedbackAttempt) this.publishBoostHudFeedback("lateral", "rejected", boat.eliminated ? "eliminated" : "locked");
+      return false;
+    }
+    if (!boat || boat.eliminated) {
+      if (feedbackAttempt) this.publishBoostHudFeedback("lateral", "rejected", "eliminated");
+      return false;
+    }
     const side = Math.sign(direction ?? boat.steer ?? this.input.steer ?? -boat.roll ?? 1) || 1;
-    if (!boat.triggerLateralBoost(side)) return false;
+    if (!boat.triggerLateralBoost(side)) {
+      if (feedbackAttempt) {
+        this.publishBoostHudFeedback(
+          "lateral",
+          "rejected",
+          this.boostRejectionReason(boat, "lateral")
+        );
+      }
+      return false;
+    }
+    if (feedbackAttempt) this.publishBoostHudFeedback("lateral", "confirmed");
     const forward = boat.forward(this.boostSideForwardScratch || (this.boostSideForwardScratch = { x: 0, z: 0 }));
     const rightX = forward.z;
     const rightZ = -forward.x;
@@ -1178,7 +1337,10 @@ export const InputSystems = {
   // on retombe sur la première encore disponible : le joueur n'a jamais un
   // emplacement mort alors qu'il lui reste des munitions.
   activeWeapon(boat) {
-    const held = WEAPONS.filter((w) => (boat?.ammo?.[w.key] ?? 0) > 0);
+    const held = WEAPONS.filter((w) => (
+      (boat?.ammo?.[w.key] ?? 0) > 0
+      && (!this.trainingBasicsLocked() || w.key === "wave")
+    ));
     if (!held.length) return null;
     return held.find((w) => w.key === boat.activeWeapon) || held[0];
   },
@@ -1191,6 +1353,7 @@ export const InputSystems = {
 
   // Clavier seulement : au tactile, chaque tuile tire directement son arme.
   cycleWeapon() {
+    if (this.trainingBasicsLocked()) return false;
     const boat = this.boats[0];
     const held = WEAPONS.filter((w) => (boat?.ammo?.[w.key] ?? 0) > 0);
     if (held.length < 2) return;
@@ -1201,6 +1364,7 @@ export const InputSystems = {
 
   /** L'arme de caisse actuellement portée, s'il y en a une. */
   crateWeapon(boat) {
+    if (this.trainingBasicsLocked()) return null;
     const porte = boat ?? this.boats[0];
     if (!porte) return null;
     // Un seul emplacement de caisse depuis la refonte : la première trouvée
@@ -1224,6 +1388,7 @@ export const InputSystems = {
    */
   fireWeaponKey(key) {
     if (!key) return false;
+    if (this.trainingBasicsLocked() && key !== "wave") return false;
     const index = WEAPONS.findIndex((entry) => entry.key === key);
     if (index < 0) return false;
     return this.fireWeaponShortcut(index);
@@ -1252,6 +1417,7 @@ export const InputSystems = {
     // Huit armes, huit raccourcis : les quatre armes exclusivement en caisse ont
     // désormais leur touche au lieu de n'être joignables qu'en cyclant avec E.
     if (!player || !weapon || slotIndex < 0 || slotIndex >= WEAPONS.length) return false;
+    if (this.trainingBasicsLocked() && weapon.key !== "wave") return false;
     const ammo = player.ammo?.[weapon.key] ?? 0;
     const shortcut = this.ui?.weaponShortcuts?.querySelectorAll?.("[data-weapon]")?.[slotIndex];
     if (ammo <= 0) {
@@ -1562,15 +1728,31 @@ export const InputSystems = {
   },
 
   requestAction(bit) {
-    if (this.playerInputLocked()) return false;
     const player = this.boats[0];
-    if (!player || player.eliminated) return false;
+    const boostKind = bit === ACTION_BOOST_FORWARD
+      ? "forward"
+      : bit === ACTION_BOOST_LATERAL
+        ? "lateral"
+        : null;
+    const rejectBoost = (reason) => {
+      if (boostKind) this.publishBoostHudFeedback(boostKind, "rejected", reason);
+      return false;
+    };
+    if (this.playerInputLocked()) {
+      return rejectBoost(player?.eliminated ? "eliminated" : "locked");
+    }
+    if (!player || player.eliminated) return rejectBoost("eliminated");
+    if (this.allowedTrainingActionMask(bit) !== (bit >>> 0)) return rejectBoost("locked");
+    if (boostKind) {
+      this.pendingBoostHudAttemptMask = (this.pendingBoostHudAttemptMask ?? 0) | bit;
+    }
     this.input.actions |= bit;
     this.flashActionControl(bit);
     return true;
   },
 
   applyActionMask(actions) {
+    actions = this.allowedTrainingActionMask(actions);
     if (!actions) return;
     this.isApplyingReplay = true;
     const player = this.boats[0];
@@ -1659,10 +1841,7 @@ export const InputSystems = {
       if (event.pointerType === "touch") this.setInputDevice("touch");
       else if (event.pointerType === "mouse") this.setInputDevice("keyboard");
     }, { passive: true });
-    ui.play.onclick = () => this.startWithOnboarding(() => {
-      this.clearActiveChallenge?.();
-      this.startMatch();
-    });
+    ui.play.onclick = () => this.startCombatFromMenu();
     if (ui.versusBtn) ui.versusBtn.onclick = () => {
       this.dialogReturnFocus = globalThis.document?.activeElement || ui.versusBtn;
       if (this.openVersusLobby()) {
@@ -1743,6 +1922,8 @@ export const InputSystems = {
     if (ui.leaveCancel) ui.leaveCancel.onclick = () => this.cancelReturnToMenu();
     if (ui.leaveConfirm) ui.leaveConfirm.onclick = () => this.returnToMenu();
     if (ui.skipSpectating) ui.skipSpectating.onclick = () => this.skipTourSpectating?.();
+    if (ui.spectatorCycle) ui.spectatorCycle.onclick = () => this.cycleSpectatorCamera?.();
+    if (ui.spectatorFast) ui.spectatorFast.onclick = () => this.toggleSpectatorFastForward?.();
     ui.restart.onclick = () => {
       if (this.versusLocal) this.startVersusMatch();
       else if (this.tour) this.startTourStage(this.tour.stage);

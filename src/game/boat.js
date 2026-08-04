@@ -175,7 +175,9 @@ export class Boat {
   triggerShift() {
     const result = this.dynamics.triggerShift();
     const cut = this.game.tryCutGrapples?.(this) ?? 0;
-    if (result.critical) this.game.onPerfectShift(this, result.precision);
+    if (result.emergency && this.isPlayer) {
+      this.game.showMessage("⚠ MANŒUVRE D’URGENCE · ÉQUIPAGE À L’EAU", 0.82);
+    } else if (result.critical) this.game.onPerfectShift(this, result.precision);
     else if (result.recovery && this.isPlayer) this.game.showMessage("CONTRE-DÉRIVE !", 0.58);
     else if (this.isPlayer && !cut) this.game.showMessage("SHIFT TROP TÔT", 0.55);
     return { ...result, cut };

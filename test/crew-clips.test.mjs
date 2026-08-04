@@ -15,7 +15,15 @@ import {
   makeDefaultIdleClip,
   normalizeTrackTarget
 } from "../src/render/crew-clips.js";
-import { CrewVisual } from "../src/render/yole-visual.js";
+import {
+  CrewVisual,
+  CREW_CONTACT_BOTH_FEET,
+  CREW_CONTACT_LEAD_FOOT,
+  crewContactMode,
+  crewPoseForStation,
+  selectCrewPoseAction,
+  selectCrewTransitionAction
+} from "../src/render/yole-visual.js";
 
 // ── Fabrication de clips de test ─────────────────────────────────────────────
 const axeVersQuat = (x, y, z, angle) => {
@@ -73,6 +81,31 @@ assert.equal(normalizeTrackTarget("Hips.quaternion"), "Hips");
 assert.equal(normalizeTrackTarget("arm.L.quaternion"), "armL");
 assert.equal(normalizeTrackTarget("mixamorig:LeftArm.quaternion"), "mixamorigLeftArm");
 assert.equal(normalizeTrackTarget("Hips"), "Hips", "un nom nu doit rester stable (idempotence)");
+
+// Les noms Blender bavards et la sélection runtime doivent rester d'accord.
+{
+  const poses = new CrewClipLibrary([
+    clip("Armature|pont_interieur|baselayer", 1, [
+      piste("Hips", [[0, axeVersQuat(1, 0, 0, 0)], [1, axeVersQuat(1, 0, 0, 0.1)]])
+    ]),
+    clip("Armature|extension_extreme|baselayer", 1, [
+      piste("Hips", [[0, axeVersQuat(1, 0, 0, 0)], [1, axeVersQuat(1, 0, 0, 0.2)]])
+    ]),
+    clip("compression_transition", 1, [
+      piste("Hips", [[0, axeVersQuat(1, 0, 0, 0)], [1, axeVersQuat(1, 0, 0, 0.3)]])
+    ])
+  ]);
+  assert.equal(crewPoseForStation("extreme"), "extension_extreme");
+  assert.equal(selectCrewPoseAction(poses, "dresseur", "extreme"), "extension_extreme");
+  assert.equal(selectCrewPoseAction(poses, "patron", "extreme"), "pont_interieur");
+  assert.equal(selectCrewTransitionAction(poses, true, 0.8), "compression_transition");
+  assert.equal(poses.firstAvailable(["cale_court", "pont_interieur"]), "pont_interieur");
+  assert.equal(crewContactMode("demi_sorti", null), CREW_CONTACT_BOTH_FEET);
+  assert.equal(
+    crewContactMode("extension_extreme", null, 0, 0.8),
+    CREW_CONTACT_LEAD_FOOT
+  );
+}
 
 // ── 3. Échantillonnage : interpolation et bouclage ───────────────────────────
 {

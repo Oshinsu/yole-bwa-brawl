@@ -6,9 +6,43 @@
 import { clamp, damp } from "../core/math.js";
 import { routeCenter } from "../render/world.js";
 import { checksumBoats, downloadReplay } from "../sim/replay.js";
-import { BALANCE, CONFIG, TOUR_STAGES, TOUR_STAGE_POINTS, createBuoyVisual } from "./balance.js";
+import {
+  BALANCE,
+  CONFIG,
+  COUNTDOWN_GO_SECONDS,
+  COUNTDOWN_SECONDS,
+  TOUR_STAGES,
+  TOUR_STAGE_POINTS,
+  createBuoyVisual
+} from "./balance.js";
 import { TourProgressStore, rankTourBoats } from "./tour-progress.js";
 import { versusPilotLabel } from "./versus.js";
+
+function defeatPresentation(reason = "") {
+  const normalized = String(reason).toLocaleUpperCase("fr");
+  if (/BRUME|GRAIN|ENSEVELI/.test(normalized)) {
+    return {
+      title: "LA BRUME T’A RATTRAPÉ",
+      tip: "Garde toujours une voie de sortie vers l’avant et surveille sa distance sur la mini-carte."
+    };
+  }
+  if (/CHAVIR/.test(normalized)) {
+    return {
+      title: "YOLE CHAVIRÉE",
+      tip: "Contre-gîte avant la zone rouge : une correction tardive ne rend pas toute l’inertie."
+    };
+  }
+  if (/CHRONO/.test(normalized)) {
+    return {
+      title: "HORS TEMPS",
+      tip: "Choque moins longtemps et utilise le Turbo pour sortir des mêlées."
+    };
+  }
+  return {
+    title: "YOLE HORS COURSE",
+    tip: "Protège ton équipage et évite de rester entre plusieurs adversaires."
+  };
+}
 
 export function resolveTourStageClassification(boats, finishOrder = []) {
   const fleet = Array.isArray(boats) ? boats : [];
@@ -50,7 +84,15 @@ export const MatchDirector = {
       boat.finishTick = 0;
     });
     this.replay.markRound(this.tick, this.round, this.seed ^ this.round);
-    if (announce) this.showMessage(`MANCHE ${this.round}`, 1.1);
+    if (announce) {
+      this.showMessage(`MANCHE ${this.round}`, 1.1);
+      // Le premier départ était le seul à armer réellement le 3-2-1 malgré le
+      // commentaire de startMatch. Chaque manche peut maintenant rejouer ses
+      // trois plans de grille sans laisser la simulation ou le replay avancer.
+      if (this.mode === "playing") {
+        this.countdown = COUNTDOWN_SECONDS + COUNTDOWN_GO_SECONDS;
+      }
+    }
     this.updateLeaderboard();
   },
 
@@ -188,7 +230,7 @@ export const MatchDirector = {
     const progressSaved = this.saveTourProgress("active");
     this.showMessage(
       progressSaved
-        ? `ÉTAPE ${tour.stage + 1}/8 · ${stage.short}`
+        ? `ÉTAPE ${tour.stage + 1}/8 · ${stage.gameplay?.signature ?? stage.short}`
         : `ÉTAPE ${tour.stage + 1}/8 · ${stage.short} · ⚠ TOUR EN SESSION SEULEMENT`,
       progressSaved ? 2.2 : 3.2
     );
@@ -206,6 +248,9 @@ export const MatchDirector = {
     if (!tour) return;
     tour.stage = Math.max(0, Math.min(TOUR_STAGES.length - 1, index | 0));
     tour.finishOrder = [];
+    // Posé avant startMatch : les caisses, sargasses, vagues et IA repartent
+    // directement avec la grammaire propre à l'étape.
+    this.stageGameplay = TOUR_STAGES[tour.stage]?.gameplay ?? null;
     // Seed déterministe par étape : chaque legs a sa propre météo, rejouable à l'identique.
     this.seed = (tour.baseSeed + Math.imul(tour.stage + 1, 0x9e3779b9)) >>> 0;
     this.startMatch({ tourStage: true });
@@ -341,7 +386,8 @@ export const MatchDirector = {
     const storm = BALANCE.storm;
     const desiredGap = clamp(storm.gapStart - this.roundTime * storm.gapShrinkPerSecond, storm.gapEnd, storm.gapStart);
     const targetStormZ = leader.z - desiredGap;
-    const baseAdvance = storm.baseAdvance + this.roundTime * storm.advancePerSecond;
+    const stormSpeed = this.stageGameplay?.stormSpeed ?? 1;
+    const baseAdvance = (storm.baseAdvance + this.roundTime * storm.advancePerSecond) * stormSpeed;
     this.stormZ += baseAdvance * dt;
     if (this.stormZ < targetStormZ) this.stormZ = damp(this.stormZ, targetStormZ, 0.32, dt);
 
@@ -456,6 +502,9 @@ export const MatchDirector = {
       attacker.score += 1;
       if (attacker.isPlayer) this.stats.takedowns++;
       this.addKill(`💥 ${attacker.name} TAKEDOWN ${boat.name}`);
+      if (attacker.isPlayer) {
+        this.showMessage(`+1 TAKEDOWN · ${attacker.score}/${CONFIG.targetScore}`, 1.25);
+      }
       this.telemetry.track("takedown", { attacker: attacker.id, victim: boat.id }, this.time);
     }
 
@@ -485,7 +534,12 @@ export const MatchDirector = {
     if (alive.length <= 1 && !this.roundEnding) {
       if (alive[0]) {
         alive[0].score += 2;
-        this.showMessage(`${alive[0].name} SURVIT`, 1.0);
+        this.showMessage(
+          alive[0].isPlayer
+            ? `+2 DERNIER DEBOUT · ${alive[0].score}/${CONFIG.targetScore}`
+            : `${alive[0].name} SURVIT · +2`,
+          1.2
+        );
       }
       this.roundEnding = 2.7;
     }
@@ -508,6 +562,12 @@ export const MatchDirector = {
       for (let index = 1; index < ordered.length; index++) this.eliminate(ordered[index], "FIN DU CHRONO");
       if (ordered[0] && !this.roundEnding) {
         ordered[0].score += 2;
+        this.showMessage(
+          ordered[0].isPlayer
+            ? `+2 LEADER AU CHRONO · ${ordered[0].score}/${CONFIG.targetScore}`
+            : `${ordered[0].name} SURVIT AU CHRONO · +2`,
+          1.2
+        );
         this.roundEnding = 2.7;
       }
     }
@@ -546,10 +606,14 @@ export const MatchDirector = {
       if (this.ui.statPerfectsLabel) this.ui.statPerfectsLabel.textContent = "SCORE J1/J2";
       if (this.ui.statSpeedLabel) this.ui.statSpeedLabel.textContent = "VAINQUEUR";
     } else {
+      const player = this.boats[0];
+      const defeat = defeatPresentation(player?.eliminatedReason);
       this.ui.endIcon.textContent = "";
       if (this.ui.endIcon.dataset) this.ui.endIcon.dataset.result = win ? "champion" : "defeat";
-      this.ui.endTitle.textContent = win ? "ROI DE LA LANMÈ" : "LA BRUME T’A EU";
-      this.ui.endCopy.textContent = win ? "La dernière yole debout porte tes couleurs." : `${champion.name} règne sur la Combat Box.`;
+      this.ui.endTitle.textContent = win ? "ROI DE LA LANMÈ" : defeat.title;
+      this.ui.endCopy.textContent = win
+        ? `La dernière yole debout porte tes couleurs · ${player.score}/${CONFIG.targetScore} points · takedown +1, survie +2.`
+        : `${player?.eliminatedReason || "HORS COURSE"} · ${champion.name} gagne ${champion.score} à ${player?.score ?? 0}. Conseil : ${defeat.tip}`;
       this.ui.statTakedowns.textContent = this.stats.takedowns;
       this.ui.statPerfects.textContent = this.stats.perfects;
       this.ui.statSpeed.textContent = Math.round(this.stats.maxSpeed);

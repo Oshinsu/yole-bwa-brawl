@@ -11,6 +11,7 @@ import {
   sampleHandlingMotion
 } from "../render/handling-motion.js?v=swell-v2";
 import { versusCameraFrame } from "./versus.js";
+import { MiniCinematicDirector } from "./cinematic.js?v=director-v1";
 
 // Secondes pendant lesquelles la caméra reste sur NOTRE épave après
 // l'élimination, avant de basculer sur un autre bateau.
@@ -74,6 +75,28 @@ function finiteOr(value, fallback) {
 }
 
 export const CameraSystems = {
+  toggleSpectatorFastForward() {
+    const player = this.boats?.[0];
+    if (!player?.eliminated || this.mode !== "playing" || this.playback || this.versusLocal) return false;
+    this.spectatorFastForward = !this.spectatorFastForward;
+    this.showMessage?.(this.spectatorFastForward ? "FIN DE MANCHE · ×4" : "VITESSE NORMALE", 0.75);
+    return this.spectatorFastForward;
+  },
+
+  cycleSpectatorCamera() {
+    const player = this.boats?.[0];
+    if (!player?.eliminated || this.mode !== "playing") return false;
+    const alive = this.collectAlive();
+    if (!alive.length) return false;
+    alive.sort((a, b) => b.z - a.z || a.id - b.id);
+    const current = alive.findIndex((boat) => boat.id === this.spectatorFocusBoatId);
+    const next = alive[(current + 1 + alive.length) % alive.length];
+    this.spectatorFocusBoatId = next.id;
+    this.deathCamTimer = 0;
+    this.showMessage?.(`CAMÉRA · ${next.name}`, 0.75);
+    return true;
+  },
+
   resetHandlingCameraFeedback() {
     // ⚠️ Doit être remis à zéro ICI. `handling-render-feedback.test.mjs` exige
     // qu'après un changement de manche la caméra reparte exactement de zéro ;
@@ -81,6 +104,8 @@ export const CameraSystems = {
     // épave qui n'existe plus.
     this.deathCamTimer = 0;
     this.deathCamWasEliminated = false;
+    this.spectatorFocusBoatId = null;
+    this.spectatorFastForward = false;
     this.cameraHandlingSlip = 0;
     this.cameraHandlingSurf = 0;
     this.cameraHandlingRecovery = 0;
@@ -173,7 +198,8 @@ export const CameraSystems = {
     if (player.eliminated && this.deathCamTimer <= 0) {
       const alive = this.collectAlive();
       alive.sort((a, b) => b.z - a.z);
-      follow = alive[0] || player;
+      follow = alive.find((boat) => boat.id === this.spectatorFocusBoatId) || alive[0] || player;
+      this.spectatorFocusBoatId = follow === player ? null : follow.id;
     }
     // ⚠️ La caméra publie QUI elle suit. Sans ça, le HUD devrait refaire le
     // même tri de son côté — deux vérités pour une seule question, et elles
@@ -181,8 +207,11 @@ export const CameraSystems = {
     // simulation.
     this.cameraFollowName = follow === player ? null : (follow?.name ?? null);
 
+    if (this.cameraReducedMotion === undefined) this.cameraReducedMotion = prefersReducedMotion();
+    this.cinematicDirector ??= new MiniCinematicDirector(this.THREE);
+    if (this.cinematicDirector.update(this, dt, follow)) return;
+
     if (this.mode === "menu") {
-      if (this.cameraReducedMotion === undefined) this.cameraReducedMotion = prefersReducedMotion();
       const target = this.menuCameraTarget || (this.menuCameraTarget = new this.THREE.Vector3());
       const desired = this.menuCameraDesired || (this.menuCameraDesired = new this.THREE.Vector3());
       const frameDt = Math.min(Math.max(dt, 0), 0.1);

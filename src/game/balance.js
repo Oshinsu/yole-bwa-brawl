@@ -20,6 +20,95 @@ export const ACTION_CHADRON = 512;
 export const ACTION_LANBI = 1024;
 export const ACTION_PWASON = 2048;
 
+// Première mise à l'eau : trois verbes, puis tout le bac à sable.
+//
+// Cette progression ne change aucune constante du mode normal. Elle filtre
+// seulement les actions de la manche-école jusqu'à ce que le joueur ait dirigé,
+// contre-gîté et tiré un Coco — avec un filet temporel pour ne jamais retenir
+// quelqu'un dans le tutoriel.
+export const FIRST_RUN_TRAINING = Object.freeze({
+  steerThreshold: 0.24,
+  steerHoldSeconds: 0.36,
+  counterHeelMinimum: 0.18,
+  advancedUnlockSeconds: 38,
+  basicActionMask: ACTION_SHIFT | ACTION_WAVE,
+  playerLoadout: Object.freeze(["wave", "harpoon"]),
+  visibleLoadout: Object.freeze(["wave"])
+});
+
+export function createFirstRunTrainingState() {
+  return {
+    step: 0,
+    announced: false,
+    elapsed: 0,
+    steerTime: 0,
+    shiftNudgeShown: false,
+    advancedUnlocked: false,
+    unlockReason: "",
+    arsenalRestored: false,
+    lockedRound: -1,
+    arsenals: [],
+    deferredPickups: []
+  };
+}
+
+/**
+ * Avance la révélation de la première manche.
+ *
+ * Fonction volontairement sans horloge globale ni RNG : à mêmes échantillons
+ * fixes, une partie et sa relecture ouvrent l'arsenal au même tick.
+ */
+export function advanceFirstRunTraining(state, sample = {}) {
+  if (!state || state.advancedUnlocked) return { event: "", step: state?.step ?? 3, unlocked: true };
+  const dt = Math.max(0, Number.isFinite(sample.dt) ? sample.dt : 0);
+  const steer = Math.abs(Number.isFinite(sample.steer) ? sample.steer : 0);
+  const actions = Number.isInteger(sample.actions) ? sample.actions : 0;
+  const roll = Math.abs(Number.isFinite(sample.roll) ? sample.roll : 0);
+  const shiftKind = Number.isInteger(sample.shiftKind) ? sample.shiftKind : 0;
+  state.elapsed += dt;
+
+  let event = "";
+  if (state.step === 0) {
+    state.steerTime = steer > FIRST_RUN_TRAINING.steerThreshold
+      ? state.steerTime + dt
+      : Math.max(0, state.steerTime - dt * 0.5);
+    if (state.steerTime >= FIRST_RUN_TRAINING.steerHoldSeconds) {
+      state.step = 1;
+      event = "steer_complete";
+    }
+  } else if (state.step === 1 && (actions & ACTION_SHIFT)) {
+    if (shiftKind === 2 || roll >= FIRST_RUN_TRAINING.counterHeelMinimum) {
+      state.step = 2;
+      event = "shift_complete";
+    } else if (!state.shiftNudgeShown) {
+      state.shiftNudgeShown = true;
+      event = "shift_early";
+    }
+  } else if (state.step === 2 && (actions & ACTION_WAVE)) {
+    state.step = 3;
+    state.advancedUnlocked = true;
+    state.unlockReason = "completed";
+    event = "completed";
+  }
+
+  // L'action du tick gagne sur le filet temporel. Quelqu'un qui réussit son
+  // Coco à 38,000 s doit recevoir la réussite, pas un tutoriel "expiré".
+  if (!state.advancedUnlocked && !event && state.elapsed >= FIRST_RUN_TRAINING.advancedUnlockSeconds) {
+    state.step = 3;
+    state.advancedUnlocked = true;
+    state.unlockReason = "timeout";
+    event = "timeout";
+  }
+
+  return { event, step: state.step, unlocked: state.advancedUnlocked };
+}
+
+export function trainingActionMask(state, actions) {
+  const requested = Number.isInteger(actions) ? actions >>> 0 : 0;
+  if (!state || state.advancedUnlocked) return requested;
+  return requested & FIRST_RUN_TRAINING.basicActionMask;
+}
+
 // GRÉEMENT — le seul axe de personnalisation livré. Deux autres avaient été
 // conçus (coque, bois) et mesurés SOUS le seuil de perception. L'option médiane
 // est numériquement identique au jeu d'avant : compatibilité par construction.
@@ -171,7 +260,10 @@ export const BALANCE = {
   // Cadence des quatre armes du vivier de soute. Mine et Rhum conservent cette
   // cadence lorsqu'une caisse en donne une copie à munitions limitées.
   baseCooldowns: { wave: 5.4, harpoon: 7.6, mine: 7.0, rhum: 16.0 },
-  rhum: { duration: 5.0 },
+  // Cinq secondes rendaient le Rhum obligatoire : avec 16 s de recharge, une
+  // yole pouvait ignorer tous les impacts presque un tiers du temps. Trois
+  // secondes gardent le moment héroïque sans annuler le jeu adverse.
+  rhum: { duration: 3.0 },
   // ⚠️ RÉGLAGE DE JEU, à ajuster au playtest — pas une constante physique.
   //
   // Les armes visent l'ÉQUILIBRE avant la coque. Une yole qui prend un coco ne
@@ -324,6 +416,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Alizés francs",
     tagline: "Départ lumineux, récifs serrés et premier vrai bord de rappel.",
     accent: "#38e8c6",
+    gameplay: {
+      windScale: 0.90, swellScale: 0.84, crossSea: 0.00, stormSpeed: 0.90,
+      trackHalfWidth: 58, sargasseSpacing: 1.20, pickupSpacing: 0.90,
+      signature: "ALIZÉS ÉCOLE · MER PORTANTE"
+    },
     palette: { sand: 0xf0e5c8, shallowRock: 0x527a70, green: 0x20a66a, darkGreen: 0x086a49, leaf: 0x39cf72 },
     environment: {
       archetype: "lagoon",
@@ -342,6 +439,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Clapot d'Atlantique",
     tagline: "Un sprint entre hauts-fonds où la trajectoire vaut plus que la force.",
     accent: "#5ee6ff",
+    gameplay: {
+      windScale: 1.00, swellScale: 1.00, crossSea: 0.12, stormSpeed: 0.96,
+      trackHalfWidth: 50, sargasseSpacing: 1.04, pickupSpacing: 0.96,
+      signature: "CLAPOT COURT · PASSES SERRÉES"
+    },
     palette: { sand: 0xece2c4, shallowRock: 0x466f69, green: 0x198d59, darkGreen: 0x07563d, leaf: 0x2cc869 },
     environment: {
       archetype: "islets",
@@ -360,6 +462,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Mer croisée",
     tagline: "Des couloirs d'eau étroits, des rivaux proches et peu de place pour corriger.",
     accent: "#76d6ff",
+    gameplay: {
+      windScale: 0.96, swellScale: 1.05, crossSea: 0.30, stormSpeed: 1.00,
+      trackHalfWidth: 46, sargasseSpacing: 0.94, pickupSpacing: 1.02,
+      signature: "MER CROISÉE · COULOIR ÉTROIT"
+    },
     palette: { sand: 0xded9bd, shallowRock: 0x486a6f, green: 0x248c63, darkGreen: 0x0c5546, leaf: 0x2cad69 },
     environment: {
       archetype: "islets",
@@ -378,6 +485,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Grain volcanique",
     tagline: "L'étape reine : longue, sombre et impitoyable sous la silhouette de la Pelée.",
     accent: "#ffbd66",
+    gameplay: {
+      windScale: 1.08, swellScale: 1.12, crossSea: 0.20, stormSpeed: 1.18,
+      trackHalfWidth: 54, sargasseSpacing: 1.10, pickupSpacing: 1.08,
+      signature: "GRAIN RAPIDE · PRESSION VOLCANIQUE"
+    },
     palette: { sand: 0xb99a73, shallowRock: 0x3f4b49, green: 0x2f704b, darkGreen: 0x12382e, leaf: 0x3f8552 },
     environment: {
       archetype: "volcanic",
@@ -396,6 +508,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Longue houle",
     tagline: "La côte défile vite ; le moindre excès de gîte se paie jusqu'à la baie.",
     accent: "#ffca80",
+    gameplay: {
+      windScale: 1.00, swellScale: 1.23, crossSea: 0.05, stormSpeed: 0.98,
+      trackHalfWidth: 54, sargasseSpacing: 1.08, pickupSpacing: 1.00,
+      signature: "LONGUE HOULE · YOLE LOURDE"
+    },
     palette: { sand: 0xd7c5a3, shallowRock: 0x566c69, green: 0x27865a, darkGreen: 0x0f553b, leaf: 0x38a960 },
     environment: {
       archetype: "volcanic",
@@ -415,6 +532,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Vent tournant",
     tagline: "Reliefs abrupts et changements de pression avant l'entrée aux Anses.",
     accent: "#ff8f70",
+    gameplay: {
+      windScale: 1.05, windAngle: 0.24, swellScale: 1.02, crossSea: 0.16,
+      stormSpeed: 1.02, trackHalfWidth: 50, sargasseSpacing: 1.00,
+      pickupSpacing: 0.94, signature: "VENT TOURNANT · CAP MOBILE"
+    },
     palette: { sand: 0xd5bf96, shallowRock: 0x5c5558, green: 0x2b8156, darkGreen: 0x134c38, leaf: 0x3aa25c },
     environment: {
       archetype: "volcanic",
@@ -433,6 +555,12 @@ export const TOUR_STAGES = [
     weatherLabel: "Rafales du sud",
     tagline: "Une côte cassée, des rafales brutales et un mur du Grain qui ne pardonne rien.",
     accent: "#ff718c",
+    gameplay: {
+      windScale: 1.08, gustStrength: 0.24, gustFrequency: 0.74,
+      swellScale: 1.10, crossSea: 0.22, stormSpeed: 1.12,
+      trackHalfWidth: 48, sargasseSpacing: 0.92, pickupSpacing: 1.04,
+      signature: "RAFALES · GRAIN AUX TROUSSES"
+    },
     palette: { sand: 0xd5c19c, shallowRock: 0x5d5961, green: 0x2d7c50, darkGreen: 0x163f34, leaf: 0x3c9755 },
     environment: {
       archetype: "volcanic",
@@ -452,6 +580,11 @@ export const TOUR_STAGES = [
     weatherLabel: "Final sous tension",
     tagline: "Tout le Tour se joue dans une dernière course rapide, claire et sans calcul.",
     accent: "#ffe36e",
+    gameplay: {
+      windScale: 1.12, swellScale: 0.96, crossSea: 0.08, stormSpeed: 1.08,
+      trackHalfWidth: 58, sargasseSpacing: 1.12, pickupSpacing: 0.82,
+      signature: "SPRINT FINAL · CAISSES DÉCISIVES"
+    },
     palette: { sand: 0xf2e4bd, shallowRock: 0x5c7468, green: 0x27965a, darkGreen: 0x0c5d3d, leaf: 0x38bf62 },
     environment: {
       archetype: "lagoon",

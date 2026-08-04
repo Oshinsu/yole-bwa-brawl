@@ -3,6 +3,20 @@ import { clamp, damp, angleDelta, finite } from "../core/math.js";
 const CREW_COUNT = 6;
 const CREW_MASSES = new Float32Array([78, 74, 82, 69, 76, 80]);
 
+// `activeCrew` reste la vérité VISUELLE : chaque impact direct retire bien un
+// yoleur et les six postes peuvent se vider. L'autorité mécanique, elle, cesse
+// de chuter après trois pertes. Cela conserve la lecture comique des éjections
+// sans transformer les trois suivantes en condamnation mathématique.
+//
+// 6 / 5 / 4 / <=3 à bord -> 100 / 92 / 84 / 76 % d'autorité auxiliaire.
+// Le couple de rappel continue, lui, à venir des masses réellement présentes :
+// cette fonction ne crée donc jamais de corps invisible sur les bwa.
+export function crewMechanicalAuthority(activeCrew) {
+  const visibleCrew = clamp(Number.isFinite(activeCrew) ? activeCrew : 0, 0, CREW_COUNT);
+  const mechanicalLosses = Math.min(CREW_COUNT - visibleCrew, 3);
+  return 1 - mechanicalLosses * 0.08;
+}
+
 // Eight longitudinal stations × port/starboard. z<0 is bow in this model.
 //
 // ⚠️ RECALÉES SUR LA COQUE VISIBLE LE 2 AOÛT 2026. CHANGEMENT AUTORITAIRE.
@@ -422,9 +436,11 @@ export class YoleDynamics {
     const heelTiming = clamp(1 - Math.abs(absoluteRoll - 0.64) / 0.36, 0, 1);
     const outwardRoll = clamp((rollSign * this.rollVel) / 0.65, 0, 1);
     out.state = critical ? "critical" : (dashRecovery ? "recovery" : "idle");
-    out.precision = critical
+    const rawPrecision = critical
       ? clamp(heelTiming * 0.82 + outwardRoll * 0.18, 0, 1)
       : (dashRecovery ? clamp((this.slip - YOLE_HANDLING.dashRecoverySlip) / 0.38, 0, 1) : 0);
+    out.emergency = this.activeCrew <= 0;
+    out.precision = out.emergency ? rawPrecision * 0.34 : rawPrecision;
     // Distance à la fenêtre, en rad et signée : négatif = pas encore assez
     // gîté, positif = déjà au-delà du meilleur moment.
     out.rollOffset = absoluteRoll - 0.64;
@@ -454,6 +470,57 @@ export class YoleDynamics {
     const precision = critical
       ? clamp(heelTiming * 0.82 + outwardRoll * 0.18, 0, 1)
       : recoveryPrecision;
+    const emergency = this.activeCrew <= 0;
+
+    // Plus aucun dresseur : le joueur conserve une manœuvre de survie à la
+    // barre/à la voile, volontairement très inférieure à une vraie bordée. On
+    // n'écrit aucun `crewTarget`, aucun délai et aucun événement de charge :
+    // la simulation ne prétend plus que des corps absents traversent la coque.
+    if (emergency) {
+      this.crewTarget = 0;
+      this.shiftOriginSign = 0;
+      this.shiftTimer = 0.34;
+      this.shiftDuration = this.shiftTimer;
+      this.shiftElapsed = 0;
+      this.shiftPrecision = precision * 0.34;
+      this.shiftKind = 4;
+      this.shiftCatchTriggered = true;
+      this.shiftLoadTargetAbs = 0;
+      this.crewTargets.fill(0);
+      this.crewStartDelays.fill(0);
+      this.crewDelays.fill(0);
+
+      if (critical) {
+        const outwardVelocity = Math.max(0, rollSign * this.rollVel);
+        this.rollVel -= rollSign * (
+          outwardVelocity * (0.09 + precision * 0.035)
+          + 0.008
+          + precision * 0.010
+        );
+        this.yawRate *= 0.97;
+        this.counterHeel = 0.10 + precision * 0.10;
+        this.flow = Math.max(0, this.flow - 0.035);
+      } else if (dashRecovery) {
+        const rightX = Math.cos(this.heading);
+        const rightZ = -Math.sin(this.heading);
+        const lateralVelocity = this.vx * rightX + this.vz * rightZ;
+        this.vx -= rightX * lateralVelocity * 0.12;
+        this.vz -= rightZ * lateralVelocity * 0.12;
+        this.rollVel *= 0.88;
+        this.dashRecoveryWindow = 0;
+        this.counterHeel = 0.12;
+        this.flow = Math.max(0, this.flow - 0.025);
+      } else {
+        this.flow = Math.max(0, this.flow - 0.05);
+      }
+      return {
+        critical: false,
+        precision: precision * 0.34,
+        recovery: false,
+        emergency: true
+      };
+    }
+
     const target = -rollSign * clamp(0.52 + absoluteRoll * 0.34 + precision * 0.08, 0.52, 0.94);
     this.crewTarget = target;
     this.shiftOriginSign = rollSign;
@@ -511,7 +578,7 @@ export class YoleDynamics {
     } else {
       this.flow = Math.max(0, this.flow - 0.05);
     }
-    return { critical, precision, recovery: dashRecovery };
+    return { critical, precision, recovery: dashRecovery, emergency: false };
   }
 
   addWater(kg, localX = 0, localZ = 0) {
@@ -573,10 +640,12 @@ export class YoleDynamics {
     // mécanique mais une sentence.
     //
     // Cible : à équipage complet et cohésion intacte on TIENT sous le Grain
-    // (5,5 contre 5,4) et on récupère vite hors danger ; dès qu'un équipier
-    // tombe ou que la cohésion s'effondre, on coule. La tension revient au bon
-    // endroit — l'état de l'équipage, pas une fatalité.
-    const pumpRate = (2.2 + this.activeCrew * 0.55) * this.cohesion;
+    // (5,5 contre 5,4). Les trois premières pertes coûtent chacune 8 % ; les
+    // éjections suivantes restent visibles mais ne doublent plus la punition.
+    // La cohésion peut toujours faire chuter fortement cette pompe : il reste
+    // donc une vraie conséquence, sans spirale irrécupérable.
+    const crewAuthority = crewMechanicalAuthority(this.activeCrew);
+    const pumpRate = 5.5 * crewAuthority * this.cohesion;
     let remainingDrain = pumpRate * dt;
     while (remainingDrain > 1e-5) {
       let fullest = -1;
@@ -607,6 +676,7 @@ export class YoleDynamics {
 
     let weightedPosition = 0;
     let totalMass = 0;
+    const crewAuthority = crewMechanicalAuthority(this.activeCrew);
     for (let i = 0; i < CREW_COUNT; i++) {
       if (i >= this.activeCrew) {
         this.crewTargets[i] = 0;
@@ -617,7 +687,9 @@ export class YoleDynamics {
       }
       this.crewDelays[i] = Math.max(0, this.crewDelays[i] - dt);
       const target = this.crewDelays[i] > 0 ? this.crewPositions[i] : this.crewTargets[i];
-      const individualSpeed = (3.7 + i * 0.08) * this.cohesion * (0.72 + this.activeCrew / 12);
+      const individualSpeed = (3.7 + i * 0.08)
+        * this.cohesion
+        * (0.62 + crewAuthority * 0.60);
       const previous = this.crewPositions[i];
       this.crewPositions[i] = damp(previous, target, individualSpeed, dt);
       this.crewVelocities[i] = (this.crewPositions[i] - previous) / Math.max(1e-5, dt);
@@ -920,7 +992,13 @@ export class YoleDynamics {
       floodPitchTorque += -COMPARTMENT_Z[i] * this.flooding[i] * g * 0.28;
     }
 
-    const crewTorque = weightedCrewPosition * g * 1.45 * (0.62 + this.cohesion * 0.38);
+    const crewAuthority = crewMechanicalAuthority(this.activeCrew);
+    const survivorLeverage = 1 + (1 - crewAuthority) * 0.75;
+    const crewTorque = weightedCrewPosition
+      * g
+      * 1.45
+      * (0.62 + this.cohesion * 0.38)
+      * survivorLeverage;
     // Le couple de gite de la voile etait trop faible pour que la yole penche
     // vraiment : mesuree, la gite de navigation tenait a 5,8 deg medians quand
     // les photos de course en montrent 20 a 30 en permanence. C'est la silhouette

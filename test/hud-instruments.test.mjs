@@ -4,7 +4,13 @@ import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { HudSystems, advanceBalanceNeedle } from "../src/game/hud.js";
+import {
+  HudSystems,
+  advanceBalanceNeedle,
+  advanceHudDiagnostics,
+  elanHudPresentation,
+  trainingHudPresentation
+} from "../src/game/hud.js";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const readText = (relative) => readFile(resolve(root, relative), "utf8");
@@ -36,6 +42,7 @@ function fakeStyle() {
 }
 
 function fakeElement({ hidden = false } = {}) {
+  const attributes = new Map();
   return {
     classList: fakeClassList(hidden ? ["hidden"] : []),
     style: fakeStyle(),
@@ -44,7 +51,9 @@ function fakeElement({ hidden = false } = {}) {
     closest: () => null,
     querySelector: () => null,
     querySelectorAll: () => [],
-    setAttribute() {}
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+    removeAttribute(name) { attributes.delete(name); },
+    getAttribute(name) { return attributes.get(name) ?? null; }
   };
 }
 
@@ -56,6 +65,9 @@ function makeHudHarness() {
   const roundLabel = fakeElement();
   roundLabel.closest = (selector) => selector === ".round-card" ? roundCard : null;
   const systemIntegrity = fakeElement();
+  const flowMeter = fakeElement();
+  const flowBar = fakeElement();
+  flowBar.parentElement = flowMeter;
   const structure = {
     hull: 1,
     mast: 1,
@@ -82,18 +94,25 @@ function makeHudHarness() {
       surf: 0,
       counterSteer: 0,
       boostCooldown: 0,
+      arcadeBoostForward: 0,
+      arcadeBoostLateral: 0,
       shiftQuality: () => null
     }
   };
   const ui = {
+    hud: fakeElement(),
     roundLabel,
     roundSub: fakeElement(),
     timer: fakeElement(),
     speed: fakeElement(),
     balanceBar,
     balanceText: fakeElement(),
-    flowBar: fakeElement(),
+    flowMeter,
+    flowBar,
+    flowState: fakeElement(),
     flowText: fakeElement(),
+    flowHint: fakeElement(),
+    flowRisk: fakeElement(),
     crewDots: fakeElement(),
     trimText: fakeElement(),
     waterText: fakeElement(),
@@ -108,6 +127,7 @@ function makeHudHarness() {
   };
   const game = {
     mode: "playing",
+    time: 0,
     paused: false,
     tour: null,
     versusLocal: false,
@@ -130,7 +150,8 @@ function makeHudHarness() {
     syncAudioSettings() {},
     updateMinimap() {},
     updateLeaderboard() {},
-    activeWeapon: () => null
+    activeWeapon: () => null,
+    applyTrainingHud: HudSystems.applyTrainingHud
   };
   return { game, player, structure, ui, status };
 }
@@ -178,12 +199,201 @@ function makeHudHarness() {
   assert.ok(needle.position > -50, "l'inversion de gîte ne doit pas téléporter l'aiguille");
 }
 
-// Le rail secondaire Mât/Voile/BWA ne doit prendre de place qu'en cas de
-// dommage. La coque possède déjà sa silhouette et sa jauge principales.
+// Les bandes d'Élan ont des frontières exactes : 16 % ouvre le turbo, 22 %
+// ouvre aussi le dash et 95 % devient une pleine charge lisible.
 {
-  const { game, structure, ui } = makeHudHarness();
+  const cases = [
+    { flow: 0, band: "empty", state: "low", text: "ÉLAN BAS" },
+    { flow: 0.159, band: "low", state: "low", text: "ÉLAN BAS" },
+    { flow: 0.16, band: "turbo-ready", state: "ready", text: "TURBO PRÊT" },
+    { flow: 0.219, band: "turbo-ready", state: "ready", text: "TURBO PRÊT" },
+    { flow: 0.22, band: "dash-ready", state: "ready", text: "TURBO + DASH" },
+    { flow: 0.949, band: "dash-ready", state: "ready", text: "TURBO + DASH" },
+    { flow: 0.95, band: "high", state: "ready", text: "PLEINE CHARGE" },
+    { flow: 0.999, band: "high", state: "ready", text: "PLEINE CHARGE" },
+    { flow: 1, band: "full", state: "ready", text: "PLEINE CHARGE" }
+  ];
+  for (const expected of cases) {
+    const presentation = elanHudPresentation({ flow: expected.flow });
+    assert.equal(presentation.band, expected.band, `wrong band at ${expected.flow}`);
+    assert.equal(presentation.state, expected.state, `wrong state at ${expected.flow}`);
+    assert.equal(presentation.text, expected.text, `wrong copy at ${expected.flow}`);
+  }
+
+  const activeCooldown = elanHudPresentation({
+    flow: 0.8,
+    cooldown: 7.2,
+    cooldownTotal: 15,
+    active: true
+  });
+  assert.equal(activeCooldown.state, "cooldown");
+  assert.equal(activeCooldown.text, "ACTIF", "active thrust has priority over recovery copy");
+  assert.ok(Math.abs(activeCooldown.cooldownLevel - 0.48) < 1e-12);
+  assert.equal(
+    elanHudPresentation({ flow: 1, cooldown: 4, disabled: true }).state,
+    "disabled",
+    "elimination has priority over cooldown"
+  );
+  assert.equal(
+    elanHudPresentation({ flow: 1, locked: true, disabled: true }).state,
+    "locked",
+    "the initiation lock is the highest-priority state"
+  );
+}
+
+// Le parent sémantique reçoit l'état durable et les cues ponctuels. Un même
+// serial ne doit jamais relancer le reflow d'animation.
+{
+  const { game, player, ui } = makeHudHarness();
+  let cueReflows = 0;
+  Object.defineProperty(ui.flowMeter, "offsetWidth", {
+    configurable: true,
+    get() {
+      cueReflows++;
+      return 1;
+    }
+  });
+
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowMeter.getAttribute("data-turbo-state"), "ready");
+  assert.equal(ui.flowMeter.getAttribute("data-flow-band"), "dash-ready");
+  assert.equal(ui.flowMeter.getAttribute("data-dash-ready"), "true");
+  assert.equal(ui.flowMeter.getAttribute("aria-valuenow"), "80");
+  assert.match(ui.flowMeter.getAttribute("aria-valuetext"), /turbo et dash disponibles/i);
+  assert.equal(ui.flowMeter.getAttribute("aria-live"), null, "the meter must never become a live region");
+  assert.equal(ui.flowMeter.style.getPropertyValue("--flow-level"), "0.8");
+  assert.equal(ui.flowMeter.style.getPropertyValue("--flow-empty"), "20%");
+  assert.equal(ui.flowMeter.style.getPropertyValue("--cooldown-level"), "0");
+  assert.equal(ui.flowState.textContent, "TURBO + DASH");
+  assert.equal(ui.flowText.textContent, "80%");
+  assert.equal(ui.flowHint.textContent, "F TURBO · X DASH");
+  assert.match(ui.flowMeter.getAttribute("aria-valuetext"), /F TURBO · X DASH/);
+
+  player.dynamics.boostCooldown = 7.2;
+  game.boostHudFeedback = {
+    serial: 1,
+    outcome: "rejected",
+    kind: "lateral",
+    reason: "cooldown",
+    cooldownTotal: 15
+  };
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowMeter.getAttribute("data-turbo-state"), "cooldown");
+  assert.equal(ui.flowState.textContent, "REPRISE 8s");
+  assert.equal(ui.flowText.textContent, "80%");
+  assert.equal(ui.flowHint.textContent, "SOUFFLE DE L’ÉQUIPAGE");
+  assert.equal(ui.flowMeter.style.getPropertyValue("--cooldown-level"), "0.48");
+  assert.equal(ui.flowMeter.classList.contains("turbo-rejected"), true);
+  assert.equal(ui.flowMeter.getAttribute("data-boost-kind"), "lateral");
+  assert.equal(ui.flowMeter.getAttribute("data-reject-reason"), "cooldown");
+  assert.equal(cueReflows, 1);
+
+  HudSystems.updateUI.call(game);
+  assert.equal(cueReflows, 1, "an unchanged serial must not restart the cue");
+
+  player.dynamics.boostCooldown = 10;
+  player.dynamics.arcadeBoostForward = 0.8;
+  game.boostHudFeedback = {
+    serial: 2,
+    outcome: "confirmed",
+    kind: "forward",
+    reason: null,
+    cooldownTotal: 10
+  };
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowState.textContent, "ACTIF");
+  assert.equal(ui.flowHint.textContent, "POUSSÉE · REDRESSE APRÈS");
+  assert.equal(ui.flowMeter.classList.contains("turbo-confirmed"), true);
+  assert.equal(ui.flowMeter.classList.contains("turbo-rejected"), false);
+  assert.equal(ui.flowMeter.getAttribute("data-reject-reason"), null);
+  assert.equal(cueReflows, 2);
+
+  player.dynamics.arcadeBoostForward = 0;
+  player.dynamics.boostCooldown = 9.1;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowState.textContent, "REPRISE 10s");
+
+  delete ui.flowMeter;
+  player.dynamics.boostCooldown = 0;
+  player.flow = 0.1;
+  HudSystems.updateUI.call(game);
+  assert.equal(
+    ui.flowBar.parentElement.getAttribute("data-turbo-state"),
+    "low",
+    "flowBar.parentElement is the runtime fallback while main.js has no flowMeter binding"
+  );
+
+  game.trainingMode = true;
+  game.trainingGuide = { step: 0, advancedUnlocked: false };
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowBar.parentElement.getAttribute("data-turbo-state"), "locked");
+  assert.equal(ui.flowState.textContent, "VERROUILLÉ");
+
+  game.trainingMode = false;
+  game.trainingGuide = null;
+  player.eliminated = true;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowBar.parentElement.getAttribute("data-turbo-state"), "disabled");
+  assert.equal(ui.flowState.textContent, "HORS COURSE");
+}
+
+// Un dash demandé avec seulement la réserve Turbo explique précisément son
+// refus, puis efface son cartouche ponctuel même si les animations sont coupées.
+{
+  const { game, player, ui } = makeHudHarness();
+  player.flow = 0.18;
+  game.boostHudFeedback = {
+    serial: 1,
+    outcome: "rejected",
+    kind: "lateral",
+    reason: "flow",
+    cooldownTotal: 15
+  };
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowState.textContent, "TURBO PRÊT");
+  assert.equal(ui.flowHint.textContent, "DASH : ÉLAN BAS");
+  assert.equal(ui.flowMeter.classList.contains("turbo-rejected"), true);
+  await new Promise((resolve) => setTimeout(resolve, 560));
+  assert.equal(ui.flowMeter.classList.contains("turbo-rejected"), false);
+  assert.equal(ui.flowMeter.getAttribute("data-boost-outcome"), null);
+
+  game.time = 1.1;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowHint.textContent, "F TURBO · X DASH");
+}
+
+// La microcopie suit le dernier périphérique et n'invite pas à déclencher une
+// poussée quand la yole est déjà trop couchée.
+{
+  const { game, player, ui } = makeHudHarness();
+  game.inputDevice = "touch";
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowHint.textContent, "2× EAU · 2× JOYSTICK");
+
+  player.roll = 0.45;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowMeter.getAttribute("data-heel-risk"), "true");
+  assert.equal(ui.flowRisk.textContent, "REDRESSE D’ABORD");
+  assert.equal(ui.flowRisk.getAttribute("aria-hidden"), "false");
+  assert.match(ui.flowMeter.getAttribute("aria-valuetext"), /Redresse d’abord/);
+
+  player.roll = 0.1;
+  game.inputDevice = "gamepad";
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.flowMeter.getAttribute("data-heel-risk"), "false");
+  assert.equal(ui.flowHint.textContent, "RB TURBO · LB DASH");
+  assert.equal(ui.flowRisk.textContent, "");
+  assert.equal(ui.flowRisk.getAttribute("aria-hidden"), "true");
+}
+
+// Le HUD se replie au calme, mémorise brièvement un impact et reste ouvert
+// pendant un vrai danger. Le rail Mât/Voile/BWA ne s'ouvre que pour sa cause.
+{
+  const { game, player, structure, ui } = makeHudHarness();
   HudSystems.updateUI.call(game);
   assert.equal(ui.systemIntegrity.classList.contains("hidden"), true, "intact secondary systems stay hidden");
+  assert.equal(ui.hud.getAttribute("data-diagnostics"), "calm");
+  assert.equal(ui.hud.classList.contains("hud-diagnostics-visible"), false);
 
   structure.hull = 0.4;
   HudSystems.updateUI.call(game);
@@ -192,20 +402,135 @@ function makeHudHarness() {
     true,
     "hull damage alone must not reveal the intact secondary-system rail"
   );
+  assert.equal(ui.hud.getAttribute("data-diagnostics"), "notice");
+  assert.equal(ui.hud.classList.contains("hud-diagnostic-hull"), true);
+  assert.equal(ui.hud.classList.contains("hud-diagnostics-visible"), true);
 
-  for (const damage of [
-    () => { structure.mast = 0.82; },
-    () => { structure.mast = 1; structure.sail = 0.82; },
-    () => { structure.sail = 1; structure.bwa[3] = 0.82; }
-  ]) {
-    damage();
-    HudSystems.updateUI.call(game);
-    assert.equal(ui.systemIntegrity.classList.contains("hidden"), false, "damaged Mât/Voile/BWA must reveal the rail");
-  }
-
-  structure.bwa.fill(1);
+  game.time = 3.5;
   HudSystems.updateUI.call(game);
-  assert.equal(ui.systemIntegrity.classList.contains("hidden"), true, "repairing every secondary system hides the rail again");
+  assert.equal(ui.hud.getAttribute("data-diagnostics"), "calm", "a stable old hit must fold away");
+  assert.equal(ui.hud.getAttribute("data-diagnostics-worn"), "true", "wear remains queryable by CSS");
+
+  structure.sail = 0.82;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.systemIntegrity.classList.contains("hidden"), false, "fresh sail damage must reveal its rail");
+  assert.equal(ui.hud.classList.contains("hud-diagnostic-sail"), true);
+
+  game.time = 7;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.systemIntegrity.classList.contains("hidden"), true, "a stable old sail hit must fold away");
+
+  structure.bwa[3] = 0.82;
+  game.time = 7.1;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.hud.classList.contains("hud-diagnostic-bwa"), true);
+  assert.equal(ui.systemIntegrity.classList.contains("hidden"), false, "fresh BWA damage must reveal its rail");
+
+  game.time = 11;
+  HudSystems.updateUI.call(game);
+  player.activeCrew = 5;
+  player.water = 25;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.hud.classList.contains("hud-diagnostic-crew"), true);
+  assert.equal(ui.hud.classList.contains("hud-diagnostic-water"), true);
+  assert.match(ui.hud.getAttribute("data-diagnostic-reasons"), /crew/);
+
+  player.roll = 0.72;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.hud.getAttribute("data-diagnostics"), "danger");
+  assert.equal(ui.hud.classList.contains("hud-diagnostic-danger"), true);
+  game.time = 20;
+  HudSystems.updateUI.call(game);
+  assert.equal(
+    ui.hud.getAttribute("data-diagnostics"),
+    "danger",
+    "a dangerous heel must stay visible beyond the transient timeout"
+  );
+}
+
+// La machine d'état peut aussi être testée sans DOM : une perte légère est
+// transitoire, un seuil critique ne l'est pas.
+{
+  const memory = {};
+  advanceHudDiagnostics(memory, {
+    hull: 1, sail: 1, bwa: 1, crew: 6, water: 0, danger: false
+  }, 0);
+  advanceHudDiagnostics(memory, {
+    hull: 0.92, sail: 1, bwa: 1, crew: 6, water: 0, danger: false
+  }, 0.1);
+  assert.equal(memory.level, "notice");
+  advanceHudDiagnostics(memory, {
+    hull: 0.92, sail: 1, bwa: 1, crew: 6, water: 0, danger: false
+  }, 4);
+  assert.equal(memory.level, "calm");
+  advanceHudDiagnostics(memory, {
+    hull: 0.3, sail: 1, bwa: 1, crew: 6, water: 0, danger: false
+  }, 8);
+  assert.equal(memory.level, "danger");
+}
+
+// L'initiation divulgue les commandes dans l'ordre réellement enseigné.
+{
+  const { game, ui } = makeHudHarness();
+  ui.bwa = fakeElement();
+  ui.weaponSlot = fakeElement();
+  ui.weaponHold2 = fakeElement();
+  ui.weaponCrate = fakeElement({ hidden: true });
+  ui.weaponShortcuts = fakeElement();
+  ui.reticle = fakeElement({ hidden: true });
+  ui.aimHelp = fakeElement();
+  game.trainingMode = true;
+  game.trainingGuide = { step: 0 };
+
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.hud.getAttribute("data-training-active"), "true");
+  assert.equal(ui.hud.getAttribute("data-training-systems"), "helm sail balance");
+  assert.equal(ui.roundLabel.textContent, "INITIATION 1/3");
+  assert.equal(ui.roundSub.textContent, "Q/D + ↑/↓ · BARRE + VOILE");
+  assert.equal(ui.bwa.classList.contains("training-locked"), true);
+  assert.equal(ui.weaponSlot.classList.contains("training-locked"), true);
+  assert.equal(ui.flowMeter.getAttribute("data-training-locked"), "true");
+
+  game.trainingGuide.step = 1;
+  HudSystems.updateUI.call(game);
+  assert.match(ui.hud.getAttribute("data-training-systems"), /\bshift\b/);
+  assert.equal(ui.roundSub.textContent, "SHIFT · QUAND ELLE PENCHE");
+  assert.equal(ui.bwa.classList.contains("training-locked"), false);
+  assert.equal(ui.weaponSlot.classList.contains("training-locked"), true);
+
+  game.trainingGuide.step = 2;
+  HudSystems.updateUI.call(game);
+  assert.match(ui.hud.getAttribute("data-training-systems"), /\bweapons\b/);
+  assert.equal(ui.roundSub.textContent, "ESPACE · TIRE COCO");
+  assert.equal(ui.weaponSlot.classList.contains("training-locked"), false);
+  assert.equal(
+    ui.weaponCrate.classList.contains("hidden"),
+    true,
+    "training unlock must preserve an empty crate's business visibility"
+  );
+  assert.equal(ui.flowMeter.getAttribute("data-training-locked"), "true");
+
+  game.trainingGuide.advancedUnlocked = true;
+  game.trainingGuide.arsenalRestored = true;
+  HudSystems.updateUI.call(game);
+  assert.equal(
+    ui.hud.getAttribute("data-training-active"),
+    "false",
+    "trainingMode stays true after reveal, but the initiation HUD must close"
+  );
+  assert.equal(ui.hud.getAttribute("data-training-step"), "complete");
+  assert.equal(ui.roundLabel.textContent, "MANCHE 1");
+  assert.match(ui.hud.getAttribute("data-training-systems"), /\bboost\b/);
+  assert.equal(ui.flowMeter.getAttribute("data-training-locked"), "false");
+
+  game.trainingMode = false;
+  game.trainingGuide = null;
+  HudSystems.updateUI.call(game);
+  assert.equal(ui.hud.getAttribute("data-training-step"), "complete");
+  assert.match(ui.hud.getAttribute("data-training-systems"), /\bboost\b/);
+  assert.equal(ui.flowMeter.getAttribute("data-training-locked"), "false");
+  assert.equal(ui.reticle.classList.contains("hidden"), true, "unlocking must preserve reticle business visibility");
+  assert.equal(ui.reticle.getAttribute("aria-hidden"), null, "unlocking removes the training override");
 }
 
 // Le poste central traduit la vraie fenêtre physique sans écrire dans la
@@ -284,6 +609,56 @@ for (const relative of expectedAssets) {
     offset += 8 + size + (size & 1);
   }
   assert.ok(chunks.includes("ALPH"), `${relative} declares alpha but carries no ALPH chunk`);
+}
+
+// Le nouveau module ÉLAN ne télécharge pas douze images : ses douze états sont
+// détourés dans un seul atlas WebP, suffisamment léger pour rester précaché sur
+// mobile. Dimensions divisibles par la grille = cadrage pixel-stable en CSS.
+{
+  const relative = "assets/textures/v9/hud/turbo_elan_atlas.webp";
+  const data = await readFile(resolve(root, relative));
+  const info = await stat(resolve(root, relative));
+  assert.ok(info.size <= 240_000, `${relative} is too heavy for a HUD-only mobile asset`);
+  assert.equal(data.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(data.subarray(8, 12).toString("ascii"), "WEBP");
+  assert.equal(data.subarray(12, 16).toString("ascii"), "VP8X");
+  assert.ok((data[20] & 0x10) !== 0, `${relative} must declare alpha`);
+  const width = data.readUIntLE(24, 3) + 1;
+  const height = data.readUIntLE(27, 3) + 1;
+  assert.equal(width, 1448);
+  assert.equal(height, 1086);
+  assert.equal(width % 4, 0);
+  assert.equal(height % 3, 0);
+
+  const chunks = [];
+  for (let offset = 12; offset + 8 <= data.length;) {
+    const identifier = data.subarray(offset, offset + 4).toString("ascii");
+    const size = data.readUInt32LE(offset + 4);
+    chunks.push(identifier);
+    offset += 8 + size + (size & 1);
+  }
+  assert.ok(chunks.includes("ALPH"), `${relative} must carry a real alpha chunk`);
+
+  const [manifestSource, promptSource, css, serviceWorker, html, mainSource] = await Promise.all([
+    readText("assets/textures/v9/asset-pack.json"),
+    readText("art-source/ui/TURBO_ELAN_PROMPT.json"),
+    readText("style.css"),
+    readText("service-worker.js"),
+    readText("index.html"),
+    readText("src/main.js")
+  ]);
+  const manifest = JSON.parse(manifestSource);
+  const prompt = JSON.parse(promptSource);
+  const entry = manifest.assets.find((asset) => asset.path === relative);
+  assert.ok(entry, "the Turbo atlas needs a traceable V9 manifest entry");
+  assert.equal(entry.sha256, createHash("sha256").update(data).digest("hex"));
+  assert.equal(prompt.layout.grid, "4x3");
+  assert.equal(prompt.layout.cellOrder.length, 12);
+  assert.ok(css.includes(relative));
+  assert.ok(serviceWorker.includes(`./${relative}`));
+  assert.match(html, /id="flowMeter"[^>]*role="progressbar"/);
+  assert.match(mainSource, /flowState:\s*byId\("flowState"\)/);
+  assert.match(mainSource, /flowHint:\s*byId\("flowHint"\)/);
 }
 
 // Présence seule ne suffit pas : le pack, la feuille de style et le cache

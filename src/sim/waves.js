@@ -27,10 +27,12 @@ export class WaveField {
     this.crossSea = 0;
   }
 
-  setWeather(stormAmount) {
+  setWeather(stormAmount, profile = null) {
     const storm = clamp(stormAmount, 0, 1);
-    this.globalAmplitude = 1 + storm * 0.46;
-    this.crossSea = storm;
+    const swellScale = clamp(Number(profile?.swellScale) || 1, 0.72, 1.35);
+    const crossSea = clamp(Number(profile?.crossSea) || 0, 0, 0.48);
+    this.globalAmplitude = (1 + storm * 0.46) * swellScale;
+    this.crossSea = clamp(storm + crossSea, 0, 1.25);
   }
 
   sample(x, z, time, out = {}) {

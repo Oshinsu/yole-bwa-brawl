@@ -116,7 +116,10 @@ export function weaponHit(payload) {
   // effets continus (feu résiduel, tension du câble) passent `ejectCrew:false`
   // pour ne pas vider six hommes sur un seul projectile resté actif.
   if (payload.ejectCrew !== false) {
-    payload.crewLoss = Math.max(1, payload.crewLoss ?? 0);
+    // Un impact, une silhouette. Borner à un empêche une grosse zone d'effet
+    // de vider plusieurs postes sur le même événement visuel ; les impacts
+    // suivants continueront, eux, à décrocher un yoleur chacun.
+    payload.crewLoss = 1;
   }
   if (payload.rollImpulse) payload.rollImpulse *= bias.roll;
   if (payload.waterKg) payload.waterKg *= bias.water;

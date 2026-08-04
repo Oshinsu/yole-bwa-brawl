@@ -4,6 +4,7 @@ import { BALANCE, ACTION_BOOST_FORWARD } from "../src/game/balance.js";
 import { InputSystems } from "../src/game/input.js";
 import { MatchDirector } from "../src/game/match.js";
 import { VersusSystems, versusCameraFrame } from "../src/game/versus.js";
+import { GAMEPLAY_VERSION } from "../src/sim/replay.js";
 
 assert.equal(BALANCE.respawn, undefined, "l'équilibrage ne doit plus exposer de repêchage");
 assert.equal(MatchDirector.respawn, undefined, "le directeur ne doit plus pouvoir remettre une yole à flot");
@@ -114,10 +115,9 @@ assert.match(
   /<button\b[^>]*\bid="revengeBtn"[^>]*\bhidden\b[^>]*\binert\b[^>]*\bdisabled\b[^>]*><\/button>/,
   "le monofichier doit conserver l'ancre PWA cachée sans restaurer l'action"
 );
-assert.match(
-  singleFile,
-  /tropical-mayhem-v3-12-no-rescue/,
-  "le monofichier livré doit porter la version de gameplay sans repêchage"
+assert.ok(
+  singleFile.includes(GAMEPLAY_VERSION),
+  "le monofichier livré doit porter la version de gameplay courante"
 );
 
 console.log("elimination lockout: no rescue, no post-mort action, spectator camera and next-round reset OK");

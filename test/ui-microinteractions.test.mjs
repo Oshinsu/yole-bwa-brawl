@@ -29,12 +29,23 @@ assert.match(html, /id="customBtn"[^>]+aria-expanded="false"/);
 assert.match(html, /id="menuSettingsBtn"[^>]+aria-controls="pauseScreen"/);
 assert.match(html, /id="replaysBtn"[^>]+aria-controls="replayLibrary"/);
 assert.match(html, /id="aboutBtn"[^>]+aria-controls="infoHub"/);
+assert.match(
+  html,
+  /id="playBtn"[\s\S]*id="tourBtn"[\s\S]*id="customBtn"[\s\S]*<details id="menuMore" class="menu-more">/
+);
+assert.match(
+  html,
+  /<details id="menuMore" class="menu-more">[\s\S]*AUTRES MODES &amp; OPTIONS[\s\S]*id="versusBtn"[\s\S]*id="dailyChallengeBtn"[\s\S]*<\/details>/
+);
 assert.match(html, /id="controlsScreen"[^>]+role="dialog"/);
 assert.match(html, /id="keyboardControlsPanel"[^>]+aria-labelledby="keyboardControlsTab"/);
 assert.match(html, /id="touchControlsPanel"[^>]+aria-labelledby="touchControlsTab"/);
 assert.match(html, /id="gamepadControlsPanel"[^>]+aria-labelledby="gamepadControlsTab"/);
 assert.match(html, /id="onboardingScreen"[^>]+role="dialog"/);
-assert.equal((html.match(/data-onboarding-step=/g) ?? []).length, 4, "onboarding stays a short four-step sequence");
+assert.equal((html.match(/data-onboarding-step=/g) ?? []).length, 1, "onboarding is one concise card; the three-step lesson continues live");
+assert.match(html, /aria-label="Initiation express en trois gestes"/);
+assert.match(html, /3 GESTES\. À L’EAU\./);
+assert.match(html, /1 · DIRIGE[\s\S]*2 · REDRESSE[\s\S]*3 · TIRE COCO/);
 assert.match(html, /id="loadoutChoices"[^>]+aria-label="Deux armes de soute parmi quatre"/);
 assert.match(html, /id="pauseMenuBtn"[^>]*>QUITTER · MENU PRINCIPAL</);
 assert.match(html, /id="endMenuBtn"[^>]*>RETOUR AU PORT</);
@@ -78,7 +89,34 @@ assert.match(counterCss, /#bwaBtn\{[\s\S]*?position:fixed;[\s\S]*?left:50%;/);
 assert.match(counterCss, /grid-template-columns:repeat\(3,/);
 assert.match(counterCss, /--shift-meter/);
 assert.match(counterCss, /spectator-controls-hidden \.actions/);
+
+const menuV14Start = css.indexOf("=== V14 · MENU JOUEUR A DEUX NIVEAUX");
+const menuV14End = css.indexOf("=== END V14 · MENU JOUEUR A DEUX NIVEAUX");
+assert.ok(menuV14Start >= 0 && menuV14End > menuV14Start, "two-level player menu stylesheet must exist");
+const menuV14Css = css.slice(menuV14Start, menuV14End);
+assert.match(menuV14Css, /\.menu-more>summary/);
+assert.match(menuV14Css, /\.menu-more-panel/);
+assert.match(menuV14Css, /@media\(max-height:540px\) and \(orientation:landscape\)/);
+assert.doesNotMatch(menuV14Css, /\binfinite\b/, "menu disclosure must never loop");
 assert.doesNotMatch(counterCss, /\binfinite\b/, "central counter-heel cues must never loop");
+
+const onboardingV15Start = css.indexOf("=== V15 · INITIATION EN TROIS GESTES");
+const onboardingV15End = css.indexOf("=== END V15 · INITIATION EN TROIS GESTES");
+assert.ok(onboardingV15Start >= 0 && onboardingV15End > onboardingV15Start, "one-card onboarding stylesheet must exist");
+const onboardingV15Css = css.slice(onboardingV15Start, onboardingV15End);
+assert.match(onboardingV15Css, /\.onboarding-essentials/);
+assert.match(onboardingV15Css, /@media\(max-height:520px\) and \(orientation:landscape\)/);
+
+const progressiveHudStart = css.indexOf("=== V16 · HUD PROGRESSIF ET CONTEXTUEL");
+const progressiveHudEnd = css.indexOf("=== END V16 · HUD PROGRESSIF ET CONTEXTUEL");
+assert.ok(progressiveHudStart >= 0 && progressiveHudEnd > progressiveHudStart, "progressive HUD stylesheet must exist");
+const progressiveHudCss = css.slice(progressiveHudStart, progressiveHudEnd);
+assert.match(progressiveHudCss, /\.hud-diagnostics-calm/);
+assert.match(progressiveHudCss, /\.training-advanced-locked/);
+assert.match(progressiveHudCss, /\.training-locked/);
+assert.match(progressiveHudCss, /\.killfeed \.kill:nth-child\(n\+3\)/);
+assert.match(progressiveHudCss, /@media\(pointer:coarse\),\(any-pointer:coarse\)/);
+assert.doesNotMatch(progressiveHudCss, /\binfinite\b/, "progressive HUD cues must never loop");
 assert.match(inputSource, /toggleSetting\("cameraRoll",\s*\[0\.82,\s*0\.94,\s*0\.72\]\)/);
 
 const showroomStart = css.indexOf("=== V8 · MENU LIVE ET ATELIER 3D");
@@ -106,13 +144,18 @@ for (const state of [
   "round-cue",
   "charge-gained",
   "ready-cue",
-  "resource-low",
   "aim-enter-cue",
   "target-cue",
   "p1-leading",
   "score-cue",
   "status-critical"
 ]) assert.ok(hudSource.includes(`"${state}"`), `HUD must drive ${state}`);
+for (const turboState of [
+  "data-turbo-state",
+  "turbo-ready-cue",
+  "turbo-confirmed",
+  "turbo-rejected"
+]) assert.ok(hudSource.includes(`"${turboState}"`), `HUD must drive ${turboState}`);
 assert.match(hudSource, /toggleSetting|hapticsLevel/);
 assert.match(hudSource, /\[1,\s*0\.5,\s*0\]/);
 assert.match(inputSource, /toggleSetting\("haptics",\s*\[1,\s*0\.5,\s*0\]\)/);

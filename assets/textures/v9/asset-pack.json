@@ -1,14 +1,18 @@
 {
   "schemaVersion": 1,
   "pack": {
-    "id": "yole-bwa-brawl-v9-menu-sota",
-    "version": "9.0",
+    "id": "yole-bwa-brawl-v9-interface-sota",
+    "version": "9.1",
     "createdOn": "2026-08-01",
-    "category": "main-menu-identity",
-    "assetCount": 6,
-    "runtimeBytes": 480622,
+    "category": "menu-and-hud-identity",
+    "assetCount": 7,
+    "runtimeBytes": 690136,
     "generationMode": "built-in-imagegen",
     "promptManifest": "art-source/generated-v9/menu/PROMPTS.md",
+    "promptManifests": [
+      "art-source/generated-v9/menu/PROMPTS.md",
+      "art-source/ui/TURBO_ELAN_PROMPT.json"
+    ],
     "runtimeConsumer": "style.css"
   },
   "artDirection": {
@@ -108,6 +112,20 @@
       "alpha": false,
       "bytes": 25734,
       "sha256": "062720e8ab1068c7b1ea0f0afb4f642754fd6d45da6c843b609284e5ce89e795"
+    },
+    {
+      "id": "hud_turbo_elan_atlas",
+      "role": "Twelve-state Turbo and Elan HUD atlas: reserve, recovery, readiness, action and rejection feedback",
+      "path": "assets/textures/v9/hud/turbo_elan_atlas.webp",
+      "source": "art-source/ui/turbo_elan_atlas_alpha_v1.png",
+      "generationCall": "call_3PNoX2avVtgyviY3E9Kdo3e7",
+      "width": 1448,
+      "height": 1086,
+      "grid": "4x3",
+      "format": "WEBP",
+      "alpha": true,
+      "bytes": 209514,
+      "sha256": "c997d325eddca6ed05b93a0fa40982888913dc42eac6e010f78265a74d03f285"
     }
   ],
   "runtimeContract": {
@@ -120,7 +138,8 @@
       "layout",
       "material compositing",
       "hover and focus states",
-      "responsive hierarchy"
+      "responsive hierarchy",
+      "atlas cropping and state animation"
     ],
     "fallback": "Every control keeps a readable dark CSS background if a bitmap is unavailable."
   },

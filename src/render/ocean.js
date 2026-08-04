@@ -16,6 +16,15 @@ export const OCEAN_GLINT = Object.freeze({
   pathGain: 0.08
 });
 
+export const OCEAN_CREST = Object.freeze({
+  calmStart: 0.17,
+  calmFull: 0.255,
+  stormStart: 0.13,
+  stormFull: 0.215,
+  heightStart: 0.10,
+  heightFull: 0.52
+});
+
 const DEFAULT_OCEAN_PALETTE = Object.freeze({
   deep: 0x0d4f63,
   mid: 0x168697,
@@ -42,6 +51,33 @@ export function oceanGlintEnvelope(glintDotValue, detailFadeValue, crestMaskValu
     * (0.42 + crestMask * 0.40)
     * OCEAN_GLINT.pathGain;
   return sparkle + path;
+}
+
+// Miroir de la sélection GLSL des whitecaps. `signedCurvature` est négative au
+// sommet d'une vague sinusoïdale : seuls ces sommets peuvent blanchir. Le bruit
+// de détail casse leurs bords, il ne décide plus où se trouve une crête.
+export function oceanCrestEnvelope(
+  signedCurvatureValue,
+  heightValue,
+  stormValue,
+  amplitudeValue,
+  crestMaskValue = 1
+) {
+  const curvature = Number.isFinite(signedCurvatureValue) ? signedCurvatureValue : 0;
+  const amplitude = Math.max(0.001, Number.isFinite(amplitudeValue) ? amplitudeValue : 1);
+  const storm = clamp(stormValue, 0, 1);
+  const compression = Math.max(-curvature, 0) / amplitude;
+  const start = OCEAN_CREST.calmStart
+    + (OCEAN_CREST.stormStart - OCEAN_CREST.calmStart) * storm;
+  const full = OCEAN_CREST.calmFull
+    + (OCEAN_CREST.stormFull - OCEAN_CREST.calmFull) * storm;
+  const whitecap = smoothstep(start, full, compression)
+    * smoothstep(
+      OCEAN_CREST.heightStart,
+      OCEAN_CREST.heightFull,
+      (Number.isFinite(heightValue) ? heightValue : 0) / amplitude
+    );
+  return whitecap * (0.52 + clamp(crestMaskValue, 0, 1) * 0.48);
 }
 
 function createRingGeometry(THREE, size, innerSize, segments) {
@@ -326,14 +362,29 @@ export class OceanSystem {
     const COAST_GATE = 52.0;
     const waveCode = waves.map((wave, index) => {
       const wavelength = Math.PI * 2 / wave.k;
+      // La physique amortit les trois composantes les plus courtes. Le shader
+      // doit employer exactement le même facteur, sinon la coque répond à une
+      // vague qui n'a pas l'amplitude affichée.
+      const amplitude = wave.amplitude * (index > 4 ? 0.78 : 1);
+      const direction = index % 3 === 1
+        ? `vec2 d${index} = vec2(
+        ${wave.dx.toFixed(7)} * uCrossRotation.x - ${wave.dz.toFixed(7)} * uCrossRotation.y,
+        ${wave.dx.toFixed(7)} * uCrossRotation.y + ${wave.dz.toFixed(7)} * uCrossRotation.x
+      );`
+        : `vec2 d${index} = vec2(${wave.dx.toFixed(7)}, ${wave.dz.toFixed(7)});`;
+      const crestCarrier = index < 3
+        ? `crestCurve += -sin(p${index}) * ${(amplitude * wave.k * wave.k).toFixed(7)} * uWaveAmplitude * w${index};`
+        : "";
       return `
       float w${index} = 1.0 - smoothstep(${(wavelength * 0.30).toFixed(7)}, ${(wavelength * 0.55).toFixed(7)}, aGridStep);
-      p${index} = dot(world.xz, vec2(${wave.dx.toFixed(7)}, ${wave.dz.toFixed(7)})) * ${wave.k.toFixed(7)}
+      ${direction}
+      p${index} = dot(world.xz, d${index}) * ${wave.k.toFixed(7)}
         + uTime * ${wave.speed.toFixed(7)} + ${wave.phase.toFixed(7)};
-      h += sin(p${index}) * ${wave.amplitude.toFixed(7)} * uWaveAmplitude * w${index};
-      sx += cos(p${index}) * ${(wave.amplitude * wave.k * wave.dx).toFixed(7)} * uWaveAmplitude * w${index};
-      sz += cos(p${index}) * ${(wave.amplitude * wave.k * wave.dz).toFixed(7)} * uWaveAmplitude * w${index};
-      curve += -sin(p${index}) * ${(wave.amplitude * wave.k * wave.k).toFixed(7)} * uWaveAmplitude * w${index};
+      h += sin(p${index}) * ${amplitude.toFixed(7)} * uWaveAmplitude * w${index};
+      sx += cos(p${index}) * ${(amplitude * wave.k).toFixed(7)} * d${index}.x * uWaveAmplitude * w${index};
+      sz += cos(p${index}) * ${(amplitude * wave.k).toFixed(7)} * d${index}.y * uWaveAmplitude * w${index};
+      curve += -sin(p${index}) * ${(amplitude * wave.k * wave.k).toFixed(7)} * uWaveAmplitude * w${index};
+      ${crestCarrier}
     `;
     }).join("\n");
 
@@ -341,6 +392,7 @@ export class OceanSystem {
       uTime: { value: 0 },
       uStorm: { value: 0 },
       uWaveAmplitude: { value: 1 },
+      uCrossRotation: { value: new THREE.Vector2(1, 0) },
       uWakeTex: { value: this.wake.texture },
       uWakeCenter: { value: new THREE.Vector2(0, 0) },
       uWakeWorldSize: { value: this.wake.worldSize },
@@ -376,6 +428,7 @@ export class OceanSystem {
         uniform float uTime;
         uniform float uStorm;
         uniform float uWaveAmplitude;
+        uniform vec2 uCrossRotation;
         uniform sampler2D uWakeTex;
         uniform vec2 uWakeCenter;
         uniform float uWakeWorldSize;
@@ -387,6 +440,7 @@ export class OceanSystem {
         varying vec3 vNormalW;
         varying float vHeight;
         varying float vCurvature;
+        varying float vCrestCurvature;
         varying float vWake;
         varying float vWakeFoam;
         varying vec2 vWakeUv;
@@ -402,6 +456,7 @@ export class OceanSystem {
           float sx = 0.0;
           float sz = 0.0;
           float curve = 0.0;
+          float crestCurve = 0.0;
           ${waveCode}
 
           vec2 wakeUv = (world.xz - uWakeCenter) / uWakeWorldSize + 0.5;
@@ -431,6 +486,7 @@ export class OceanSystem {
           sx *= geoFade;
           sz *= geoFade;
           curve *= geoFade;
+          crestCurve *= geoFade;
 
           // Le sillage est encore plus fin (0,88 m/cellule) : il s'éteint plus tôt.
           float wakeFade = 1.0 - smoothstep(60.0, 190.0, camDist);
@@ -461,6 +517,7 @@ export class OceanSystem {
           vNormalW = normalize(vec3(-sx, 1.0, -sz));
           vHeight = h;
           vCurvature = curve;
+          vCrestCurvature = crestCurve;
           vWake = wake;
           if (wakeUv.x <= 0.0 || wakeUv.x >= 1.0 || wakeUv.y <= 0.0 || wakeUv.y >= 1.0) vWakeFoam = 0.0;
           vWakeUv = wakeUv;
@@ -473,6 +530,7 @@ export class OceanSystem {
         precision highp int;
         uniform float uTime;
         uniform float uStorm;
+        uniform float uWaveAmplitude;
         uniform vec3 uDeep;
         uniform vec3 uMid;
         uniform vec3 uShallow;
@@ -490,6 +548,7 @@ export class OceanSystem {
         varying vec3 vNormalW;
         varying float vHeight;
         varying float vCurvature;
+        varying float vCrestCurvature;
         varying float vWake;
         varying float vWakeFoam;
         varying float vCoast;
@@ -601,15 +660,28 @@ export class OceanSystem {
             color += vec3(0.12, 0.58, 0.48) * sss * 0.46 * (1.0 - uStorm * 0.55);
           }
 
-          float foamThreshold = mix(0.48, 0.22, uStorm);
-          float crestFoam = smoothstep(foamThreshold, foamThreshold + 0.54, abs(vCurvature))
-            * smoothstep(0.28, 0.88, vHeight) * (0.34 + crestMask * 0.66);
+          // Porteuse signée des trois houles lisibles. Les petites composantes
+          // restent dans la normale, mais ne peuvent plus faire mousser un
+          // creux. Le masque texturé effiloche seulement le bord de la crête.
+          float crestCompression = max(-vCrestCurvature, 0.0)
+            / max(uWaveAmplitude, 0.001);
+          float crestFoam = smoothstep(
+            mix(${OCEAN_CREST.calmStart.toFixed(3)}, ${OCEAN_CREST.stormStart.toFixed(3)}, uStorm),
+            mix(${OCEAN_CREST.calmFull.toFixed(3)}, ${OCEAN_CREST.stormFull.toFixed(3)}, uStorm),
+            crestCompression
+          );
+          crestFoam *= smoothstep(
+            ${OCEAN_CREST.heightStart.toFixed(3)},
+            ${OCEAN_CREST.heightFull.toFixed(3)},
+            vHeight / max(uWaveAmplitude, 0.001)
+          );
+          crestFoam *= 0.52 + coarse.a * 0.48;
           float wakeTexel = 0.0;
           if (vWakeUv.x > 0.0 && vWakeUv.x < 1.0 && vWakeUv.y > 0.0 && vWakeUv.y < 1.0) {
             wakeTexel = texture2D(uWakeTex, vWakeUv).g;
           }
           float wakeFoam = max(max(vWakeFoam, wakeTexel), smoothstep(0.05, 0.34, abs(vWake)));
-          float foam = clamp(crestFoam * 0.46 + wakeFoam * 1.52 + coastFoam * 0.88, 0.0, 1.0);
+          float foam = clamp(crestFoam * 0.70 + wakeFoam * 1.52 + coastFoam * 0.88, 0.0, 1.0);
           color = mix(color, uFoam, foam * 0.90);
           color = mix(color, vec3(0.025, 0.045, 0.08), uStorm * 0.34);
 
@@ -638,7 +710,11 @@ export class OceanSystem {
             posterSea = mix(posterSea, uShallow, shallow * 0.72);
             color = mix(color, posterSea, 0.44);
             color = mix(color, uDeep * 0.34, inkRibbon * 0.27);
-            float cutFoam = step(0.54, foam) * (0.66 + step(0.78, foam) * 0.34);
+            // Une vraie crête peut franchir seule le cutout Gravure ; elle
+            // n'attend plus qu'un sillage ou un rivage lui apporte le reste.
+            float graphicFoam = max(foam, crestFoam * 0.78);
+            float cutFoam = step(0.54, graphicFoam)
+              * (0.66 + step(0.78, graphicFoam) * 0.34);
             color = mix(color, uFoam, cutFoam * 0.84);
           }
           color = mix(color, uHaze, atmosphere * 0.94);
@@ -709,7 +785,7 @@ export class OceanSystem {
     });
   }
 
-  update(dt, time, focusX, focusZ, stormAmount) {
+  update(dt, time, focusX, focusZ, stormAmount, windX = null, windZ = null) {
     // setWeather() N'EST PLUS appelé ici : il écrit l'amplitude de houle que la
     // PHYSIQUE échantillonne, et ce chemin tourne à la cadence d'image. La
     // correspondance tick -> amplitude dépendait donc du frame pacing, ce qui
@@ -720,6 +796,14 @@ export class OceanSystem {
     this.uniforms.uTime.value = time;
     this.uniforms.uStorm.value = stormAmount;
     this.uniforms.uWaveAmplitude.value = this.waveField.globalAmplitude;
+    const crossRotation = this.waveField.crossSea * 0.38;
+    this.uniforms.uCrossRotation.value.set(Math.cos(crossRotation), Math.sin(crossRotation));
+    if (Number.isFinite(windX) && Number.isFinite(windZ)) {
+      const windLength = Math.hypot(windX, windZ);
+      if (windLength > 1e-5) {
+        this.uniforms.uWindDir.value.set(windX / windLength, windZ / windLength);
+      }
+    }
     // wake.update() N'EST PLUS appelé ici, pour exactement la même raison que
     // setWeather ci-dessus : la grille de sillage est échantillonnée par la
     // PHYSIQUE (yole-physics.js lit sampleDisturbance pour composer waterHeight,

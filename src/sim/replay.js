@@ -42,11 +42,14 @@ export const REPLAY_SCHEMA_VERSION = 2;
 // Majeure, pas mineure : les replays 3.x sont REFUSÉS à la lecture plutôt que
 // rejoués faux. Un replay qui se lance et dérive silencieusement est pire qu'un
 // replay qui s'annonce incompatible.
-export const SIMULATION_VERSION = "4.0.0";
-// Une élimination est désormais définitive pendant la manche. Refuser les
-// anciennes lectures évite de rejouer un enregistrement avec l'ancien
-// repêchage automatique et de faire diverger les checksums.
-export const GAMEPLAY_VERSION = "tropical-mayhem-v3-12-no-rescue";
+// 4.1.0 — profils météo par étape, pénalité d'équipage plafonnée et vraie
+// manœuvre d'urgence à zéro équipier. Ces trois changements modifient les
+// trajectoires : les replays 4.0 doivent être refusés plutôt que diverger.
+export const SIMULATION_VERSION = "4.1.0";
+// Passe joueur : score explicite, première manche PEYI, profils d'étape,
+// anti-dogpile et spectateur accéléré. Le slug distingue aussi clairement les
+// partages produits avant/après ce rééquilibrage.
+export const GAMEPLAY_VERSION = "tropical-mayhem-v3-14-progressive-onboarding";
 
 function isReplayChecksum(value) {
   return typeof value === "string" && /^[0-9a-f]{8}$/i.test(value);

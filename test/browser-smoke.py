@@ -102,7 +102,12 @@ def main() -> None:
 
             # Smoke d'intégration des deux panneaux créés dynamiquement. Les
             # tests unitaires valident leur contenu ; ici on verrouille aussi
-            # le bouton réel, le montage DOM, la visibilité et le focus.
+            # le bouton réel, le montage DOM, la visibilité et le focus. Depuis
+            # le menu à deux niveaux, ces utilitaires vivent volontairement
+            # dans le disclosure natif : le parcours doit l'ouvrir comme un
+            # joueur, pas forcer un clic sur un descendant invisible.
+            game_page.locator("#menuMore > summary").click()
+            game_page.wait_for_function("document.getElementById('menuMore')?.open === true")
             game_page.locator("#replaysBtn").click()
             game_page.locator("#replayLibrary").wait_for(state="visible")
             if game_page.evaluate("document.activeElement?.classList.contains('tour-hub__close')") is not True:
@@ -117,6 +122,13 @@ def main() -> None:
             game_page.locator("#infoHub .info-hub__close").click()
             game_page.locator("#infoHub").wait_for(state="hidden")
 
+            # Ce long smoke vérifie l'arsenal complet, la visée, les caisses et
+            # le retour de pause. L'école progressive possède son propre test
+            # déterministe : on la marque donc terminée dans le magasin public
+            # avant de lancer ce parcours de non-régression.
+            game_page.evaluate(
+                "window.__YOLE_DEBUG__.game.settings.set('trainingCompleted', true)"
+            )
             game_page.locator("#playBtn").click()
             game_page.wait_for_function("window.__YOLE_DEBUG__.getState().mode === 'playing'", timeout=15000)
             game_page.wait_for_function("window.__YOLE_DEBUG__.getState().tick > 20", timeout=15000)
@@ -375,6 +387,12 @@ def main() -> None:
             # avec le mock Three. Recharger index.html mesurerait un autre build.
             touch_page.set_content(single_file, wait_until="domcontentloaded")
             touch_page.wait_for_function("Boolean(window.__YOLE_DEBUG__)", timeout=15000)
+            # Ici on mesure la barre tactile COMPLÈTE. L'école, qui retire
+            # volontairement les commandes encore verrouillées, est couverte
+            # séparément par first-run-training.test.mjs.
+            touch_page.evaluate(
+                "window.__YOLE_DEBUG__.game.settings.set('trainingCompleted', true)"
+            )
             touch_page.evaluate("document.getElementById('playBtn').click()")
             touch_page.wait_for_timeout(1200)
             touch_state = touch_page.evaluate(

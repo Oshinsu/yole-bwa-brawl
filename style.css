@@ -5856,3 +5856,1236 @@ body.input-gamepad #hud:not(.hidden)~.menu-input-legend{display:none}
   pointer-events:none;
 }
 /* === END V12 · POSTE DE CONTRE-GITE CENTRAL ============================= */
+
+/* === V13 · SORTIES MOBILES ET CAMERA SPECTATEUR ==========================
+   Une encoche ou un téléphone paysage court ne doit jamais emprisonner le
+   joueur dans un résultat. Le panneau garde sa matière, mais sa hauteur suit
+   désormais le viewport et son contenu devient tactilement défilable. */
+#endScreen,
+#controlsScreen,
+#onboardingScreen,
+#leaveScreen,
+#fatal{
+  overflow:hidden;
+  padding:
+    max(8px,env(safe-area-inset-top))
+    max(8px,env(safe-area-inset-right))
+    max(8px,env(safe-area-inset-bottom))
+    max(8px,env(safe-area-inset-left));
+}
+
+#endScreen .modal,
+.controls-modal,
+.onboarding-modal,
+.confirm-modal,
+#fatal .modal{
+  max-height:calc(
+    100dvh
+    - max(8px,env(safe-area-inset-top))
+    - max(8px,env(safe-area-inset-bottom))
+  );
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  scrollbar-color:#49bdb2 rgba(2,12,22,.72);
+}
+
+:is(#endScreen .modal,.controls-modal,.onboarding-modal,.confirm-modal,#fatal .modal)::-webkit-scrollbar{
+  width:8px;
+}
+:is(#endScreen .modal,.controls-modal,.onboarding-modal,.confirm-modal,#fatal .modal)::-webkit-scrollbar-track{
+  background:rgba(2,12,22,.72);
+  border-left:1px solid rgba(232,190,101,.10);
+}
+:is(#endScreen .modal,.controls-modal,.onboarding-modal,.confirm-modal,#fatal .modal)::-webkit-scrollbar-thumb{
+  border:2px solid rgba(2,12,22,.72);
+  border-radius:8px;
+  background:linear-gradient(#74e7dc,#bf9048);
+}
+
+/* Les rangées vides ne réservent plus de hauteur dans les résultats. */
+#endScreen .result-growth-actions:not(:has(>button:not(.hidden))){
+  display:none;
+}
+#endScreen .result-growth-actions:not(:has(>#shareChallengeBtn:not(.hidden))) + .share-status{
+  display:none;
+}
+
+/* Le changement de cible reste disponible après chavirage, sans rendre tout
+   le bandeau spectateur interactif par accident. */
+.spectateur-cycle,
+.spectateur-skip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:38px;
+  margin-top:9px;
+  padding:8px 12px;
+  pointer-events:auto;
+  border:1px solid rgba(255,214,119,.48);
+  border-radius:10px;
+  color:#fff0b8;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.08em;
+}
+.spectateur-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:6px;
+  margin-top:9px;
+}
+.spectateur-actions .spectateur-cycle,
+.spectateur-actions .spectateur-skip{margin-top:0}
+.spectateur-cycle{
+  border-color:rgba(92,235,224,.54);
+  background:rgba(8,78,83,.76);
+  color:#c9fffa;
+}
+.spectateur-cycle:hover,
+.spectateur-cycle:focus-visible{
+  border-color:rgba(150,255,245,.88);
+  background:rgba(11,105,108,.88);
+}
+
+/* Les diagnostics de rendu sont utiles pendant la course, pas au moment où le
+   joueur doit comprendre pourquoi il est éliminé et choisir sa caméra. Sur un
+   paysage court, les deux occupaient exactement la même bande centrale. */
+#hud:has(.spectateur:not(.hidden)) .perf-stats{display:none!important}
+
+@media(max-height:560px) and (orientation:landscape){
+  #endScreen .modal{
+    width:min(860px,100%);
+    padding:10px 14px;
+    border-radius:15px 5px 15px 5px;
+  }
+  #endScreen .modal-icon-result{display:none}
+  #endScreen .modal h2{
+    margin:0 0 2px;
+    font-size:24px;
+    line-height:1;
+  }
+  #endScreen .modal>p{
+    overflow:hidden;
+    font-size:9px;
+    line-height:1.25;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #endScreen .stats-grid{
+    gap:6px;
+    margin:7px 0 6px;
+  }
+  #endScreen .stats-grid>div{padding:6px 4px}
+  #endScreen .stats-grid b{font-size:19px}
+  #endScreen .stats-grid span{font-size:6px}
+  #endScreen #rematchBtn{
+    width:100%;
+    min-height:40px;
+    margin:0;
+    padding:8px 12px;
+    font-size:8px;
+  }
+  #endScreen .result-growth-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+    margin-top:5px;
+  }
+  #endScreen .result-growth-actions .secondary{
+    min-height:38px;
+    padding:7px 9px;
+    font-size:7px;
+  }
+  #endScreen .share-status{
+    min-height:10px;
+    margin:3px 0 0;
+    font-size:6px;
+  }
+  #endScreen .replay-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+    margin-top:5px;
+  }
+  #endScreen .replay-actions .secondary{
+    min-height:38px;
+    margin:0;
+    padding:7px 9px;
+    font-size:7px;
+  }
+  #endScreen .result-advanced{margin-top:5px}
+  #endScreen .result-advanced>summary{padding:6px 4px}
+  #endScreen .result-advanced .advanced-actions{margin-top:2px}
+  #endScreen .replay-status{margin-top:4px;font-size:6px}
+
+  /* Les autres dialogues courts avaient déjà du scroll pour certains, mais
+     pas tous. Les confirmations gardent leurs deux choix au-dessus du pli. */
+  #leaveScreen .modal-icon,
+  #fatal .modal-icon{display:none}
+  .confirm-modal,
+  #fatal .modal{padding:15px 18px}
+  .confirm-modal h2,
+  #fatal .modal h2{font-size:25px}
+  .confirm-modal .modal-actions,
+  .onboarding-modal .modal-actions,
+  .controls-modal>.modal-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .spectateur{
+    top:max(6px,env(safe-area-inset-top));
+    width:max-content;
+    min-width:0;
+    max-width:calc(
+      100vw
+      - max(12px,env(safe-area-inset-left))
+      - max(12px,env(safe-area-inset-right))
+    );
+    padding:7px 10px;
+  }
+  .spectateur b{font-size:18px}
+  .spectateur em{font-size:7px}
+  .spectateur small{margin-top:3px;font-size:7px}
+  .spectateur-cycle,
+  .spectateur-skip{
+    min-height:32px;
+    padding:6px 8px;
+    font-size:6.5px;
+  }
+  .spectateur-actions{gap:5px;margin-top:6px}
+}
+
+@media(max-height:360px) and (orientation:landscape){
+  #endScreen .modal{padding:8px 11px}
+  #endScreen .modal h2{font-size:21px}
+  #endScreen .stats-grid{margin:5px 0}
+  #endScreen .stats-grid>div{padding:4px}
+  #endScreen #rematchBtn,
+  #endScreen .result-growth-actions .secondary,
+  #endScreen .replay-actions .secondary{min-height:34px;padding:5px 8px}
+  #endScreen .result-advanced>summary{padding:4px}
+}
+/* === END V13 · SORTIES MOBILES ET CAMERA SPECTATEUR ===================== */
+
+/* === V13 · CHARGEMENT ET MISE A JOUR NON BLOQUANTS =======================
+   Le menu peut être peint immédiatement pendant que la 3D se prépare. Cette
+   couche garde néanmoins tous les clics afin qu'aucune partie ne démarre avec
+   un inventaire d'assets incomplet. */
+.loading-screen.loading-over-menu{
+  z-index:35;
+  grid-template-columns:48px minmax(0,auto);
+  grid-template-rows:auto auto;
+  column-gap:11px;
+  row-gap:3px;
+  align-content:end;
+  justify-content:center;
+  place-items:center start;
+  padding:
+    max(12px,env(safe-area-inset-top))
+    max(12px,env(safe-area-inset-right))
+    max(18px,env(safe-area-inset-bottom))
+    max(12px,env(safe-area-inset-left));
+  pointer-events:auto;
+  background:
+    linear-gradient(
+      0deg,
+      rgba(2,10,22,.97) 0,
+      rgba(3,15,30,.90) 90px,
+      rgba(2,11,24,.28) 175px,
+      rgba(2,11,24,.08) 100%
+    );
+  backdrop-filter:saturate(.84) brightness(.84);
+}
+.loading-screen.loading-over-menu .loader-orbit{
+  grid-column:1;
+  grid-row:1/3;
+  width:44px;
+  height:44px;
+}
+.loading-screen.loading-over-menu .loader-orbit i:nth-child(1){
+  width:10px;height:10px;transform:translate(-50%,-50%) translateY(-17px);
+}
+.loading-screen.loading-over-menu .loader-orbit i:nth-child(2){
+  width:7px;height:7px;transform:translate(-50%,-50%) rotate(120deg) translateY(-17px);
+}
+.loading-screen.loading-over-menu .loader-orbit i:nth-child(3){
+  width:5px;height:5px;transform:translate(-50%,-50%) rotate(240deg) translateY(-17px);
+}
+.loading-screen.loading-over-menu>strong{
+  grid-column:2;
+  grid-row:1;
+  align-self:end;
+  color:#fff0bc;
+  font-size:10px;
+  letter-spacing:.15em;
+  text-shadow:0 2px 10px #000;
+}
+.loading-screen.loading-over-menu>span{
+  grid-column:2;
+  grid-row:2;
+  align-self:start;
+  max-width:min(520px,72vw);
+  overflow:hidden;
+  color:#a8d9dc;
+  font-size:8px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.update-ready{
+  position:fixed;
+  z-index:120;
+  left:50%;
+  bottom:max(12px,env(safe-area-inset-bottom));
+  display:flex;
+  align-items:center;
+  gap:11px;
+  width:min(
+    620px,
+    calc(
+      100vw
+      - max(16px,env(safe-area-inset-left))
+      - max(16px,env(safe-area-inset-right))
+    )
+  );
+  min-height:58px;
+  padding:9px 10px 9px 13px;
+  transform:translateX(-50%);
+  border:1px solid rgba(233,192,104,.52);
+  border-radius:17px 5px 17px 5px;
+  background:
+    linear-gradient(145deg,rgba(8,36,47,.98),rgba(3,14,28,.98)),
+    var(--ui-sail) center/cover;
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.52),
+    inset 3px 0 rgba(91,231,221,.55),
+    inset 0 1px rgba(255,255,255,.10);
+  color:#dff8f7;
+}
+.update-ready:before{
+  content:"↻";
+  display:grid;
+  place-items:center;
+  flex:0 0 34px;
+  width:34px;
+  height:34px;
+  border:1px solid rgba(255,224,145,.46);
+  border-radius:50%;
+  background:rgba(93,59,19,.66);
+  color:#ffe094;
+  font-size:20px;
+  box-shadow:inset 0 1px rgba(255,255,255,.12);
+}
+.update-ready-copy{
+  display:grid;
+  gap:2px;
+  min-width:0;
+  flex:1 1 auto;
+}
+.update-ready strong{
+  color:#fff0bd;
+  font:400 15px/1 var(--font-display);
+  letter-spacing:.035em;
+}
+.update-ready span,
+.update-ready small{
+  overflow:hidden;
+  color:#9dc7c9;
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:.045em;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.update-ready-actions{
+  display:flex;
+  flex:0 0 auto;
+  gap:6px;
+}
+.update-ready button{
+  min-width:0;
+  min-height:40px;
+  margin:0;
+  padding:8px 12px;
+  border:1px solid rgba(100,228,219,.35);
+  border-radius:10px 4px 10px 4px;
+  background:rgba(7,62,67,.68);
+  color:#c9fffa;
+  font-size:7px;
+  font-weight:1000;
+  letter-spacing:.08em;
+}
+.update-ready button.primary{
+  border-color:rgba(255,226,151,.62);
+  background:linear-gradient(135deg,#f1ca66,#b9752c);
+  color:#251604;
+}
+
+@media(max-width:620px){
+  .loading-screen.loading-over-menu{
+    grid-template-columns:38px minmax(0,1fr);
+    column-gap:8px;
+    justify-content:stretch;
+  }
+  .loading-screen.loading-over-menu .loader-orbit{width:36px;height:36px}
+  .loading-screen.loading-over-menu>span{max-width:none}
+  .update-ready{
+    align-items:stretch;
+    gap:7px;
+    padding:8px;
+  }
+  .update-ready:before{display:none}
+  .update-ready-actions{gap:5px}
+  .update-ready button{min-height:38px;padding:7px 9px;font-size:6px}
+}
+@media(max-height:420px) and (orientation:landscape){
+  .loading-screen.loading-over-menu{
+    grid-template-columns:32px minmax(0,1fr);
+    padding-bottom:max(7px,env(safe-area-inset-bottom));
+  }
+  .loading-screen.loading-over-menu .loader-orbit{width:30px;height:30px}
+  .loading-screen.loading-over-menu>strong{font-size:8px}
+  .loading-screen.loading-over-menu>span{font-size:6px}
+  .update-ready{
+    right:max(8px,env(safe-area-inset-right));
+    bottom:max(8px,env(safe-area-inset-bottom));
+    left:auto;
+    width:min(
+      430px,
+      calc(
+        100vw
+        - max(16px,env(safe-area-inset-left))
+        - max(16px,env(safe-area-inset-right))
+      )
+    );
+    min-height:48px;
+    padding:6px 7px;
+    transform:none;
+  }
+  .update-ready strong{font-size:12px}
+  .update-ready button{min-height:34px}
+}
+/* === END V13 · CHARGEMENT ET MISE A JOUR NON BLOQUANTS ================== */
+
+/* === V14 · MENU JOUEUR A DEUX NIVEAUX ===================================
+   Le premier regard ne choisit qu'entre combat, campagne et atelier. Le reste
+   demeure à un geste, dans un disclosure natif qui reste pilotable au clavier,
+   au tactile et à la manette via le navigateur de menu existant. */
+.menu-more{
+  grid-column:1/-1;
+  width:100%;
+  overflow:hidden;
+  border:1px solid rgba(231,192,111,.22);
+  border-radius:3px 12px 3px 13px;
+  background:
+    linear-gradient(120deg,rgba(5,23,36,.88),rgba(4,16,29,.82)),
+    var(--ui-sail) center/cover;
+  box-shadow:
+    inset 3px 0 rgba(103,226,217,.28),
+    inset 0 1px rgba(255,255,255,.05);
+}
+.menu-more>summary{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-rows:auto auto;
+  align-items:center;
+  min-height:46px;
+  padding:8px 11px 8px 14px;
+  list-style:none;
+  color:#e8f5f3;
+  cursor:pointer;
+}
+.menu-more>summary::-webkit-details-marker{display:none}
+.menu-more>summary>span{
+  grid-column:1;
+  grid-row:1;
+  color:#f4dfaa;
+  font-size:7.5px;
+  font-weight:1000;
+  letter-spacing:.15em;
+}
+.menu-more>summary>small{
+  grid-column:1;
+  grid-row:2;
+  margin-top:3px;
+  color:#8fb8ba;
+  font-size:6px;
+  font-weight:850;
+  letter-spacing:.065em;
+}
+.menu-more>summary:after{
+  content:"+";
+  grid-column:2;
+  grid-row:1/3;
+  display:grid;
+  place-items:center;
+  width:29px;
+  height:29px;
+  margin-left:12px;
+  border:1px solid rgba(236,197,113,.35);
+  border-radius:50%;
+  background:rgba(77,53,24,.52);
+  color:#ffe09a;
+  font:400 19px/1 var(--font-display);
+  box-shadow:inset 0 1px rgba(255,255,255,.08);
+}
+.menu-more>summary:hover{
+  background:linear-gradient(90deg,rgba(19,73,74,.28),transparent);
+}
+.menu-more>summary:focus-visible{
+  outline:2px solid var(--foam);
+  outline-offset:-3px;
+}
+.menu-more[open]{
+  border-color:rgba(237,196,108,.42);
+  box-shadow:
+    inset 3px 0 rgba(236,190,99,.46),
+    0 12px 28px rgba(0,0,0,.26);
+}
+.menu-more[open]>summary{
+  border-bottom:1px solid rgba(236,194,105,.17);
+  background:linear-gradient(90deg,rgba(91,61,26,.34),rgba(8,53,57,.24));
+}
+.menu-more[open]>summary:after{content:"−"}
+.menu-more-panel{
+  display:grid;
+  grid-template-columns:minmax(210px,.78fr) minmax(0,1.22fr);
+  gap:7px;
+  padding:7px;
+  background:rgba(2,12,23,.58);
+}
+.menu-more .mode-versus{
+  grid-column:auto!important;
+  align-self:stretch;
+  width:100%;
+  min-height:100%;
+}
+.menu-more .menu-liens{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-content:start;
+  gap:5px;
+  min-width:0;
+  margin:0;
+}
+.menu-more .lien-menu{
+  justify-content:center;
+  width:100%;
+  min-width:0;
+  min-height:34px;
+  margin:0;
+  padding:6px 7px;
+  text-align:center;
+}
+.menu-more .lien-menu.discret{
+  min-height:30px;
+  padding:5px 6px;
+  border-color:rgba(231,192,111,.09);
+  background:rgba(3,18,29,.38);
+  opacity:.62;
+}
+
+@media(max-width:820px){
+  .menu-more{grid-column:1!important}
+  .menu-more-panel{
+    grid-template-columns:minmax(180px,.76fr) minmax(0,1.24fr);
+  }
+}
+
+@media(max-width:520px) and (orientation:portrait){
+  .menu-more-panel{grid-template-columns:1fr}
+  .menu-more .mode-versus{min-height:77px}
+}
+
+/* Le téléphone paysage court doit montrer les trois décisions principales
+   sans obliger à faire défiler avant même d'avoir compris le menu. */
+@media(max-height:540px) and (orientation:landscape){
+  .menu-screen{padding:6px 8px}
+  .menu-content{
+    width:min(720px,calc(100vw - 16px));
+    padding:9px 11px;
+  }
+  .menu-content .eyebrow{font-size:5.5px}
+  .menu-content h1{
+    margin:3px 0 6px;
+    font-size:40px;
+    line-height:.78;
+  }
+  .menu-content .menu-pitch,
+  .menu-badges,
+  .control-copy{display:none}
+  .menu-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px;
+    margin-top:5px;
+    padding:5px;
+  }
+  .menu-more{grid-column:1/-1!important}
+  .menu-actions>.mode-combat{
+    grid-column:1/-1!important;
+    grid-template-columns:54px minmax(0,1fr);
+    min-height:68px;
+    padding:5px 9px 5px 6px;
+  }
+  .menu-actions>.mode-tour,
+  .menu-actions>.mode-workshop{
+    grid-column:auto!important;
+    grid-template-columns:42px minmax(0,1fr);
+    min-height:56px;
+    padding:5px 7px 5px 5px;
+  }
+  .menu-actions>.mode-combat .mode-symbol{width:49px;height:49px}
+  .menu-actions>.mode-tour .mode-symbol,
+  .menu-actions>.mode-workshop .mode-symbol{width:38px;height:38px}
+  .menu-actions>.mode-tour strong,
+  .menu-actions>.mode-workshop strong{font-size:14px}
+  .menu-actions>.mode-tour em,
+  .menu-actions>.mode-workshop em{display:none}
+  .menu-more>summary{
+    min-height:37px;
+    padding:5px 8px 5px 11px;
+  }
+  .menu-more>summary:after{width:25px;height:25px;margin-left:8px;font-size:16px}
+  .menu-more-panel{
+    grid-template-columns:minmax(185px,.72fr) minmax(0,1.28fr);
+    gap:5px;
+    padding:5px;
+  }
+  .menu-more .mode-versus{
+    grid-template-columns:43px minmax(0,1fr);
+    min-height:96px;
+    padding:5px;
+  }
+  .menu-more .mode-versus .mode-symbol{width:39px;height:39px}
+  .menu-more .menu-liens{gap:4px}
+  .menu-more .lien-menu{min-height:30px;padding:4px 5px;font-size:5.8px}
+  .menu-more .lien-menu.discret{min-height:26px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .menu-more>summary{scroll-behavior:auto}
+}
+/* === END V14 · MENU JOUEUR A DEUX NIVEAUX ============================== */
+
+/* === V15 · INITIATION EN TROIS GESTES ====================================
+   Le joueur n'a plus quatre pages à mémoriser avant de voir la mer. Cette
+   carte donne uniquement la barre, la contre-gîte et le Coco ; le HUD vivant
+   révèle le reste une fois ces trois verbes réellement exécutés. */
+.onboarding-compact{
+  width:min(720px,94vw);
+}
+.onboarding-compact .onboarding-steps section.onboarding-quick{
+  display:grid;
+  grid-template-columns:104px minmax(0,1fr);
+  gap:18px;
+  align-items:center;
+  min-height:0;
+  padding:11px 7px 4px;
+  text-align:left;
+}
+.onboarding-compact .onboarding-glyph{
+  width:86px;
+  height:86px;
+  margin:0 auto;
+}
+.onboarding-quick-copy{min-width:0}
+.onboarding-compact h2{
+  margin:0 0 5px;
+  font-size:clamp(30px,5vw,48px);
+}
+.onboarding-compact .onboarding-quick-copy>p{
+  max-width:none;
+  margin:0 0 9px;
+  color:#b7d6d7;
+  font-size:9px;
+  line-height:1.35;
+}
+.onboarding-essentials{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.onboarding-essentials li{
+  display:grid;
+  align-content:start;
+  gap:5px;
+  min-width:0;
+  min-height:91px;
+  padding:9px 9px 8px;
+  border:1px solid rgba(232,190,101,.20);
+  border-radius:3px 10px 3px 10px;
+  background:linear-gradient(145deg,rgba(9,43,49,.72),rgba(3,18,30,.78));
+  box-shadow:inset 2px 0 rgba(91,229,219,.24);
+}
+.onboarding-essentials li:nth-child(2){box-shadow:inset 2px 0 rgba(238,190,91,.34)}
+.onboarding-essentials li:nth-child(3){box-shadow:inset 2px 0 rgba(238,106,180,.34)}
+.onboarding-essentials b{
+  color:#ffe19a;
+  font-size:7px;
+  font-weight:1000;
+  letter-spacing:.10em;
+}
+.onboarding-essentials span{
+  color:#d4e8e7;
+  font-size:7.3px;
+  line-height:1.38;
+}
+.onboarding-essentials kbd{
+  min-width:19px;
+  min-height:18px;
+  padding:0 4px;
+  font-size:7px;
+}
+.onboarding-later{
+  display:block;
+  margin-top:8px;
+  color:#86afb3;
+  font-size:6.5px;
+  font-weight:850;
+  letter-spacing:.045em;
+}
+.onboarding-single-action{grid-template-columns:1fr}
+
+@media(max-width:660px){
+  .onboarding-compact .onboarding-steps section.onboarding-quick{
+    grid-template-columns:1fr;
+    gap:7px;
+  }
+  .onboarding-compact .onboarding-glyph{display:none}
+  .onboarding-essentials{grid-template-columns:1fr}
+  .onboarding-essentials li{
+    grid-template-columns:86px minmax(0,1fr);
+    align-items:center;
+    min-height:44px;
+    padding:7px 8px;
+  }
+  .onboarding-later{text-align:center}
+}
+@media(max-height:520px) and (orientation:landscape){
+  .onboarding-compact{padding:12px 17px}
+  .onboarding-compact .onboarding-steps section.onboarding-quick{
+    grid-template-columns:1fr;
+    gap:0;
+    padding:4px 3px 0;
+  }
+  .onboarding-compact .onboarding-glyph{display:none}
+  .onboarding-compact h2{font-size:28px}
+  .onboarding-compact .onboarding-quick-copy>p{margin-bottom:6px}
+  .onboarding-essentials{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .onboarding-essentials li{
+    display:grid;
+    grid-template-columns:1fr;
+    min-height:70px;
+    padding:6px 7px;
+  }
+  .onboarding-essentials span{font-size:7.8px;line-height:1.34}
+  .onboarding-later{margin-top:5px}
+  .onboarding-compact .modal-actions{margin-top:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .onboarding-essentials li{scroll-behavior:auto}
+}
+/* === END V15 · INITIATION EN TROIS GESTES ============================== */
+
+/* === V16 · HUD PROGRESSIF ET CONTEXTUEL ==================================
+   Au calme : vitesse, équilibre et turbo. Lorsqu'un choc compte, coque,
+   équipage, eau et systèmes se déplient pendant 3,4 s ; un état critique reste
+   affiché. La première manche ne montre que le prochain geste utile. */
+#hud.hud-diagnostics-calm .status>.meter-label:has(+.meter.hull),
+#hud.hud-diagnostics-calm .status>.meter.hull,
+#hud.hud-diagnostics-calm .status>.crew-mini{
+  display:none;
+}
+#hud .crew-mini #trimText{display:none}
+
+#hud.hud-diagnostics-notice .status,
+#hud.hud-diagnostics-danger .status{
+  animation:hudDiagnosticReveal 180ms cubic-bezier(.2,.75,.2,1);
+}
+#hud.hud-diagnostic-hull .status>.meter.hull{
+  border-color:rgba(255,194,78,.70);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.62),0 0 13px rgba(255,174,53,.22);
+}
+#hud.hud-diagnostic-crew .crew-mini #crewDots{color:#ffd56f}
+#hud.hud-diagnostic-water .crew-mini #waterText{color:#69e7ff}
+#hud.hud-diagnostics-danger .status{
+  border-color:rgba(255,85,105,.54);
+}
+#hud.hud-diagnostics-worn.hud-diagnostics-calm .status:before{
+  content:"ÉTAT TOUCHÉ · NOUVEAU CHOC = DÉTAILS";
+  color:#e8ba68;
+}
+@keyframes hudDiagnosticReveal{
+  from{opacity:.72;filter:brightness(1.18)}
+}
+
+/* Verrou de progression : aucun simple camouflage. input.js filtre les mêmes
+   actions avant leur exécution ; ces règles ne font qu'aligner ce que le joueur
+   voit avec ce que la simulation autorise. */
+#hud #bwaBtn.training-locked,
+#hud #weaponSlotBtn.training-locked,
+#hud #weaponHold2Btn.training-locked,
+#hud #weaponCrateBtn.training-locked,
+#hud .weapon-shortcuts.training-locked,
+#hud .reticle.training-locked,
+#hud .aim-help.training-locked{
+  display:none!important;
+}
+#hud .training-locked{pointer-events:none!important}
+#hud .meter.flow:has(#flowBar.training-locked),
+#hud .meter-label:has(+.meter.flow:has(#flowBar.training-locked)){
+  display:none;
+}
+#hud.training-advanced-locked #weaponHold2Btn,
+#hud.training-advanced-locked #weaponCrateBtn{
+  display:none!important;
+}
+#hud.training-advanced-locked .weapon-shortcuts [data-weapon]:not([data-weapon="wave"]){
+  display:none;
+}
+#hud.training-advanced-locked .meter.flow,
+#hud.training-advanced-locked .meter-label:has(+.meter.flow){
+  display:none;
+}
+#hud.hud-training-step-0 .actions,
+#hud.hud-training-step-1 .actions{
+  grid-template-columns:0;
+  gap:0;
+  padding:0;
+  border-color:transparent;
+  background:none;
+  box-shadow:none;
+}
+#hud.hud-training-step-0 .actions:before,
+#hud.hud-training-step-1 .actions:before{display:none}
+#hud.hud-training-step-2 .actions{grid-template-columns:68px}
+
+/* Deux événements lisibles valent mieux qu'une colonne de quatre phrases
+   superposée à la mini-carte pendant une salve. */
+.killfeed .kill:nth-child(n+3){display:none}
+
+@media(max-width:900px){
+  #hud.hud-training-step-2 .actions{grid-template-columns:52px}
+}
+@media(max-width:900px) and (max-height:520px) and (orientation:landscape){
+  #hud.hud-training-step-2 .actions{grid-template-columns:47px}
+}
+@media(pointer:coarse),(any-pointer:coarse){
+  #bwaBtn b:after{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  #hud.hud-diagnostics-notice .status,
+  #hud.hud-diagnostics-danger .status{animation:none}
+}
+/* === END V16 · HUD PROGRESSIF ET CONTEXTUEL ============================ */
+
+/* === V17 · INSTRUMENT ÉLAN / TURBO ========================================
+   Un seul atlas 4 × 3 porte les douze pièces peintes. Le DOM conserve les
+   libellés : ils restent nets, traduisibles et accessibles tandis que la
+   texture donne au module sa signature yole / soleil / écume. */
+.turbo-atlas-sprite,
+.turbo-track #flowBar::before,
+.turbo-track .turbo-cooldown-shutter::before,
+.turbo-track .turbo-frame::before{
+  background-image:url("./assets/textures/v9/hud/turbo_elan_atlas.webp");
+  background-repeat:no-repeat;
+  background-size:400% 300%;
+}
+
+.turbo-instrument{
+  --flow-level:0;
+  --flow-empty:100%;
+  --cooldown-level:0;
+  position:relative;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr);
+  align-items:center;
+  gap:4px;
+  min-height:47px;
+  margin:6px -2px 2px;
+  padding:3px 3px 2px;
+  border-top:1px solid rgba(216,177,96,.13);
+  border-bottom:1px solid rgba(74,224,213,.10);
+  isolation:isolate;
+}
+.turbo-instrument::before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:1px 0;
+  border-radius:9px 3px 9px 3px;
+  background:
+    radial-gradient(circle at 16% 50%,rgba(52,220,205,.10),transparent 27%),
+    linear-gradient(90deg,rgba(2,17,27,.76),rgba(10,37,50,.42));
+  opacity:.82;
+}
+.turbo-emblem{
+  width:44px;
+  height:44px;
+  background-position:0 50%;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.62));
+  transform:scale(.94);
+  transition:filter 160ms ease,transform 160ms ease,opacity 160ms ease;
+}
+.turbo-readout{min-width:0}
+.turbo-heading{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:baseline;
+  gap:5px;
+  min-height:12px;
+  margin:0 3px 1px;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+}
+.turbo-heading>span{
+  color:#efd080;
+  font-size:7.5px;
+  font-weight:1000;
+  letter-spacing:.14em;
+}
+.turbo-heading>strong{
+  overflow:hidden;
+  color:#8accc8;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.055em;
+  text-align:right;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.turbo-heading>b{
+  min-width:30px;
+  color:#f8ecd1;
+  font-size:10px;
+  font-weight:1000;
+  letter-spacing:.015em;
+  text-align:right;
+}
+
+.status .turbo-track.meter.flow{
+  position:relative;
+  height:17px;
+  overflow:visible;
+  border:0;
+  border-radius:0;
+  background:rgba(1,13,23,.86);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.68);
+}
+/* V17 remplace entièrement la silhouette V8 : elle ne doit pas se superposer
+   au cadre peint de l’atlas. */
+.status .turbo-track.meter.flow::after{
+  content:none;
+  display:none;
+}
+.status .turbo-track #flowBar{
+  position:absolute;
+  z-index:1;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  border-radius:4px;
+  background:none;
+  box-shadow:none;
+  clip-path:inset(0 var(--flow-empty,100%) 0 0);
+  transform:none;
+  transition:clip-path 90ms linear,filter 150ms ease,opacity 150ms ease;
+  will-change:clip-path;
+}
+.turbo-track #flowBar::before,
+.turbo-track .turbo-cooldown-shutter::before,
+.turbo-track .turbo-frame::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:112%;
+  aspect-ratio:1;
+  transform:translate(-50%,-50%) scaleY(.43);
+}
+.turbo-track #flowBar::before{background-position:33.333% 0}
+.turbo-cooldown-shutter,
+.turbo-frame{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.turbo-cooldown-shutter{
+  z-index:2;
+  border-radius:4px;
+  opacity:0;
+  transform:scaleX(var(--cooldown-level,0));
+  transform-origin:right center;
+  transition:transform 90ms linear,opacity 150ms ease;
+}
+.turbo-track .turbo-cooldown-shutter::before{
+  background-position:66.667% 0;
+  filter:saturate(.66) brightness(.7);
+}
+.turbo-frame{z-index:4}
+.turbo-track .turbo-frame::before{
+  background-position:0 0;
+  transform:translate(-50%,-50%) scaleY(.50);
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
+.turbo-thresholds{
+  position:absolute;
+  z-index:3;
+  inset:2px 5px;
+  pointer-events:none;
+}
+.turbo-thresholds>i{
+  position:absolute;
+  top:-1px;
+  bottom:-1px;
+  display:block;
+  width:2px;
+  height:auto;
+  border-left:1px solid rgba(248,234,199,.80);
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.8));
+  opacity:.76;
+  transition:none;
+}
+.turbo-thresholds>i::after{
+  content:"";
+  position:absolute;
+  left:-2px;
+  top:-3px;
+  width:4px;
+  height:3px;
+  clip-path:polygon(50% 100%,0 0,100% 0);
+  background:#efd27f;
+}
+.turbo-thresholds>i:first-child{left:16%}
+.turbo-thresholds>i:last-child{left:22%;border-color:#56eadb}
+.turbo-thresholds>i:last-child::after{background:#56eadb}
+
+.turbo-subline{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:4px;
+  min-height:10px;
+  margin:1px 3px 0;
+  color:#79aaa9;
+  font-size:6.8px;
+  font-weight:950;
+  letter-spacing:.045em;
+  line-height:1;
+  white-space:nowrap;
+}
+.turbo-subline small{
+  overflow:hidden;
+  font:inherit;
+  text-overflow:ellipsis;
+}
+#flowRisk{
+  flex:0 0 auto;
+  color:#f1b55a;
+}
+
+.turbo-state-art,
+.turbo-impact-art{
+  position:absolute;
+  z-index:6;
+  right:-7px;
+  top:-9px;
+  width:36px;
+  height:36px;
+  pointer-events:none;
+  opacity:0;
+  transform:scale(.72);
+}
+.turbo-impact-art{
+  z-index:8;
+  right:14%;
+  top:50%;
+  width:54px;
+  height:54px;
+  transform:translateY(-50%) scale(.44);
+}
+
+.turbo-instrument[data-turbo-state="cooldown"] .turbo-cooldown-shutter{opacity:.88}
+.turbo-instrument[data-turbo-state="cooldown"] .turbo-emblem{
+  background-position:33.333% 50%;
+  filter:grayscale(.30) brightness(.78) drop-shadow(0 2px 4px rgba(0,0,0,.65));
+}
+.turbo-instrument[data-turbo-state="cooldown"] .turbo-heading>strong{color:#d8b46a}
+.turbo-instrument[data-turbo-state="cooldown"] #flowBar{filter:saturate(.42) brightness(.70)}
+
+.turbo-instrument[data-turbo-state="low"] .turbo-emblem{
+  background-position:100% 50%;
+  filter:saturate(.74) brightness(.78) drop-shadow(0 2px 4px rgba(0,0,0,.65));
+}
+.turbo-instrument[data-turbo-state="low"] .turbo-heading>strong{color:#efad58}
+.turbo-instrument[data-turbo-state="ready"] .turbo-heading>strong,
+.turbo-instrument[data-turbo-active="true"] .turbo-heading>strong{color:#6ff3dc}
+.turbo-instrument[data-flow-band="full"] .turbo-heading>strong{color:#ffd36c}
+.turbo-instrument[data-turbo-state="ready"] .turbo-state-art,
+.turbo-instrument[data-flow-band="full"] .turbo-state-art{
+  opacity:.40;
+  background-position:66.667% 50%;
+  filter:drop-shadow(0 0 6px rgba(255,199,73,.32));
+}
+.turbo-instrument[data-turbo-active="true"] .turbo-emblem{
+  transform:scale(1.04) rotate(-2deg);
+  filter:brightness(1.16) drop-shadow(0 0 7px rgba(68,239,218,.42));
+}
+.turbo-instrument[data-turbo-active="true"] .turbo-state-art{
+  opacity:.78;
+  background-position:100% 0;
+  filter:drop-shadow(0 0 7px rgba(96,240,221,.46));
+  animation:turboActiveSail 460ms ease-in-out infinite alternate;
+}
+.turbo-instrument[data-turbo-state="disabled"]{
+  filter:saturate(.36) brightness(.74);
+}
+.turbo-instrument[data-turbo-state="disabled"] .turbo-heading>strong{color:#b88f91}
+
+.turbo-instrument[data-heel-risk="true"]{
+  border-color:rgba(236,142,48,.28);
+}
+.turbo-instrument[data-heel-risk="true"] .turbo-heading>strong,
+.turbo-instrument[data-heel-risk="true"] #flowRisk{color:#ffbd67}
+.turbo-instrument[data-heel-risk="true"] .turbo-emblem{
+  filter:sepia(.16) saturate(1.12) drop-shadow(0 0 5px rgba(236,132,42,.30));
+}
+
+.turbo-instrument.turbo-ready-cue .turbo-emblem{
+  animation:turboReadyEmblem 430ms cubic-bezier(.2,.8,.2,1);
+}
+.turbo-instrument.turbo-ready-cue .turbo-state-art{
+  animation:turboReadyBurst 430ms cubic-bezier(.2,.8,.2,1);
+}
+.turbo-instrument.turbo-confirmed .turbo-impact-art{
+  background-position:66.667% 100%;
+  animation:turboImpactConfirmed 360ms cubic-bezier(.12,.78,.18,1);
+}
+.turbo-instrument.turbo-confirmed[data-boost-kind="forward"]::after,
+.turbo-instrument.turbo-confirmed[data-boost-kind="lateral"]::after{
+  content:"";
+  position:absolute;
+  z-index:0;
+  right:4px;
+  top:50%;
+  width:72px;
+  height:72px;
+  background-image:url("./assets/textures/v9/hud/turbo_elan_atlas.webp");
+  background-repeat:no-repeat;
+  background-size:400% 300%;
+  opacity:0;
+  pointer-events:none;
+  animation:turboWakeKick 410ms cubic-bezier(.1,.78,.2,1);
+}
+.turbo-instrument.turbo-confirmed[data-boost-kind="forward"]::after{background-position:0 100%}
+.turbo-instrument.turbo-confirmed[data-boost-kind="lateral"]::after{background-position:33.333% 100%}
+.turbo-instrument.turbo-rejected .turbo-impact-art{
+  background-position:100% 100%;
+  animation:turboImpactRejected 260ms ease-out;
+}
+
+@keyframes turboReadyEmblem{
+  38%{transform:scale(1.10);filter:brightness(1.28) drop-shadow(0 0 8px rgba(63,235,216,.45))}
+}
+@keyframes turboActiveSail{
+  from{transform:translateX(1px) scale(.70) rotate(-2deg)}
+  to{transform:translateX(-2px) scale(.78) rotate(2deg)}
+}
+@keyframes turboReadyBurst{
+  0%{opacity:0;transform:scale(.35)}
+  38%{opacity:.78;transform:scale(1.05)}
+  100%{opacity:.40;transform:scale(.72)}
+}
+@keyframes turboImpactConfirmed{
+  0%{opacity:0;transform:translateY(-50%) scale(.30)}
+  35%{opacity:.94;transform:translateY(-50%) scale(1.05)}
+  100%{opacity:0;transform:translateY(-50%) scale(1.32)}
+}
+@keyframes turboWakeKick{
+  0%{opacity:0;transform:translateX(24px) translateY(-50%) scale(.48)}
+  32%{opacity:.82;transform:translateX(2px) translateY(-50%) scale(.88)}
+  100%{opacity:0;transform:translateX(-34px) translateY(-50%) scale(1.04)}
+}
+@keyframes turboImpactRejected{
+  0%{opacity:0;transform:translateY(-50%) scale(.52) rotate(-4deg)}
+  36%{opacity:.92;transform:translateY(-50%) scale(.90) rotate(3deg)}
+  100%{opacity:0;transform:translateY(-50%) scale(.74) rotate(0)}
+}
+
+#hud #flowMeter.training-locked,
+#hud.training-advanced-locked #flowMeter{display:none!important}
+
+@media(max-width:900px){
+  .turbo-instrument{
+    grid-template-columns:37px minmax(0,1fr);
+    min-height:40px;
+    margin:4px -2px 1px;
+  }
+  .turbo-emblem{width:37px;height:37px}
+  .turbo-heading{gap:3px;margin-inline:2px}
+  .turbo-heading>span{font-size:7px}
+  .turbo-heading>strong{font-size:7.5px}
+  .turbo-heading>b{min-width:27px;font-size:9.5px}
+  .status .turbo-track.meter.flow{height:14px}
+  .turbo-subline{min-height:9px;margin-inline:2px;font-size:6.5px}
+  .turbo-state-art{right:-6px;top:-7px;width:31px;height:31px}
+}
+@media(max-width:760px) and (orientation:landscape){
+  .bottom-ui>.status{width:196px}
+  .turbo-instrument{grid-template-columns:34px minmax(0,1fr);min-height:37px}
+  .turbo-emblem{width:34px;height:34px}
+  .turbo-heading>span{font-size:8px}
+  .turbo-heading>strong{font-size:8px}
+  .turbo-heading>b{font-size:10px}
+  .status .turbo-track.meter.flow{height:13px}
+  .turbo-subline{font-size:8px;letter-spacing:.012em}
+}
+@media(max-width:900px) and (max-height:520px) and (orientation:landscape){
+  /* Le poste de contre-gîte reste central, mais sur une vraie seconde ligne :
+     il ne masque plus l’instrument Élan entre 568 et 900 px. */
+  .bottom-ui>.status{width:196px}
+  #bwaBtn{bottom:clamp(132px,43vh,154px)}
+}
+@media(max-width:420px) and (orientation:portrait){
+  .status{width:204px}
+  .turbo-instrument{grid-template-columns:34px minmax(0,1fr)}
+  .turbo-emblem{width:34px;height:34px}
+  .turbo-subline{font-size:7px}
+}
+@media(prefers-reduced-motion:reduce){
+  .turbo-instrument *,
+  .turbo-instrument::after{
+    animation:none!important;
+    transition:none!important;
+  }
+  .turbo-instrument.turbo-confirmed .turbo-impact-art,
+  .turbo-instrument.turbo-rejected .turbo-impact-art{opacity:.72}
+}
+body.reduced-impact .turbo-instrument *,
+body.reduced-impact .turbo-instrument::after{
+  animation-duration:180ms!important;
+  animation-iteration-count:1!important;
+}
+body.minimal-impact .turbo-instrument *,
+body.minimal-impact .turbo-instrument::after{
+  animation:none!important;
+  transition:none!important;
+}
+body.minimal-impact .turbo-impact-art{opacity:0!important}
+body.reduce-flash .turbo-instrument.turbo-confirmed .turbo-impact-art,
+body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
+  opacity:.42;
+  filter:none;
+}
+/* === END V17 · INSTRUMENT ÉLAN / TURBO ================================= */

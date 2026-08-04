@@ -50,7 +50,12 @@ def fichiers_precaches(source: str) -> list[str]:
     bloc = re.search(r"const CORE = \[(.*?)\];", source, re.S)
     if not bloc:
         return []
-    return re.findall(r'"(\./[^"?]+)"', bloc.group(1))
+    # Les imports couplés portent volontairement `?v=...`. L'ancienne regex
+    # les IGNORAIT entièrement : modifier style.css, bootstrap, assets ou le
+    # contrat de houle pouvait alors laisser l'empreinte du cache inchangée.
+    # On capture l'URL complète puis on résout son chemin disque sans la query.
+    urls = re.findall(r'"(\./[^"]+)"', bloc.group(1))
+    return [url.split("?", 1)[0] for url in urls]
 
 
 def empreinte(source: str) -> tuple[str, int, list[str]]:

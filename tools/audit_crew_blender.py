@@ -158,7 +158,17 @@ def main() -> None:
         raise SystemExit(f"GLB introuvable : {source}")
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    result = bpy.ops.import_scene.gltf(filepath=str(source))
+    # Le mode BLENDER reconstruit les queues d'os de ce rig avec des longueurs
+    # de plusieurs dizaines de mètres et génère une Icosphere de visualisation.
+    # TEMPERANCE conserve les articulations et le bind réellement exportés :
+    # l'audit doit mesurer le même squelette que le pipeline de production.
+    result = bpy.ops.import_scene.gltf(
+        filepath=str(source),
+        bone_heuristic="TEMPERANCE",
+        disable_bone_shape=True,
+        guess_original_bind_pose=True,
+        import_pack_images=True,
+    )
     if "FINISHED" not in result:
         raise RuntimeError(f"Import glTF échoué : {result}")
 

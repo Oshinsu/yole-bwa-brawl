@@ -26,6 +26,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   leftHanded: false,
   showPerf: false,
   onboardingSeen: false,
+  // Distinct du carton d'aide : le joueur peut lire les commandes sans perdre
+  // la manche-école. Les anciennes sauvegardes `onboardingSeen: true` sont
+  // migrées vers `trainingCompleted: true` dans load().
+  trainingCompleted: false,
   // Personnalisation de la yole. Bornées à la LECTURE dans startMatch, jamais
   // au point d'usage : c'est la première fois qu'une valeur de localStorage
   // touche la simulation, et load() fusionne un JSON arbitraire.
@@ -70,7 +74,10 @@ export class SettingsStore {
       const raw = this.storage?.getItem(STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed && typeof parsed === "object") {
-        this.values = { ...DEFAULT_SETTINGS, ...parsed };
+        const trainingCompleted = Object.hasOwn(parsed, "trainingCompleted")
+          ? parsed.trainingCompleted === true
+          : parsed.onboardingSeen === true;
+        this.values = { ...DEFAULT_SETTINGS, ...parsed, trainingCompleted };
         Object.assign(this.values, normalizeCustomization(this.values));
       }
     } catch {

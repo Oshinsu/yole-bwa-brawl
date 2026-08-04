@@ -199,7 +199,8 @@ export const PickupSystems = {
 
   // Position d'une caisse : fonction pure de la rangée et de la voie.
   placePickup(pickup, row, lane) {
-    const z = row * PICKUP.spacing;
+    const spacing = PICKUP.spacing * (this.stageGameplay?.pickupSpacing ?? 1);
+    const z = row * spacing;
     pickup.row = row;
     pickup.lane = lane;
     // Décalage par rangée : deux rangées successives n'offrent jamais la même
@@ -294,7 +295,8 @@ export const PickupSystems = {
     let leaderZ = -Infinity;
     for (const boat of alive) leaderZ = Math.max(leaderZ, boat.z);
     const lastRow = this.pickupFirstRow + PICKUP.rows - 1;
-    while ((this.pickupFirstRow + 1) * PICKUP.spacing < leaderZ - 40) {
+    const spacing = PICKUP.spacing * (this.stageGameplay?.pickupSpacing ?? 1);
+    while ((this.pickupFirstRow + 1) * spacing < leaderZ - 40) {
       const recycled = this.pickupFirstRow;
       this.pickupFirstRow++;
       for (const pickup of this.pickups) {

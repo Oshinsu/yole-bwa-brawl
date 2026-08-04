@@ -33,6 +33,7 @@ import {
   ACTION_WAVE, ACTION_HARPOON, ACTION_MINE, ACTION_SHIFT,
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, RIGS, AI_LEVELS,
   CONFIG, BALANCE, ZOOM_MIN, ZOOM_MAX, CREW_DOTS, TOUR_STAGES, TOUR_STAGE_POINTS,
+  FIRST_RUN_TRAINING, advanceFirstRunTraining, createFirstRunTrainingState,
   vibrate, createBuoyVisual, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS } from "./balance.js";
 
 
@@ -510,6 +511,10 @@ export class Game {
 
   // Retour visuel du ramassage : message, son et petit impact.
   onPickupTaken(boat, pickup, weapon) {
+    // La caisse est conservée, mais son arme reste en réserve jusqu'à la fin
+    // des trois verbes. `grantPickup` a déjà écrit la munition : on la retire
+    // immédiatement de l'autorité et on la restaurera à la révélation.
+    const trainingDeferred = this.deferTrainingPickup(boat, weapon);
     // ⚠️ Deux fois moins de caisses depuis que la mine et le rhum y sont
     // passés : chaque ramassage compte le double, il doit donc s'entendre et se
     // voir. Deux anneaux concentriques, une gerbe de bois et un éclat coloré à
@@ -551,6 +556,13 @@ export class Game {
     });
     this.explosions?.spawn(pickup.x, water.height + 1.55, pickup.z, 3.6, 0.54);
     if (!boat.isPlayer) return;
+    if (trainingDeferred) {
+      this.showMessage("📦 CHARGE GARDÉE EN SOUTE", 0.6);
+      this.audio.play("buoy", { gain: 0.42, rate: 1.25, gap: 0.05 });
+      this.impact.trigger("graze", { dirX: 0, dirZ: 1, intensity: 0.45 });
+      this.haptic("pickup");
+      return;
+    }
     const label = {
       wave: "🥥 COCO", harpoon: "🕸 HARPON", mine: "🌋 MINE", rhum: "🥃 RHUM",
       barik: "🛢 BARIK", chadron: "🦔 CHADRON", lanbi: "🐚 LANBI", pwason: "🐟 PWASON"
@@ -589,7 +601,22 @@ export class Game {
 
   startMatch(options = {}) {
     // Tout lancement hors startTourStage quitte le mode Tour.
-    if (!options.tourStage) this.tour = null;
+    if (!options.tourStage) {
+      this.tour = null;
+      this.stageGameplay = null;
+    }
+    // La première vraie mise à l'eau est une manche-école : mêmes règles et
+    // même physique, mais adversaires PEYI et conseils déclenchés par les
+    // actions réelles.
+    const trainingReplay = Boolean(options.replay?.metadata?.firstRunTraining);
+    this.trainingMode = Boolean(
+      (options.training || trainingReplay)
+      && !options.tourStage
+      && !options.versus
+    );
+    this.trainingGuide = this.trainingMode
+      ? createFirstRunTrainingState()
+      : null;
     // Un duel ne survit qu'à une revanche explicitement lancée comme duel.
     // Jouer, Tour et Replay reviennent donc toujours au flux solo.
     this.setVersusMode(Boolean(options.versus) && !options.replay && !options.tourStage);
@@ -615,7 +642,7 @@ export class Game {
     // ici pour toute la partie, restauré depuis le payload en relecture.
     const aiLevel = options.replay
       ? (AI_LEVELS.some((level) => level.key === options.replay.aiLevel) ? options.replay.aiLevel : "tour")
-      : this.playerAiLevel();
+      : this.trainingMode ? "peyi" : this.playerAiLevel();
     this.matchAiLevel = aiLevel;
     if (this.replay) this.replay.aiLevel = aiLevel;
     // ⚠️ MÊME ROUTE QUE LE GRÉEMENT ET LE NIVEAU D'IA. La soute change les
@@ -623,9 +650,13 @@ export class Game {
     // depuis les réglages en relecture ferait diverger un replay dès qu'on
     // change d'équipement entre deux parties. Elle est figée ici et restaurée
     // depuis le payload.
-    const loadout = resolveLoadout(options.replay
-      ? options.replay.loadout
-      : this.settings.get("loadout"));
+    const loadout = resolveLoadout(
+      options.replay
+        ? options.replay.loadout
+        : this.trainingMode
+          ? FIRST_RUN_TRAINING.playerLoadout
+          : this.settings.get("loadout")
+    );
     this.matchLoadout = loadout;
     if (this.replay) this.replay.loadout = loadout;
     this.stats = { takedowns: 0, perfects: 0, maxSpeed: 0, boosts: 0, slingshots: 0 };
@@ -668,6 +699,9 @@ export class Game {
     this.crewFalls.clear();
     this.replay.enabled = !this.playback && !this.versusLocal;
     this.replay.reset(this.seed);
+    if (this.trainingMode && !this.playback) {
+      this.replay.metadata.firstRunTraining = true;
+    }
     this.replayValidation = null;
     this.playbackInput.steer = 0;
     this.playbackInput.trim = 0.82;
@@ -697,6 +731,12 @@ export class Game {
     this.ui.versusScreen?.classList.add("hidden");
     this.ui.versusHud?.classList.toggle("hidden", !this.versusLocal);
     this.resetRound(false);
+    if (this.trainingMode) {
+      this.enforceTrainingBasics();
+      this.setTrainingAdvancedVisibility(false);
+    } else {
+      this.setTrainingAdvancedVisibility(true);
+    }
     if (this.ui.replay) this.ui.replay.disabled = this.versusLocal;
     if (this.ui.downloadReplay) this.ui.downloadReplay.disabled = this.versusLocal;
     if (this.ui.replayStatus && this.versusLocal) {
@@ -707,8 +747,8 @@ export class Game {
         ? "REPLAY · MÊME MER, MÊME SEED"
         : this.versusLocal
           ? "MÊLÉE LOCALE · J1 + J2 CONTRE 2 RIVAUX"
-          : "PRÉPARE LA CONTRE-GÎTE",
-      1.35
+          : "TAKEDOWN +1 · DERNIER DEBOUT +2 · PREMIER À 5",
+      this.versusLocal ? 1.35 : 2.15
     );
 
     // Chaque manche repart sur un 3 · 2 · 1 · GO.
@@ -718,6 +758,143 @@ export class Game {
     // la machine sur des images bloquées par la compilation. Voir
     // `src/core/quality.js` et la passe 45 du CHANGELOG.
     this.quality?.resetWarmup?.();
+  }
+
+  setTrainingAdvancedVisibility(visible = true) {
+    // La visibilité métier de la caisse, du réticule et des jauges appartient au
+    // HUD. Ici on ne pose qu'un état de progression : le CSS peut retirer les
+    // commandes avancées sans effacer un `.hidden` légitime, puis le HUD reprend
+    // exactement la main au déblocage.
+    this.ui?.hud?.classList?.toggle?.("training-advanced-locked", !visible);
+    this.ui?.hud?.setAttribute?.("data-training-advanced", visible ? "unlocked" : "locked");
+    return visible;
+  }
+
+  snapshotTrainingArsenal(boat) {
+    return {
+      loadout: [...(boat?.loadout ?? [])],
+      activeWeapon: boat?.activeWeapon ?? "wave",
+      ammo: Object.fromEntries(
+        Object.entries(boat?.ammo ?? {}).map(([key, value]) => [key, value])
+      )
+    };
+  }
+
+  enforceTrainingBasics() {
+    const guide = this.trainingGuide;
+    if (!this.trainingMode || !guide || guide.advancedUnlocked) return false;
+    if (guide.lockedRound !== this.round) {
+      guide.lockedRound = this.round;
+      guide.arsenals = this.boats.map((boat) => this.snapshotTrainingArsenal(boat));
+      guide.deferredPickups = this.boats.map(() => null);
+    }
+    for (const boat of this.boats) {
+      boat.loadout = FIRST_RUN_TRAINING.visibleLoadout;
+      boat.activeWeapon = "wave";
+      for (const key of Object.keys(boat.ammo ?? {})) {
+        boat.ammo[key] = key === "wave" ? Infinity : 0;
+      }
+    }
+    return true;
+  }
+
+  deferTrainingPickup(boat, weapon) {
+    const guide = this.trainingGuide;
+    if (
+      !this.trainingMode
+      || !guide
+      || guide.advancedUnlocked
+      || !boat
+      || weapon === "wave"
+    ) return false;
+    const amount = Number.isFinite(boat.ammo?.[weapon])
+      ? Math.max(1, boat.ammo[weapon])
+      : 1;
+    guide.deferredPickups[boat.id] = { weapon, amount };
+    for (const key of Object.keys(boat.ammo ?? {})) {
+      if (key !== "wave" && Number.isFinite(boat.ammo[key])) boat.ammo[key] = 0;
+    }
+    boat.activeWeapon = "wave";
+    return true;
+  }
+
+  revealTrainingArsenal(reason = "completed") {
+    const guide = this.trainingGuide;
+    if (!this.trainingMode || !guide || guide.arsenalRestored) return false;
+    guide.advancedUnlocked = true;
+    guide.unlockReason ||= reason;
+    guide.arsenalRestored = true;
+    for (const boat of this.boats) {
+      const snapshot = guide.arsenals[boat.id] ?? this.snapshotTrainingArsenal(boat);
+      boat.loadout = [...snapshot.loadout];
+      for (const key of Object.keys(boat.ammo ?? {})) {
+        boat.ammo[key] = snapshot.ammo[key] ?? 0;
+      }
+      const deferred = guide.deferredPickups[boat.id];
+      if (deferred && Number.isFinite(boat.ammo[deferred.weapon])) {
+        boat.ammo[deferred.weapon] = Math.max(boat.ammo[deferred.weapon], deferred.amount);
+      }
+      boat.activeWeapon = (boat.ammo.wave ?? 0) > 0
+        ? "wave"
+        : snapshot.activeWeapon;
+      for (const key of Object.keys(boat.cooldowns ?? {})) {
+        if (key === "wave" || (boat.ammo[key] ?? 0) <= 0) continue;
+        // Révélation phasée : aucune salve de trois Harpons au tick précis où
+        // le joueur termine son Coco. Valeur dérivée de l'id, sans RNG.
+        boat.cooldowns[key] = Math.max(boat.cooldowns[key] ?? 0, 0.8 + boat.id * 0.22);
+      }
+    }
+    this.setTrainingAdvancedVisibility(true);
+    this.showMessage(
+      reason === "completed"
+        ? "CAPITAINE PRÊT · HARPON + TURBO OUVERTS · DERNIER DEBOUT +2"
+        : "ARSENAL LIBRE · CONTINUE D’APPRENDRE EN JOUANT",
+      2.6
+    );
+    this.telemetry.track(
+      "first_run_training_unlock",
+      { tick: this.tick, reason, elapsed: guide.elapsed },
+      this.time
+    );
+    if (reason === "completed") {
+      this.telemetry.track("first_run_training_complete", { tick: this.tick }, this.time);
+    }
+    // On ne consomme l'initiation qu'après réussite (ou filet temporel). Si le
+    // joueur retourne au port avant, la prochaine mise à l'eau reste guidée.
+    this.settings?.set?.("trainingCompleted", true);
+    this.settings?.set?.("onboardingSeen", true);
+    return true;
+  }
+
+  updateTrainingGuide(dt) {
+    const guide = this.trainingGuide;
+    const player = this.boats?.[0];
+    if (!this.trainingMode || !guide || !player || guide.arsenalRestored) return;
+
+    if (!guide.announced) {
+      guide.announced = true;
+      this.showMessage("1/3 · DIRIGE · CHOISIS TA LIGNE", 1.8);
+    }
+
+    const allowedActions = this.allowedTrainingActionMask?.(this.input.actions)
+      ?? (this.input.actions & FIRST_RUN_TRAINING.basicActionMask);
+    const transition = advanceFirstRunTraining(guide, {
+      dt,
+      steer: this.input.steer,
+      actions: allowedActions,
+      roll: player.roll,
+      shiftKind: player.dynamics?.shiftKind ?? 0
+    });
+
+    if (transition.event === "steer_complete") {
+      this.showMessage("2/3 · CONTRE-GÎTE QUAND LA YOLE PENCHE", 2.2);
+    } else if (transition.event === "shift_early") {
+      this.showMessage("LAISSE-LA PENCHER · PUIS CONTRE-GÎTE", 1.7);
+    } else if (transition.event === "shift_complete") {
+      this.showMessage("3/3 · COCO BOUM · TIRE POUR DÉSÉQUILIBRER", 2.3);
+    } else if (transition.event === "completed" || transition.event === "timeout") {
+      this.revealTrainingArsenal(transition.event);
+    }
   }
 
   startReplay(replay) {
@@ -738,6 +915,7 @@ export class Game {
         points: tourPoints,
         finishOrder: []
       };
+      this.stageGameplay = TOUR_STAGES[tourStage]?.gameplay ?? null;
       this.startMatch({ replay, tourStage: true });
       this.configureTourStageEnvironment({ playback: true });
     } else {
@@ -1191,6 +1369,12 @@ export class Game {
 
   fixedUpdate(dt) {
     if (this.mode !== "playing" || this.paused) return;
+    // Autorité AVANT le rebours et AVANT applyPendingPlayerActions : ni une
+    // touche maintenue pendant le 3-2-1, ni une action injectée par manette ne
+    // peut faire passer Harpon/Turbo avant leur révélation.
+    if (this.trainingMode && !this.trainingGuide?.advancedUnlocked) {
+      this.enforceTrainingBasics();
+    }
     // ── 3 · 2 · 1 · GO ────────────────────────────────────────────────────
     //
     // ⚠️ TOUT EST GELÉ, ET `tick` N'AVANCE PAS. Le rebours tourne avant le
@@ -1282,6 +1466,7 @@ export class Game {
     // Live simulation uses the same quantized inputs stored by replays.
     this.input.steer = Math.round(clamp(this.input.steer, -1, 1) * 1000) / 1000;
     this.input.trim = Math.round(clamp(this.input.trim, 0, 1) * 1000) / 1000;
+    this.updateTrainingGuide(dt);
     this.time += dt;
     this.roundTime += dt;
     const player = this.boats[0];
@@ -1306,7 +1491,7 @@ export class Game {
     this.atmosphere.fixedUpdate(dt, playerGap, this.roundTime);
     // L'amplitude de houle vue par la physique se met à jour sur l'horloge fixe,
     // au même tick que la météo qui la produit.
-    this.waveField.setWeather(this.atmosphere.weather.stormAmount);
+    this.waveField.setWeather(this.atmosphere.weather.stormAmount, this.stageGameplay);
     // La grille de sillage aussi : la physique l'échantillonne pour composer la
     // hauteur d'eau sous chaque point de flottaison. Recentrée sur la position
     // de SIMULATION du joueur, jamais sur celle de son mesh.
@@ -1318,6 +1503,21 @@ export class Game {
       this.atmosphere.weather.stormAmount
     );
     const wind = this.atmosphere.weather.windVector(this.windScratch || (this.windScratch = { x: 0, z: 0 }));
+    const stage = this.stageGameplay;
+    if (stage) {
+      const angle = Number(stage.windAngle) || 0;
+      const cosine = Math.cos(angle);
+      const sine = Math.sin(angle);
+      const originalX = wind.x;
+      const originalZ = wind.z;
+      const gust = 1 + Math.sin(
+        this.time * (Number(stage.gustFrequency) || 0) * TAU
+        + (this.seed & 255) * 0.017
+      ) * (Number(stage.gustStrength) || 0);
+      const scale = (Number(stage.windScale) || 1) * gust;
+      wind.x = (originalX * cosine - originalZ * sine) * scale;
+      wind.z = (originalX * sine + originalZ * cosine) * scale;
+    }
     const environment = this.environment || (this.environment = {
       time: 0,
       windX: 0,
@@ -1341,9 +1541,10 @@ export class Game {
       const controlledInput = boat.localControlled ? this.input2 : this.controlledInputFor(boat);
       boat.fixedUpdate(dt, controlledInput, environment);
       const edge = Math.abs(boat.x - routeCenter(boat.z));
-      if (!boat.eliminated && edge > CONFIG.trackHalfWidth) {
+      const trackHalfWidth = this.stageGameplay?.trackHalfWidth ?? CONFIG.trackHalfWidth;
+      if (!boat.eliminated && edge > trackHalfWidth) {
         const sign = Math.sign(boat.x - routeCenter(boat.z));
-        boat.dynamics.vx -= sign * (edge - CONFIG.trackHalfWidth) * dt * 0.8;
+        boat.dynamics.vx -= sign * (edge - trackHalfWidth) * dt * 0.8;
       }
       boat.coastCollisionCd = Math.max(0, (boat.coastCollisionCd ?? 0) - dt);
       if (!boat.eliminated) {
@@ -1443,6 +1644,17 @@ export class Game {
 
   frame(now) {
     if (this.webglContextLost) return;
+    // Menus, atelier, pause et résultats n'ont aucun bénéfice ludique à
+    // rasteriser à 60/120 Hz. Les plafonner à 30 FPS réduit immédiatement la
+    // chauffe et la batterie sans toucher à la simulation d'une course.
+    const outsideLiveRace = this.mode !== "playing" || this.paused;
+    const idleFrameInterval = 1000 / 30;
+    if (
+      outsideLiveRace
+      && Number.isFinite(this.lastPresentedFrame)
+      && now - this.lastPresentedFrame < idleFrameInterval - 0.75
+    ) return;
+    this.lastPresentedFrame = now;
     const debutTravail = performance.now();
     this.renderer.info.reset?.();
     const raw = Math.min(0.1, (now - this.lastFrame) / 1000 || 0);
@@ -1462,13 +1674,23 @@ export class Game {
     // en qualité basse pour toujours.
     const intervalleReel = Math.max(0, now - this.lastFrame) || 0;
     this.lastFrame = now;
-    this.quality.update(intervalleReel, this.frameWorkMs ?? intervalleReel);
+    if (!outsideLiveRace) {
+      this.quality.update(intervalleReel, this.frameWorkMs ?? intervalleReel);
+    }
     this.pollGamepad();
     if (this.mode === "menu") this.time += raw * 0.65;
     // Hitstop : le gel mange du temps réel, pas du temps de simulation. La
     // séquence de ticks — donc le checksum et les replays — est inchangée.
     this.impact.update(raw);
-    const simTime = this.mode === "playing" ? this.impact.consume(raw) : raw;
+    let simTime = this.mode === "playing" ? this.impact.consume(raw) : raw;
+    if (
+      this.spectatorFastForward
+      && this.boats?.[0]?.eliminated
+      && !this.playback
+      && !this.versusLocal
+    ) {
+      simTime = Math.min(0.1, simTime * 4);
+    }
     if (!this.paused) {
       this.accumulator += simTime;
       while (this.accumulator >= CONFIG.fixed) {
@@ -1513,7 +1735,15 @@ export class Game {
     this.ocean.uniforms.uHaze.value.copy(this.atmosphere.horizonColor);
     this.hemisphere.intensity = this.lightBase.hemisphere - weather.stormAmount * 0.86 + weather.lightning * 2.35;
     this.sun.intensity = this.lightBase.sun - weather.stormAmount * 2.75 + weather.lightning * 5.8;
-    this.ocean.update(raw, this.time, focus.x, focus.z, weather.stormAmount);
+    this.ocean.update(
+      raw,
+      this.time,
+      focus.x,
+      focus.z,
+      weather.stormAmount,
+      this.environment?.windX,
+      this.environment?.windZ
+    );
     if (this.mode === "playing") {
       for (const boat of this.boats) boat.renderUpdate(this.time, raw, weather);
     } else this.updateAttract(raw);

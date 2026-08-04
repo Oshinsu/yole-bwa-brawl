@@ -34,7 +34,7 @@
        soit un aller-retour de retard sur le premier ecran. -->
   <link rel="preload" href="./assets/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="./assets/fonts/anton-400.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="./style.css?v=hud-v12-2" />
+  <link rel="stylesheet" href="./style.css?v=hud-v17-turbo" />
 </head>
 <body>
   <div id="viewport" aria-label="YOLE BWA BRAWL 3D"></div>
@@ -57,66 +57,59 @@
         <div><small>DÉFI REÇU</small><strong id="challengeBannerLabel">DÉFI COMBAT BOX</strong><span>Même mer · même seed <b id="challengeSeed">0X00000000</b></span></div>
         <button id="challengeStartBtn" type="button">RELEVER LE DÉFI <span aria-hidden="true">→</span></button>
       </section>
-      <div class="menu-actions" role="group" aria-label="Modes de jeu">
+      <div class="menu-actions" role="group" aria-label="Navigation principale">
         <button id="playBtn" class="primary mode-card mode-combat" type="button" data-mode-index="01">
           <i class="mode-symbol" aria-hidden="true">✦</i>
-          <span><small>ACTION IMMÉDIATE</small><strong>COMBAT BOX</strong><em>4 yoles · armes · Brume de sable</em></span>
+          <span><small>ACTION IMMÉDIATE</small><strong>COMBAT BOX</strong><em>KO +1 · dernier debout +2 · objectif 5</em></span>
         </button>
         <button id="tourBtn" class="secondary mode-card mode-tour" type="button" data-mode-index="02">
           <i class="mode-symbol route-symbol" aria-hidden="true">●━━●</i>
           <span><small>CAMPAGNE</small><strong>GRAND TOUR</strong><em>8 étapes · classement persistant</em></span>
         </button>
-        <button id="versusBtn" class="secondary mode-card mode-versus" type="button" data-mode-index="03" aria-haspopup="dialog" aria-controls="versusScreen" aria-expanded="false">
-          <i class="mode-symbol versus-symbol" aria-hidden="true">P1<br>P2</i>
-          <span><small>JOUEUR CONTRE JOUEUR</small><strong>MÊLÉE LOCALE</strong><em>2 pilotes + 2 IA · caméra commune</em></span>
-        </button>
-        <button id="customBtn" class="secondary mode-card mode-workshop" type="button" data-mode-index="04" aria-haspopup="dialog" aria-controls="customScreen" aria-expanded="false">
+        <button id="customBtn" class="secondary mode-card mode-workshop" type="button" data-mode-index="03" aria-haspopup="dialog" aria-controls="customScreen" aria-expanded="false">
           <i class="mode-symbol workshop-symbol" aria-hidden="true"><b></b><b></b><b></b></i>
           <span><small>SHOWROOM 3D</small><strong>ATELIER</strong><em>Coque · voile · bwa · équipage · soute</em></span>
         </button>
+        <details id="menuMore" class="menu-more">
+          <summary>
+            <span>AUTRES MODES &amp; OPTIONS</span>
+            <small>Mêlée locale · réglages · aide · défis</small>
+          </summary>
+          <div class="menu-more-panel">
+            <button id="versusBtn" class="secondary mode-card mode-versus" type="button" data-mode-index="04" aria-haspopup="dialog" aria-controls="versusScreen" aria-expanded="false">
+              <i class="mode-symbol versus-symbol" aria-hidden="true">P1<br>P2</i>
+              <span><small>JOUEUR CONTRE JOUEUR</small><strong>MÊLÉE LOCALE</strong><em>2 pilotes + 2 IA · caméra commune</em></span>
+            </button>
+            <!-- INSTALLER reste contextuel. Le jeu est une PWA complète — icône,
+                 plein écran, hors ligne. Le bouton n'apparaît QUE si le navigateur
+                 a émis `beforeinstallprompt`. -->
+            <div class="menu-liens" aria-label="Options et informations">
+              <button id="menuSettingsBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">
+                <span aria-hidden="true">⚙</span> RÉGLAGES
+              </button>
+              <button id="controlsBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="controlsScreen" aria-expanded="false">
+                <span aria-hidden="true">?</span> AIDE &amp; CONTRÔLES
+              </button>
+              <button id="dailyChallengeBtn" class="lien-menu daily-link" type="button">
+                <span aria-hidden="true">⚡</span> DÉFI DU JOUR
+              </button>
+              <button id="replaysBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="replayLibrary">
+                <span aria-hidden="true">▶</span> REPLAYOTHÈQUE
+              </button>
+              <button id="aboutBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="infoHub">
+                <span aria-hidden="true">ⓘ</span> YOLE &amp; CRÉDITS
+              </button>
+              <button id="installBtn" class="lien-menu hidden" type="button">
+                <span aria-hidden="true">⬇</span> INSTALLER LE JEU
+              </button>
+              <a class="lien-menu discret" href="./privacy.html"><span aria-hidden="true">◌</span> CONFIDENTIALITÉ</a>
+              <a class="lien-menu discret" href="./support.html"><span aria-hidden="true">?</span> SUPPORT</a>
+            </div>
+          </div>
+        </details>
       </div>
       <div class="menu-badges">
         <span>COCO BOUM</span><span>HARPON SLINGSHOT</span><span>BWA DASH</span><span>MINE TSUNAMI</span>
-      </div>
-      <!-- ⚠️ « Télécharger » veut dire deux choses pour un jeu navigateur, et
-           les deux méritent leur bouton.
-
-           INSTALLER : la vraie réponse. Le jeu est une PWA complète — icône,
-           plein écran, hors ligne. Le bouton n'apparaît QUE si le navigateur a
-           émis `beforeinstallprompt` : Chrome et Edge le font, Safari jamais
-           (sur iOS il faut passer par Partager > Sur l'écran d'accueil). Un
-           bouton toujours visible qui ne marche qu'une fois sur deux serait pire
-           que pas de bouton.
-
-           ARCHIVE : pour qui veut le dossier complet, sans navigateur ni
-           réseau. -->
-      <div class="menu-liens">
-        <button id="menuSettingsBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">
-          <span aria-hidden="true">⚙</span> RÉGLAGES
-        </button>
-        <button id="controlsBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="controlsScreen" aria-expanded="false">
-          <span aria-hidden="true">?</span> AIDE &amp; CONTRÔLES
-        </button>
-        <button id="replaysBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="replayLibrary">
-          <span aria-hidden="true">▶</span> REPLAYOTHÈQUE
-        </button>
-        <button id="aboutBtn" class="lien-menu" type="button" aria-haspopup="dialog" aria-controls="infoHub">
-          <span aria-hidden="true">ⓘ</span> YOLE &amp; CRÉDITS
-        </button>
-        <button id="dailyChallengeBtn" class="lien-menu daily-link" type="button">
-          <span aria-hidden="true">⚡</span> DÉFI DU JOUR
-        </button>
-        <button id="installBtn" class="lien-menu hidden" type="button">
-          <span aria-hidden="true">⬇</span> INSTALLER LE JEU
-        </button>
-        <a class="lien-menu" href="https://github.com/Oshinsu/yole-bwa-brawl/releases/latest" target="_blank" rel="noopener">
-          <span aria-hidden="true">📦</span> TÉLÉCHARGER L'ARCHIVE
-        </a>
-        <a class="lien-menu discret" href="https://github.com/Oshinsu/yole-bwa-brawl" target="_blank" rel="noopener">
-          <span aria-hidden="true">&lt;/&gt;</span> CODE SOURCE
-        </a>
-        <a class="lien-menu discret" href="./privacy.html"><span aria-hidden="true">◌</span> CONFIDENTIALITÉ</a>
-        <a class="lien-menu discret" href="./support.html"><span aria-hidden="true">?</span> SUPPORT</a>
       </div>
       <!-- ⚠️ RACCOURCIE VOLONTAIREMENT. Cette ligne listait treize commandes en
            deux lignes de petit texte gris : le bloc le plus dense et le plus laid
@@ -135,7 +128,7 @@
       <button id="menuWorkshopBtn" class="menu-build-cta" type="button">OUVRIR L’ATELIER 3D</button>
       <small class="fiction-note">Fiction arcade librement inspirée de la yole ronde de Martinique · non affiliée à une organisation officielle.</small>
     </div>
-    <div class="version">VERSION 3.2.0 · TROPICAL MAYHEM · THREE.JS 0.185.1</div>
+    <div class="version">TROPICAL MAYHEM · BUILD 3.2.0</div>
   </div>
 
   <div id="hud" class="hidden">
@@ -144,7 +137,7 @@
       <div class="round-card glass">
         <span id="roundLabel" role="status" aria-live="polite" aria-atomic="true">MANCHE 1</span>
         <strong id="timer" role="timer" aria-live="off">00:00</strong>
-        <small id="roundSub">PREMIER À 5</small>
+        <small id="roundSub">KO +1 · DERNIER DEBOUT +2 · CIBLE 5</small>
       </div>
       <div class="top-actions glass" role="group" aria-label="Commandes de bord">
         <button id="qualityBtn" class="icon-btn quality-control" data-label="QUALITÉ" aria-label="Qualité graphique" type="button">HQ</button>
@@ -188,9 +181,15 @@
          texte. Doubler noierait le lecteur d'écran sous les chiffres. -->
     <!-- Départ et mort : deux états que le joueur doit lire SANS chercher. -->
     <div id="countdown" class="countdown hidden" role="status" aria-live="assertive"><b></b><small></small></div>
-    <div id="spectateur" class="spectateur hidden" role="status" aria-live="polite">
-      <b>CHAVIRÉ</b><em></em><small></small>
-      <button id="skipSpectatingBtn" class="spectateur-skip hidden" type="button">PASSER AUX RÉSULTATS</button>
+    <div id="spectateur" class="spectateur hidden" role="region" aria-label="Mode spectateur">
+      <div class="spectateur-live" role="status" aria-live="polite">
+        <b>CHAVIRÉ</b><em></em><small></small>
+      </div>
+      <div class="spectateur-actions" role="group" aria-label="Commandes du mode spectateur">
+        <button id="spectateurCycleBtn" class="spectateur-cycle" type="button">CAMÉRA SUIVANTE</button>
+        <button id="spectateurFastBtn" class="spectateur-skip hidden" type="button">FIN ×4</button>
+        <button id="skipSpectatingBtn" class="spectateur-skip hidden" type="button">PASSER AUX RÉSULTATS</button>
+      </div>
     </div>
     <div id="damageNumbers" class="damage-numbers" aria-hidden="true"></div>
     <div id="killfeed" class="killfeed" role="log" aria-live="polite" aria-relevant="additions" aria-label="Événements du combat"></div>
@@ -211,8 +210,28 @@
           <i id="balanceBar" aria-hidden="true"></i><em aria-hidden="true"></em>
           <span class="balance-side balance-starboard" aria-hidden="true">TRIBORD</span>
         </div>
-        <div class="meter-label"><span>TURBO</span><b id="flowText">0%</b></div>
-        <div class="meter flow big" role="progressbar" aria-label="Réserve turbo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="flowBar"></i></div>
+        <div id="flowMeter" class="turbo-instrument" data-turbo-state="low" data-flow-band="empty" data-dash-ready="false" data-boost-kind="none" role="progressbar" aria-label="Réserve d’élan" aria-describedby="flowHint flowRisk" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Élan 0 %. Turbo indisponible.">
+          <span class="turbo-emblem turbo-atlas-sprite" aria-hidden="true"></span>
+          <div class="turbo-readout">
+            <div class="turbo-heading">
+              <span>ÉLAN</span>
+              <strong id="flowState">ÉLAN BAS</strong>
+              <b id="flowText">0%</b>
+            </div>
+            <div class="meter flow big turbo-track" aria-hidden="true">
+              <i id="flowBar" aria-hidden="true"></i>
+              <span class="turbo-cooldown-shutter turbo-atlas-sprite" aria-hidden="true"></span>
+              <span class="turbo-thresholds" aria-hidden="true"><i></i><i></i></span>
+              <span class="turbo-frame turbo-atlas-sprite" aria-hidden="true"></span>
+            </div>
+            <div class="turbo-subline">
+              <small id="flowHint">GAGNE PAR SURF + CONTRE-GÎTE</small>
+              <small id="flowRisk" aria-hidden="true"></small>
+            </div>
+          </div>
+          <i class="turbo-state-art turbo-atlas-sprite" aria-hidden="true"></i>
+          <i class="turbo-impact-art turbo-atlas-sprite" aria-hidden="true"></i>
+        </div>
         <div class="meter-label"><span>COQUE</span><b id="hullText">100%</b></div>
         <div class="meter hull big" role="progressbar" aria-label="Intégrité de la coque" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="hullBar"></i></div>
         <div class="crew-mini"><span id="crewDots">● ● ● ● ● ●</span><b id="trimText">VOILE 82%</b><b id="waterText">0 KG</b></div>
@@ -567,17 +586,25 @@
     </div>
   </div>
 
-  <div id="onboardingScreen" class="screen modal-screen onboarding-screen hidden" role="dialog" aria-modal="true" aria-label="Initiation express en quatre étapes">
-    <div class="modal onboarding-modal glass">
-      <div class="modal-kicker"><span>INITIATION EXPRESS</span><b id="onboardingProgress">1 / 4</b></div>
+  <div id="onboardingScreen" class="screen modal-screen onboarding-screen hidden" role="dialog" aria-modal="true" aria-label="Initiation express en trois gestes">
+    <div class="modal onboarding-modal onboarding-compact glass">
+      <div class="modal-kicker"><span>INITIATION EXPRESS</span><b id="onboardingProgress">3 GESTES</b></div>
       <div id="onboardingSteps" class="onboarding-steps">
-        <section data-onboarding-step="0"><div class="onboarding-glyph onboarding-glyph-helm" aria-hidden="true"><i></i></div><h2 id="onboardingTitle">BARRE &amp; VOILE</h2><p><span data-device-copy="keyboard"><kbd>Q</kbd>/<kbd>D</kbd> dirigent, <kbd>↑</kbd>/<kbd>↓</kbd> règlent la voile.</span><span data-device-copy="touch">Glisse horizontalement pour barrer, verticalement pour border ou choquer.</span><span data-device-copy="gamepad">Le stick gauche dirige et règle la voile.</span></p></section>
-        <section class="hidden" data-onboarding-step="1"><div class="onboarding-glyph onboarding-glyph-bwa" aria-hidden="true"><i></i><i></i><i></i></div><h2>CONTRE-GÎTE</h2><p>Quand la yole penche, envoie l’équipage de l’autre côté. Plus ton timing est juste, plus tu gardes ta vitesse.</p></section>
-        <section class="hidden" data-onboarding-step="2"><div class="onboarding-glyph onboarding-glyph-combat" aria-hidden="true"></div><h2>DEUX ARMES EN SOUTE</h2><p><span data-device-copy="keyboard"><kbd>Espace</kbd> tire, <kbd>E</kbd> change d’arme ; les chiffres tirent directement.</span><span data-device-copy="touch">Chaque tuile tire son arme directement.</span><span data-device-copy="gamepad"><kbd>A</kbd> tire, <kbd>X</kbd> change d’arme.</span> Les caisses donnent des surprises.</p></section>
-        <section class="hidden" data-onboarding-step="3"><div class="onboarding-glyph onboarding-glyph-boost" aria-hidden="true"><i></i><i></i><i></i></div><h2>TURBO &amp; BWA DASH</h2><p><span data-device-copy="keyboard"><kbd>Z</kbd> bondit en avant, <kbd>X</kbd> esquive sur le côté.</span><span data-device-copy="touch">Double-tap sur l’eau pour le Turbo ; double-coup latéral du joystick pour le Dash.</span><span data-device-copy="gamepad"><kbd>RB</kbd> bondit, <kbd>LB</kbd> esquive.</span></p></section>
+        <section class="onboarding-quick" data-onboarding-step="0">
+          <div class="onboarding-glyph onboarding-glyph-helm" aria-hidden="true"><i></i></div>
+          <div class="onboarding-quick-copy">
+            <h2 id="onboardingTitle">3 GESTES. À L’EAU.</h2>
+            <p>Ta première manche te guide en direct. Retiens seulement ceci :</p>
+            <ol class="onboarding-essentials">
+              <li><b>1 · DIRIGE</b><span data-device-copy="keyboard"><kbd>Q</kbd>/<kbd>D</kbd> barrent, <kbd>↑</kbd>/<kbd>↓</kbd> règlent la voile.</span><span data-device-copy="touch">Glisse horizontalement pour barrer, verticalement pour régler la voile.</span><span data-device-copy="gamepad">Le stick gauche dirige et règle la voile.</span></li>
+              <li><b>2 · REDRESSE</b><span data-device-copy="keyboard"><kbd>Shift</kbd> envoie l’équipage à l’opposé de la gîte.</span><span data-device-copy="touch">Le bouton central BWA envoie l’équipage à l’opposé de la gîte.</span><span data-device-copy="gamepad"><kbd>B</kbd> envoie l’équipage à l’opposé de la gîte.</span></li>
+              <li><b>3 · TIRE COCO</b><span data-device-copy="keyboard"><kbd>Espace</kbd> tire ton Canon Coco.</span><span data-device-copy="touch">Touche COCO pour tirer.</span><span data-device-copy="gamepad"><kbd>A</kbd> tire ton Canon Coco.</span></li>
+            </ol>
+            <small class="onboarding-later">Turbo, harpon, caisses et visée avancée arrivent après ces trois gestes.</small>
+          </div>
+        </section>
       </div>
-      <div class="onboarding-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i></div>
-      <div class="modal-actions"><button id="onboardingSkipBtn" class="secondary" type="button">PASSER &amp; JOUER</button><button id="onboardingNextBtn" class="primary" type="button">SUIVANT</button></div>
+      <div class="modal-actions onboarding-single-action"><button id="onboardingNextBtn" class="primary" type="button">À L’EAU !</button></div>
     </div>
   </div>
 

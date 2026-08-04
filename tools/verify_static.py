@@ -32,8 +32,20 @@ for missing in sorted(referenced_ids - html_ids):
     errors.append(f'missing DOM id: {missing}')
 
 service_worker = (ROOT / 'service-worker.js').read_text(encoding='utf-8')
-cached_assets = set(re.findall(r'"(\./[^"?]+)', service_worker))
-for relative in sorted(cached_assets):
+
+def worker_array_assets(name):
+    """Lit uniquement un tableau déclaré, sans prendre les exemples en commentaire."""
+    match = re.search(rf'const {re.escape(name)} = \[(.*?)\];', service_worker, re.S)
+    if not match:
+        return set()
+    return {
+        re.split(r'[?#]', value, maxsplit=1)[0]
+        for value in re.findall(r'"(\./[^"]+)"', match.group(1))
+    }
+
+cached_assets = worker_array_assets('CORE')
+runtime_assets = worker_array_assets('RUNTIME_MUSIC')
+for relative in sorted(cached_assets | runtime_assets):
     if relative == './' or relative.startswith('./vendor/'):
         continue
     target = ROOT / relative[2:]

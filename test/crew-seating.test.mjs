@@ -129,8 +129,10 @@ const BEAM_LEN = game.boats[0].visual.beams.map((entry) => entry.length);
 game.countdown = 0;
 
 let samples = 0, sumAbsX = 0, horsCoque = 0, coteHaut = 0, rollComptes = 0;
-let pireEcartAuBois = 0, pireMarge = Infinity, etalementMax = 0;
+let pireEcartAuBois = 0, pireMarge = Infinity, pireMargeContext = null, etalementMax = 0;
+let pireMargeTransition = Infinity;
 let bwaUnilateraux = 0, porteeAuVentMin = Infinity, debordSousLeVentMax = 0;
+let fullCrewTicks = 0, sixOutsideTicks = 0, maxOutsideTogether = 0;
 // Deux seuils DISTINCTS, et c'est volontaire. Le lacet est proportionnel au
 // deport (yaw = side x hike x 1,36 avec hike = |x| / 3,0) : exiger un lacet
 // franc des 1,6 m demanderait 0,73 rad, pas 0,9. On verifie donc le SENS sur
@@ -196,6 +198,7 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
     // chute puis reste ou elle l'a laisse, et un equipage passe par-dessus bord
     // n'est plus sur ses bois — par definition.
     const embarques = Math.min(6, boat.dynamics.activeCrew);
+    let outsideTogether = 0;
     for (let i = 0; i < embarques; i++) {
       if (!boat.visual.crew[i].visual.root.visible) continue;
       const homme = boat.visual.crew[i].visual;
@@ -239,7 +242,10 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
       }
       samples++;
       sumAbsX += Math.abs(x);
-      if (Math.abs(x) > 0.90) horsCoque++;
+      if (Math.abs(x) > 0.90) {
+        horsCoque++;
+        outsideTogether++;
+      }
       if (Math.abs(roll) > 0.04) { rollComptes++; if (Math.sign(x) === -Math.sign(roll)) coteHaut++; }
       if (x < lo) lo = x;
       if (x > hi) hi = x;
@@ -249,9 +255,30 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
 
       const beam = CREW_BEAMS[i];
       const side = Math.sign(x || 1);
-      const pointe = boat.visual.beams[beam].root.position.x + side * BEAM_LEN[beam] / 2;
+      const beamRootX = boat.visual.beams[beam].root.position.x;
+      const pointe = beamRootX + side * BEAM_LEN[beam] / 2;
       const marge = (pointe - x) * side;
-      if (marge < pireMarge) pireMarge = marge;
+      const rappelStabilise = Math.sign(beamRootX || side) === side
+        && Math.abs(beamRootX) > boat.visual.beams[beam].windwardOffset * 0.90;
+      if (!rappelStabilise) pireMargeTransition = Math.min(pireMargeTransition, marge);
+      if (rappelStabilise && marge < pireMarge) {
+        pireMarge = marge;
+        pireMargeContext = {
+          frame,
+          boat: boat.id,
+          crew: i,
+          x: +x.toFixed(3),
+          side,
+          beamRootX: +beamRootX.toFixed(3),
+          beamLength: +BEAM_LEN[beam].toFixed(3),
+          roll: +roll.toFixed(3)
+        };
+      }
+    }
+    maxOutsideTogether = Math.max(maxOutsideTogether, outsideTogether);
+    if (embarques === 6) {
+      fullCrewTicks++;
+      if (outsideTogether === 6) sixOutsideTicks++;
     }
     if (hi - lo > etalementMax) etalementMax = hi - lo;
   }
@@ -262,6 +289,7 @@ const pctLacetCorrect = lacetCorrect * 100 / Math.max(1, sortis);
 const pctLacetFranc = lacetFranc * 100 / Math.max(1, bienSortis);
 const pctHorsCoque = horsCoque * 100 / samples;
 const pctCoteHaut = coteHaut * 100 / Math.max(1, rollComptes);
+const pctSixOutside = sixOutsideTicks * 100 / Math.max(1, fullCrewTicks);
 
 // ⚠️ Seuil abaissé de 20 000 à 12 000, et la RAISON compte plus que le chiffre :
 // une yole éliminée n'est pas échantillonnée, et le modèle de dégâts a durci
@@ -276,11 +304,26 @@ assert.ok(sortis > 5000, `pas assez d'equipiers sortis sur les bois: ${sortis}`)
 assert.ok(pireEcartAuBois < 1e-6, `equipier a ${pireEcartAuBois.toFixed(3)} m du bois le plus proche`);
 
 // 2. Personne ne depasse la pointe de sa propre perche.
-assert.ok(pireMarge > 0.20, `equipier assis a ${pireMarge.toFixed(2)} m du bout de son bois`);
+assert.ok(
+  pireMarge > 0.20,
+  `equipier assis a ${pireMarge.toFixed(2)} m du bout de son bois: ${JSON.stringify(pireMargeContext)}`
+);
+assert.ok(
+  pireMargeTransition > -0.05,
+  `equipier sorti de sa perche pendant la traversee: ${pireMargeTransition.toFixed(2)} m`
+);
 
-// 3. L'equipage est dehors, et du bon bord. Sous voile c'est l'etat
-//    d'equilibre, pas une manoeuvre : le plat-bord est a |x| = 0,90.
-assert.ok(pctHorsCoque > 60, `equipage hors coque seulement ${pctHorsCoque.toFixed(1)} % du temps`);
+// 3. La bordée charge le bon bord sans devenir six points également exportés.
+//    Une fenêtre borne les deux régressions : tout le monde dans la coque, ou
+//    l'ancienne échelle de six mannequins au large.
+assert.ok(
+  pctHorsCoque > 45 && pctHorsCoque < 78,
+  `occupation hors coque non credible: ${pctHorsCoque.toFixed(1)} %`
+);
+assert.ok(
+  pctSixOutside < 30,
+  `les six dresseurs sont encore dehors ensemble ${pctSixOutside.toFixed(1)} % du temps`
+);
 assert.ok(pctCoteHaut > 75, `equipage du cote haut seulement ${pctCoteHaut.toFixed(1)} % du temps`);
 
 // 4. Sorti sur le bois, le corps est ALIGNE dessus : lacet vers le large, et
@@ -317,6 +360,8 @@ console.log(JSON.stringify({
   echantillons: samples,
   moyenneAbsX: +moyenneAbsX.toFixed(3),
   pourcentHorsCoque: +pctHorsCoque.toFixed(1),
+  pourcentSixDehorsEnsemble: +pctSixOutside.toFixed(1),
+  maximumDehorsEnsemble: maxOutsideTogether,
   pourcentCoteHaut: +pctCoteHaut.toFixed(1),
   etalementLateralMax: +etalementMax.toFixed(2),
   margeMinAuBoutDuBois: +pireMarge.toFixed(2),

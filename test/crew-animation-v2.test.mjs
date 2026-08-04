@@ -4,6 +4,8 @@ import { RNG } from "../src/core/rng.js";
 import { CREW_OPTIONAL_JOINTS } from "../src/render/assets.js";
 import { CrewFallPool } from "../src/render/debris.js";
 import {
+  CREW_CONTACT_LIMITS,
+  CREW_ROOT_SCALE,
   CREW_ROLES,
   CREW_SPECIALIST_ROLES,
   CrewVisual
@@ -80,7 +82,7 @@ assert.deepEqual(
 const source = makeCrewRig();
 const visual = new CrewVisual(THREE, 0x8a512f, 0xff5d55, 0x142a38, 0, source.rig);
 visual.role = "premier";
-visual.root.scale.setScalar(0.88);
+visual.root.scale.setScalar(CREW_ROOT_SCALE);
 const scene = new THREE.Scene();
 scene.add(visual.root);
 
@@ -104,7 +106,14 @@ visual.update(2, 1 / 60, 2.75, 0, -1.4, 0.55, 0, true, 0, 0, 0, 3, 0, 0, 1, shif
 
 assert.equal(visual.motionState, "prise_charge");
 assert.ok(Number.isFinite(visual.contactError), "IK produced a non-finite contact error");
-assert.ok(visual.contactError < 0.72, `hands/feet never reached the bwa: ${visual.contactError}`);
+assert.ok(
+  visual.firmContactError < CREW_CONTACT_LIMITS.firm,
+  `firm hand/foot contact missed the bwa by ${visual.firmContactError.toFixed(3)} m`
+);
+assert.ok(
+  visual.softContactError < CREW_CONTACT_LIMITS.soft,
+  `secondary foot contact missed the bwa by ${visual.softContactError.toFixed(3)} m`
+);
 const loadedContactError = visual.contactError;
 assert.ok(
   source.leftForeArm.quaternion.angleTo(new THREE.Quaternion()) > 0.01
@@ -119,6 +128,42 @@ for (const chain of Object.values(visual.ikChains)) {
     );
   }
 }
+
+// Le bras d'ancrage change avec le bord. Ce miroir manque facilement dans un
+// moteur procédural qui a été réglé sur une seule capture.
+visual.root.position.x = -2.75;
+visual.update(2.1, 1 / 60, -2.75, 0, 1.4, -0.55, 0, true, 0, 0, 0, 3.1, 0, 0, 1, shiftMotion);
+assert.ok(
+  visual.firmContactError < CREW_CONTACT_LIMITS.firm,
+  `mirrored firm contact missed the bwa by ${visual.firmContactError.toFixed(3)} m`
+);
+
+const solveLimbContact = visual.solveLimbContact.bind(visual);
+let culledSolveCalls = 0;
+visual.solveLimbContact = (...args) => {
+  culledSolveCalls++;
+  return solveLimbContact(...args);
+};
+visual.update(
+  2.15,
+  1 / 60,
+  -2.75,
+  0,
+  0,
+  -0.55,
+  0,
+  true,
+  0,
+  0,
+  0,
+  3.15,
+  0,
+  0,
+  1,
+  { ...shiftMotion, solveContacts: false }
+);
+assert.equal(culledSolveCalls, 0, "a culled LOD still spends CPU on limb IK");
+visual.solveLimbContact = solveLimbContact;
 
 const transferMotion = {
   ...shiftMotion,

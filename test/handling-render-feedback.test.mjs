@@ -213,8 +213,8 @@ function makeMenuCameraContext({ workshop = false, reducedMotion = false } = {})
   assert.ok(heroDistance < 18, `menu hero camera is too far from J1: ${heroDistance}`);
   assert.ok(Math.abs(attract.camera.fov - 54) < 0.01);
   assert.ok(
-    attract.menuCameraTarget.x >= attract.boats[0].x + 1.3,
-    "menu hero must aim right of J1 so the boat clears the desktop menu panel"
+    attract.menuCameraTarget.x >= attract.boats[0].x + 5,
+    "menu hero must aim far enough right for J1 to clear the desktop menu panel"
   );
 
   const showroom = makeMenuCameraContext({ workshop: true });

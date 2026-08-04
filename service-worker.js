@@ -1,11 +1,14 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-dc20616dc5c9";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-869d07846b75";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
+// Stable entre deux versions du shell : une mise à jour de code ne force pas
+// le retéléchargement des pistes déjà écoutées. Incrémenter si les MP3 changent.
+const MUSIC_CACHE = "yole-bwa-brawl-tropical-mayhem-runtime-music-v1";
 const CORE = [
-  "./", "./index.html", "./style.css?v=hud-v12-2", "./legal.css", "./manifest.webmanifest",
+  "./", "./index.html", "./style.css?v=hud-v17-turbo", "./legal.css", "./manifest.webmanifest",
   "./privacy.html", "./support.html", "./credits.html",
-  // Typographie et musique font partie de l'expérience installée. Les pistes
-  // restent streamées par HTMLAudioElement à l'exécution, mais leur réponse
-  // complète est disponible dans le cache pour les lectures hors ligne.
+  // CORE est volontairement limité aux ressources requises pour démarrer et
+  // jouer hors ligne. Un seul échec reste transactionnel : on n'active jamais
+  // un shell partiel. Les médias optionnels sont, eux, chargés à la demande.
   "./assets/fonts/inter-var.woff2", "./assets/fonts/anton-400.woff2",
   "./icons/icon-192.png", "./icons/icon-512.png",
   "./icons/icon-maskable-192.png", "./icons/icon-maskable-512.png",
@@ -27,17 +30,9 @@ const CORE = [
   "./src/render/crew-clips.js",
   "./assets/models/yole_hull.glb", "./assets/models/yole_crew.glb", "./assets/models/barik.glb", "./assets/models/chadron.glb", "./assets/models/lanbi.glb", "./assets/models/pwason.glb", "./assets/models/bouee.glb",
   "./assets/audio/bedStorm.mp3", "./assets/audio/bedWater.mp3", "./assets/audio/buoy.mp3", "./assets/audio/bwaShift.mp3", "./assets/audio/cocoBoom.mp3", "./assets/audio/cocoFire.mp3", "./assets/audio/dash.mp3", "./assets/audio/harpoonFire.mp3", "./assets/audio/hullSlam.mp3", "./assets/audio/mineBlast.mp3", "./assets/audio/slamHeavy.mp3", "./assets/audio/splash.mp3", "./assets/audio/takedown.mp3", "./assets/audio/turbo.mp3", "./assets/audio/victory.mp3",
-  "./zik/An Nou Ay.mp3",
-  "./zik/Canoe Combat.mp3",
-  "./zik/Canot de Guerre.mp3",
-  "./zik/Carnival Apocalypse.mp3",
-  "./zik/Coconut Cannon Rush.mp3",
-  "./zik/Midnight Canoe.mp3",
-  "./zik/Oops, You Lost!.mp3",
-  "./zik/Turquoise Turbo.mp3",
   "./assets/textures/sail_djab.webp", "./assets/textures/sky_clouds.webp", "./assets/textures/spray_flipbook.webp", "./assets/textures/sargasse.webp", "./assets/textures/hull_paint.webp", "./assets/textures/wood_bwa.webp", "./assets/textures/crate_wood.webp", "./assets/textures/sail_atlas.webp", "./assets/textures/morne_rock.webp", "./assets/textures/backdrop_far.webp", "./assets/textures/backdrop_near.webp", "./assets/textures/ui_icons.webp", "./assets/textures/explosion_flipbook.webp",
   "./src/game/balance.js", "./src/game/customization.js", "./src/game/tour-progress.js", "./src/game/tour-hub.js", "./src/game/replay-library.js", "./src/game/info-hub.js", "./src/game/growth.js", "./src/game/weapons.js", "./src/game/match.js", "./src/game/pickups.js", "./src/game/obstacles.js",
-  "./src/game/hud.js", "./src/game/input.js", "./src/game/versus.js", "./src/game/camera.js", "./src/game/handling-feedback.js", "./src/game/utility-ai.js", "./src/game/boat.js", "./src/game/game.js",
+  "./src/game/hud.js", "./src/game/input.js", "./src/game/versus.js", "./src/game/camera.js", "./src/game/cinematic.js?v=director-v1", "./src/game/handling-feedback.js", "./src/game/utility-ai.js", "./src/game/boat.js", "./src/game/game.js",
   "./assets/textures/ui_joystick_base.webp", "./assets/textures/ui_joystick_knob.webp",
   "./assets/textures/ui_bouton_idle.webp", "./assets/textures/ui_bouton_pressed.webp",
   "./assets/textures/ui_panneau.webp", "./assets/textures/menu_pause.webp", "./assets/textures/menu_pause_v4.webp", "./assets/textures/armes_atlas.webp", "./assets/textures/ui_jauge_frame.webp", "./assets/textures/ui_jauge_fill.webp",
@@ -87,24 +82,8 @@ const CORE = [
   "./assets/textures/v5/hud/joystick_base.webp",
   "./assets/textures/v5/hud/joystick_knob.webp",
   "./assets/textures/v5/hud/menu_end_backdrop.webp",
-  "./assets/textures/v5/vfx/coco_impact.webp",
-  "./assets/textures/v5/vfx/coco_projectile_trail.webp",
-  "./assets/textures/v5/vfx/harpoon_launch_flash.webp",
-  "./assets/textures/v5/vfx/harpoon_lock_ping.webp",
-  "./assets/textures/v5/vfx/harpoon_tether_energy.webp",
-  "./assets/textures/v5/vfx/tsunami_mine_armed.webp",
-  "./assets/textures/v5/vfx/tsunami_ring_wave.webp",
-  "./assets/textures/v5/vfx/rhum_invulnerability_aura.webp",
-  "./assets/textures/v5/vfx/barik_fuse_sparks.webp",
-  "./assets/textures/v5/vfx/barik_explosion.webp",
-  "./assets/textures/v5/vfx/chadron_spike_burst.webp",
-  "./assets/textures/v5/vfx/chadron_poison_splash.webp",
-  "./assets/textures/v5/vfx/lanbi_sound_cone.webp",
-  "./assets/textures/v5/vfx/lanbi_stun_burst.webp",
-  "./assets/textures/v5/vfx/pwason_homing_trail.webp",
-  "./assets/textures/v5/vfx/pwason_hit_burst.webp",
-  "./assets/textures/v5/vfx/bwa_shift_streak.webp",
-  "./assets/textures/v5/vfx/bwa_dash_impact.webp",
+  // Les 18 prises individuelles V5 restent des sources d'audit. Le runtime
+  // consomme uniquement cet atlas : une requête et un draw call.
   "./assets/textures/v5/vfx/spell_vfx_atlas.webp",
   "./assets/textures/v5/asset-pack.json",
   // Pack V6 — seuls les badges sans yole restent utiles au duel local. Les six
@@ -112,11 +91,7 @@ const CORE = [
   "./assets/textures/v6/menu/badge_player_one.webp",
   "./assets/textures/v6/menu/badge_player_two.webp",
   "./assets/textures/v6/asset-pack.json",
-  // Pack V7 — quatre signatures de game-feel et leur atlas 2×2 (un draw call).
-  "./assets/textures/v7/juice/harpoon_anchor_tear.webp",
-  "./assets/textures/v7/juice/coconut_shockwave.webp",
-  "./assets/textures/v7/juice/mine_detonation.webp",
-  "./assets/textures/v7/juice/perfect_counterheel.webp",
+  // Pack V7 — le runtime consomme l'atlas 2×2, pas ses quatre sources.
   "./assets/textures/v7/juice/juice_vfx_atlas.webp",
   "./assets/textures/v7/asset-pack.json",
   // Pack V8 — instruments de course authentiques, détourés et pilotés par le
@@ -134,10 +109,67 @@ const CORE = [
   "./assets/textures/v9/menu/mode-grand-tour.webp",
   "./assets/textures/v9/menu/mode-versus.webp",
   "./assets/textures/v9/menu/mode-workshop.webp",
+  "./assets/textures/v9/hud/turbo_elan_atlas.webp",
   "./assets/textures/v9/asset-pack.json",
   "./vendor/three.module.min.js", "./vendor/three.core.min.js",
   "./vendor/addons/GLTFLoader.js", "./vendor/addons/BufferGeometryUtils.js", "./vendor/addons/SkeletonUtils.js",
 ];
+
+// Musique = média optionnel. Les huit pistes (environ 12 Mo) ne doivent ni
+// retarder ni faire échouer l'installation. La première écoute reste streamée ;
+// le worker conserve ensuite une réponse complète pour les écoutes hors ligne.
+const RUNTIME_MUSIC = [
+  "./zik/An Nou Ay.mp3",
+  "./zik/Canoe Combat.mp3",
+  "./zik/Canot de Guerre.mp3",
+  "./zik/Carnival Apocalypse.mp3",
+  "./zik/Coconut Cannon Rush.mp3",
+  "./zik/Midnight Canoe.mp3",
+  "./zik/Oops, You Lost!.mp3",
+  "./zik/Turquoise Turbo.mp3",
+];
+const MUSIC_PATHS = new Set(
+  RUNTIME_MUSIC.map((path) => cheminDecode(new URL(path, self.location.href)))
+);
+const musicCacheJobs = new Map();
+
+function cheminDecode(url) {
+  try {
+    return decodeURIComponent(url.pathname);
+  } catch {
+    return url.pathname;
+  }
+}
+
+function requeteComplete(requete) {
+  const entetes = new Headers(requete.headers);
+  entetes.delete("range");
+  return new Request(requete.url, {
+    method: "GET",
+    headers: entetes,
+    credentials: requete.credentials
+  });
+}
+
+function miseEnCacheMusique(requete, cache) {
+  const complete = requeteComplete(requete);
+  const cle = complete.url;
+  if (musicCacheJobs.has(cle)) return musicCacheJobs.get(cle);
+
+  const travail = (async () => {
+    try {
+      const response = await fetch(complete);
+      if (response?.ok && response.status === 200) {
+        await cache.put(complete, response.clone());
+      }
+    } catch {
+      // La musique est optionnelle : une coupure réseau ne doit jamais
+      // invalider la lecture en cours, le shell ou l'installation.
+    }
+  })().finally(() => musicCacheJobs.delete(cle));
+  musicCacheJobs.set(cle, travail);
+  return travail;
+}
 
 function analyserPlage(entete, taille) {
   const correspondance = /^bytes=(\d*)-(\d*)$/i.exec(entete?.trim?.() || "");
@@ -198,32 +230,70 @@ self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys
-      .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+      .filter((key) => (
+        key.startsWith(CACHE_PREFIX)
+        && key !== CACHE
+        && key !== MUSIC_CACHE
+      ))
       .map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
+});
+
+self.addEventListener("message", (event) => {
+  // Une mise à jour ne prend la main qu'après le clic explicite sur le toast
+  // côté application. Aucun skipWaiting automatique pendant une course.
+  if (event.data?.type !== "SKIP_WAITING") return;
+  event.waitUntil?.(self.skipWaiting());
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(event.request);
+  // `Audio` encode le nom avec encodeURIComponent (donc la virgule devient
+  // `%2C`), tandis que `new URL("./zik/Oops, ...")` peut garder la virgule.
+  // Comparer le pathname décodé évite de rater cette piste légitime.
+  const musiqueRuntime = MUSIC_PATHS.has(cheminDecode(requestUrl));
+  let travailCache = Promise.resolve();
+  const reponsePromise = (async () => {
+    const cache = await caches.open(musiqueRuntime ? MUSIC_CACHE : CACHE);
     const plageDemandee = event.request.headers.has("range");
+    // Cache API ne doit pas chercher avec l'en-tête Range : la clé persistée
+    // représente toujours la réponse 200 complète.
+    const cleCache = plageDemandee ? requeteComplete(event.request) : event.request;
+    const cached = await cache.match(cleCache);
     if (cached) return plageDemandee ? reponseParPlage(event.request, cached) : cached;
     try {
       const response = await fetch(event.request);
       // Une réponse 206 ne doit jamais remplacer la ressource complète : les
       // clés Cache API ne distinguent pas les plages d'un même URL.
       if (response?.ok && !plageDemandee && response.status === 200) {
-        cache.put(event.request, response.clone()).catch(() => {});
+        travailCache = cache.put(event.request, response.clone()).catch(() => {});
+      } else if (
+        response?.ok
+        && plageDemandee
+        && response.status === 206
+        && musiqueRuntime
+      ) {
+        // HTMLAudioElement démarre vite avec sa réponse 206. En parallèle, une
+        // seule requête 200 complète rend cette piste disponible hors ligne.
+        travailCache = miseEnCacheMusique(event.request, cache);
+      } else if (response?.ok && plageDemandee && response.status === 200) {
+        // Certains serveurs ignorent Range et renvoient déjà le fichier entier.
+        travailCache = cache.put(cleCache, response.clone()).catch(() => {});
       }
       return response;
     } catch {
       if (event.request.mode === "navigate") return (await cache.match("./index.html")) || new Response("Offline", { status: 503 });
       return new Response("Offline", { status: 503, statusText: "Offline" });
     }
-  })());
+  })();
+  event.respondWith(reponsePromise);
+  // Appelé pendant le dispatch (et non après le fetch réseau), afin que le
+  // navigateur garde le worker vivant jusqu'à la fin du cache runtime.
+  event.waitUntil?.(reponsePromise.then(
+    () => travailCache,
+    () => travailCache
+  ));
 });

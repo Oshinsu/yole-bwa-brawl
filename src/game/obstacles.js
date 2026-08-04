@@ -125,7 +125,8 @@ export const ObstacleSystems = {
   },
 
   placeSargasse(patch, row, slot) {
-    const z = row * SARGASSE.spacing;
+    const spacing = SARGASSE.spacing * (this.stageGameplay?.sargasseSpacing ?? 1);
+    const z = row * spacing;
     patch.row = row;
     patch.slot = slot;
     patch.x = routeCenter(z) + SARGASSE.slots[slot];
@@ -219,7 +220,8 @@ export const ObstacleSystems = {
     let leaderZ = -Infinity;
     for (const boat of alive) leaderZ = Math.max(leaderZ, boat.z);
     const lastRow = this.sargasseFirstRow + SARGASSE.rows - 1;
-    while ((this.sargasseFirstRow + 1) * SARGASSE.spacing < leaderZ - 60) {
+    const spacing = SARGASSE.spacing * (this.stageGameplay?.sargasseSpacing ?? 1);
+    while ((this.sargasseFirstRow + 1) * spacing < leaderZ - 60) {
       const recycled = this.sargasseFirstRow;
       this.sargasseFirstRow++;
       for (const patch of this.sargasses) {

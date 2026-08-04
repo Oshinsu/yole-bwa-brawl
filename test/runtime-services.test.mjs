@@ -36,6 +36,22 @@ assert.deepEqual(reloaded.snapshot(), DEFAULT_SETTINGS);
 const broken = new SettingsStore(new MemoryStorage({ 'yole-bwa-brawl-v3-2-settings': '{broken' }));
 assert.deepEqual(broken.snapshot(), DEFAULT_SETTINGS);
 
+// Migration : les joueurs ayant déjà terminé l'ancienne initiation ne sont pas
+// renvoyés de force dans la manche-école, tandis que lire le nouveau carton
+// seul ne valide pas l'entraînement live.
+const migratedTraining = new SettingsStore(new MemoryStorage({
+  'yole-bwa-brawl-v3-2-settings': JSON.stringify({ onboardingSeen: true })
+}));
+assert.equal(migratedTraining.get('trainingCompleted'), true);
+const separateTraining = new SettingsStore(new MemoryStorage({
+  'yole-bwa-brawl-v3-2-settings': JSON.stringify({
+    onboardingSeen: true,
+    trainingCompleted: false
+  })
+}));
+assert.equal(separateTraining.get('onboardingSeen'), true);
+assert.equal(separateTraining.get('trainingCompleted'), false);
+
 const telemetry = new LocalTelemetry(50);
 for (let index = 0; index < 75; index++) telemetry.track('frame', { finite: index + 0.12349, bad: Infinity, ignored: { nested: true } }, index / 60);
 telemetry.track('weapon', { id: 'wave', hit: true }, 2);

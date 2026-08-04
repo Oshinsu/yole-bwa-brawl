@@ -69,6 +69,7 @@ ORDER = [
     "src/game/handling-feedback.js",
     "src/game/hud.js",
     "src/game/input.js",
+    "src/game/cinematic.js",
     "src/game/camera.js",
     "src/game/utility-ai.js",
     "src/game/boat.js",

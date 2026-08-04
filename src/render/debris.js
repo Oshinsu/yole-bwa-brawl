@@ -2,6 +2,7 @@ import { clamp } from "../core/math.js";
 import {
   CREW_SKINS,
   CrewVisual,
+  crewPresentationScale,
   makeCrewMaterial,
   makeHeadKits
 } from "./yole-visual.js";
@@ -177,7 +178,9 @@ function createCrewDummy(
   visual.rightArmPivot.rotation.z = 0.85;
   visual.leftLegPivot.rotation.x = 0.62;
   visual.rightLegPivot.rotation.x = 0.48;
-  visual.root.scale.setScalar(0.88);
+  // Même taille canonique qu'à bord : une éjection ne doit pas rétrécir le
+  // yoleur au moment où il quitte la perche.
+  visual.root.scale.setScalar(crewPresentationScale(visual.fromRig));
   return visual;
 }
 

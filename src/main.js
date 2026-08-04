@@ -62,8 +62,12 @@ const ui = {
   speed: byId("speedValue"),
   balanceBar: byId("balanceBar"),
   balanceText: byId("balanceText"),
+  flowMeter: byId("flowMeter"),
   flowBar: byId("flowBar"),
   flowText: byId("flowText"),
+  flowState: byId("flowState"),
+  flowHint: byId("flowHint"),
+  flowRisk: byId("flowRisk"),
   crewDots: byId("crewDots"),
   trimText: byId("trimText"),
   waterText: byId("waterText"),
@@ -159,6 +163,14 @@ try {
   throw error;
 }
 
+// Dès que le moteur est là, on montre le vrai port derrière une jauge compacte
+// au lieu de garder un écran de chargement plein cadre pendant les modèles.
+// Les commandes restent inertes jusqu'à la création de Game.
+ui.menu.classList.remove("hidden");
+ui.menu.setAttribute("aria-busy", "true");
+ui.menu.inert = true;
+ui.loading.classList.add("loading-over-menu");
+
 // Les modeles sont optionnels : un echec de chargement laisse le rendu procedural.
 ui.loadingDetail.textContent = "Chargement des modeles…";
 let assets = null;
@@ -187,7 +199,10 @@ let game = null;
 try {
   game = new Game(THREE, ui, assets);
   ui.loading.classList.add("hidden");
+  ui.loading.classList.remove("loading-over-menu");
   ui.menu.classList.remove("hidden");
+  ui.menu.removeAttribute("aria-busy");
+  ui.menu.inert = false;
   ui.play?.focus?.();
 } catch (error) {
   showFatal(
@@ -223,6 +238,50 @@ if (
   && location.protocol.startsWith("http")
   && !localDevelopmentHost
 ) {
+  let reloadingForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForUpdate) location.reload();
+  });
+
+  const showUpdateReady = (registration) => {
+    if (!registration?.waiting || document.querySelector(".update-ready")) return;
+    // Pas de toast au milieu d'un combat. On le présente au premier écran
+    // calme, sans jamais forcer une actualisation qui ferait perdre la manche.
+    if (game?.mode === "playing" && !game?.paused) {
+      setTimeout(() => showUpdateReady(registration), 1200);
+      return;
+    }
+    const toast = document.createElement("aside");
+    toast.className = "update-ready";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    const copy = document.createElement("div");
+    copy.className = "update-ready-copy";
+    const title = document.createElement("strong");
+    title.textContent = "MISE À JOUR PRÊTE";
+    const detail = document.createElement("small");
+    detail.textContent = "Relance entre deux manches pour charger la nouvelle version.";
+    copy.append(title, detail);
+    const relaunch = document.createElement("button");
+    relaunch.type = "button";
+    relaunch.className = "primary";
+    relaunch.textContent = "RELANCER";
+    relaunch.onclick = () => {
+      reloadingForUpdate = true;
+      registration.waiting?.postMessage?.({ type: "SKIP_WAITING" });
+    };
+    const later = document.createElement("button");
+    later.type = "button";
+    later.className = "secondary";
+    later.textContent = "PLUS TARD";
+    later.onclick = () => toast.remove();
+    const actions = document.createElement("div");
+    actions.className = "update-ready-actions";
+    actions.append(relaunch, later);
+    toast.append(copy, actions);
+    document.body.appendChild(toast);
+  };
+
   const enregistrerServiceWorker = () => {
     // ⚠️ LA PORTÉE DOIT ÊTRE DÉRIVÉE DU WORKER, PAS ÉCRITE EN DUR.
     //
@@ -242,6 +301,19 @@ if (
     const worker = new URL("../service-worker.js", import.meta.url);
     navigator.serviceWorker
       .register(worker, { scope: new URL("./", worker).href })
+      .then((registration) => {
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          showUpdateReady(registration);
+        }
+        registration.addEventListener("updatefound", () => {
+          const installing = registration.installing;
+          installing?.addEventListener("statechange", () => {
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateReady(registration);
+            }
+          });
+        });
+      })
       .catch((error) => {
         console.warn("PWA service worker unavailable:", error?.message || error);
       });

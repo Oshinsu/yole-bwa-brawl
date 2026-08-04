@@ -217,7 +217,9 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(command.count(gate), 2)
         self.assertLess(command.find(gate), command.find("npm run verify"))
         self.assertGreater(command.rfind(gate), command.find("npm run verify"))
-        self.assertLess(command.rfind(gate), command.find("railway up"))
+        railway_up = "npx --yes @railway/cli@5.30.4 up"
+        self.assertEqual(command.count(railway_up), 1)
+        self.assertLess(command.rfind(gate), command.find(railway_up))
 
 
 if __name__ == "__main__":
