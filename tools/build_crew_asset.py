@@ -53,10 +53,24 @@ DEFAULT_REPORT = DEFAULT_DIR / "yole_crew_candidate.report.json"
 
 EXPORT_COLLECTION = "YBB_CREW_EXPORT"
 GUIDES_COLLECTION = "YBB_CREW_GUIDES"
-PIPELINE_VERSION = 1
+PIPELINE_VERSION = 2
 FPS = 24
-LOOP_FRAMES = (1.0, 37.0, 73.0)
-TRANSITION_FRAMES = (1.0, 10.0, 20.0)
+
+# ⚠️ TROIS CLÉS NE FONT PAS UNE ANIMATION, ET C'EST CE QU'ON LIVRAIT.
+#
+# Les boucles tenaient sur (1, 37, 73) : un repos, un apex, un retour. Mesuré le
+# 4 août 2026 sur le GLB livré, ça donnait 1,5° d'amplitude interne maximum,
+# toujours sur Spine02, IDENTIQUE dans les cinq actions — et neuf canaux sur
+# seize strictement gelés. Le rapport validait pourtant tout en vert : il
+# comptait les clés sans jamais les comparer entre elles.
+#
+# Douze intervalles portent six échantillons par cycle de respiration, ce qui
+# suffit largement à une interpolation LINÉAIRE : l'erreur de corde reste sous
+# 3 % de l'amplitude, invisible sur un corps haut de treize pixels. On garde
+# donc des clés éparses plutôt qu'un échantillonnage par frame, qui pèserait
+# vingt fois plus pour la même lecture.
+LOOP_FRAMES = tuple(1.0 + 6.0 * index for index in range(13))
+TRANSITION_FRAMES = tuple(1.0 + 5.0 * index for index in range(5))
 
 REQUIRED_ACTIONS = (
     "pont_interieur",
@@ -78,109 +92,272 @@ ACTION_BRIEFS = {
 # relatives au bind, en Euler XYZ, et ne contiennent volontairement aucune
 # translation de Hips. C'est une base biomécanique : les contacts exacts avec
 # les bwa restent ajustés par les proxies/IK et le runtime.
+#
+# ── LE RENVERSEMENT ET LE REPLI, D'APRÈS PHOTOS DE COURSE ───────────────────
+#
+# ⚠️ RECALÉS LE 4 AOÛT 2026 SUR IMAGES DU TOUR DES YOLES.
+#
+# Un dresseur au rappel n'est pas « penché » : il est en BALANCE, bassin sur le
+# bwa, TÊTE PLUS BASSE QUE LES HANCHES, jambes repliées franchement et
+# crochetées vers la coque. Deux critères se lisent directement sur une photo et
+# ne se truquent pas : l'inclinaison du tronc et la flexion du genou.
+#
+# Mesuré avant correction (`tools/mesure_silhouette_equipage.mjs`) : tronc à 67°
+# avec la tête 26 cm AU-DESSUS des hanches, et genou fléchi de 21° — des jambes
+# quasi tendues. Les hommes lisaient comme des passagers inclinés.
+#
+# ⚠️ ET LE BASSIN N'ÉTAIT PAS LE BON LEVIER — CORRIGÉ LE MÊME JOUR.
+#
+# Première tentative : monter `Hips` jusqu'à 140° pour passer la tête sous les
+# hanches, comme le montrent les photos de rappel extrême. La mesure disait vert.
+# Elle était aveugle au ROULIS : au-delà de ~110° le bassin ne penche plus,
+# il ROULE l'homme sur le VENTRE. Mesuré dans le repère de la yole :
+#
+#   Hips 140 -> corps dehors, tête −0,40 m, regard −0,67  = ventre à la mer
+#   Hips  70 -> corps dehors, tête +0,31 m, regard +0,42  = DOS à la mer
+#   Hips  40 -> corps dehors, tête +0,54 m, regard +0,80  = dos à la mer, assis
+#
+# Un yoleur travaille DOS À LA MER, en levier : c'est le dos qui porte, la face
+# reste tournée vers le bateau et la voile. L'échelle revient donc près de ses
+# valeurs d'origine, plafonnée à 70° — au-delà, la lecture bascule.
+#
+# Ce que la première passe a corrigé et qui RESTE, parce que c'est un défaut
+# indépendant du bassin : le genou ne pliait que de 19°, jambes quasi tendues.
+#
+# ── LA TÊTE, RELEVÉE LE MÊME JOUR ───────────────────────────────────────────
+#
+# La nuque était molle : regard mesuré à −1,00, plein sur l'eau — la lecture
+# d'un corps inerte drapé sur une barre. Sur les images les têtes sont RELEVÉES,
+# l'homme regarde devant : il travaille. C'est le détail qui sépare « accroché »
+# de « posé », et il ne coûte que deux os. Relevé de 35° à la tête, 16° à la
+# nuque.
+#
+# Regard obtenu, par station : +0,26 à l'intérieur, +0,61 au court, +0,46 à
+# l'intermédiaire, +0,36 en extension. Positif = face vers le ciel, donc DOS à
+# la mer — la lecture de levier.
+#
+# ⚠️ TROIS LECTURES SUCCESSIVES ONT ÉTÉ FAITES DE CES PHOTOS, DEUX ÉTAIENT
+# FAUSSES. Il a d'abord été conclu « ventral » depuis des vues d'arrière où l'on
+# croyait voir des dos au ciel, puis l'inverse. Ce n'est pas une photo qui a
+# tranché mais un praticien : le yoleur travaille DOS À LA MER. Aucune vue de
+# trois quarts ne permet de décider — seul un profil, ou quelqu'un qui pratique.
+#
+# ⚠️ POURQUOI `Hips` PORTE MAINTENANT L'ESSENTIEL. Le renversement venait du
+# procédural (`CREW_HIKE_RECLINE`), mais `syncRig` ne lui laisse plus que 41 %
+# d'amplitude depuis que l'assise et la station tiennent l'autorité. Le tripler
+# ne suffisait donc plus — c'est un constat mesuré, pas une préférence.
 POSE_ROTATIONS_DEG = {
     "pont_interieur": {
+        "LeftShoulder": (2, 0, 5),
+        "RightShoulder": (2, 0, -5),
         "Hips": (20, 0, 4),
         "Spine02": (12, 0, -2),
         "Spine01": (8, 0, -1),
         "Spine": (3, 0, 0),
-        "neck": (-5, 0, 0),
+        "neck": (-21, 0, 0),
         "LeftUpLeg": (25, 0, -10),
         "RightUpLeg": (29, 0, 9),
-        "LeftLeg": (-40, 0, 0),
-        "RightLeg": (-42, 0, 0),
+        "LeftLeg": (-95, 0, 0),
+        "RightLeg": (-98, 0, 0),
         "LeftFoot": (12, 0, 0),
         "RightFoot": (12, 0, 0),
         "LeftArm": (-10, 0, 25),
         "RightArm": (-10, 0, -23),
         "LeftForeArm": (-35, 0, 5),
         "RightForeArm": (-32, 0, -5),
-        "Head": (-5, 0, 0),
+        "Head": (-40, 0, 0),
     },
     "cale_court": {
-        "Hips": (45, 0, 3),
+        "LeftShoulder": (1, 0, 4),
+        "RightShoulder": (1, 0, -4),
+        "Hips": (40, 0, 3),
         "Spine02": (-5, 0, -2),
         "Spine01": (-4, 0, 0),
         "Spine": (-3, 0, 0),
-        "neck": (-5, 0, 0),
+        "neck": (-21, 0, 0),
         "LeftUpLeg": (10, 0, -12),
         "RightUpLeg": (5, 0, 11),
-        "LeftLeg": (-30, 0, 0),
-        "RightLeg": (-25, 0, 0),
+        "LeftLeg": (-95, 0, 0),
+        "RightLeg": (-85, 0, 0),
         "LeftFoot": (10, 0, 0),
         "RightFoot": (8, 0, 0),
         "LeftArm": (0, 0, 35),
         "RightArm": (0, 0, -33),
         "LeftForeArm": (0, 0, 7),
         "RightForeArm": (0, 0, -7),
-        "Head": (-10, 0, 0),
+        "Head": (-45, 0, 0),
     },
     "demi_sorti": {
-        "Hips": (58, 0, 2),
+        "LeftShoulder": (0, 0, 3),
+        "RightShoulder": (1, 0, -3),
+        "Hips": (55, 0, 2),
         "Spine02": (-6, 0, -3),
         "Spine01": (-5, 0, 0),
         "Spine": (-3, 0, 0),
-        "neck": (-5, 0, 0),
+        "neck": (-21, 0, 0),
         "LeftUpLeg": (10, 0, -10),
         "RightUpLeg": (-20, 0, 8),
-        "LeftLeg": (-35, 0, 0),
-        "RightLeg": (10, 0, 0),
+        "LeftLeg": (-100, 0, 0),
+        "RightLeg": (-60, 0, 0),
         "LeftFoot": (12, 0, 0),
         "RightFoot": (-5, 0, 0),
         "LeftArm": (0, 0, 40),
         "RightArm": (0, 0, -38),
         "LeftForeArm": (-20, 0, 8),
         "RightForeArm": (-20, 0, -8),
-        "Head": (-15, 0, 0),
+        "Head": (-50, 0, 0),
     },
     "extension_extreme": {
-        "Hips": (80, 0, 0),
+        "LeftShoulder": (-3, 0, 2),
+        "RightShoulder": (2, 0, -6),
+        "Hips": (70, 0, 0),
         "Spine02": (-8, 0, -2),
         "Spine01": (-6, 0, 0),
         "Spine": (-4, 0, 0),
-        "neck": (-8, 0, 0),
+        "neck": (-24, 0, 0),
         "LeftUpLeg": (0, 0, -10),
         "RightUpLeg": (-45, 0, 5),
-        "LeftLeg": (-25, 0, 0),
-        "RightLeg": (25, 0, 0),
+        "LeftLeg": (-105, 0, 0),
+        "RightLeg": (-75, 0, 0),
         "LeftFoot": (16, 0, 0),
         "RightFoot": (-8, 0, 0),
         "LeftArm": (-20, 0, 40),
         "RightArm": (-15, 0, -35),
         "LeftForeArm": (-60, 0, 8),
         "RightForeArm": (-50, 0, -7),
-        "Head": (-20, 0, 0),
+        "Head": (-55, 0, 0),
     },
     "compression_transition": {
-        "Hips": (41, 0, -8),
+        "LeftShoulder": (3, 0, 6),
+        "RightShoulder": (0, 0, -3),
+        "Hips": (48, 0, -8),
         "Spine02": (15, 0, 4),
         "Spine01": (10, 0, 3),
         "Spine": (6, 0, 2),
-        "neck": (-10, 0, 0),
+        "neck": (-26, 0, 0),
         "LeftUpLeg": (50, 0, -12),
         "RightUpLeg": (-30, 0, 16),
-        "LeftLeg": (-65, 0, 0),
-        "RightLeg": (15, 0, 0),
+        "LeftLeg": (-115, 0, 0),
+        "RightLeg": (-50, 0, 0),
         "LeftFoot": (18, 0, 0),
         "RightFoot": (-5, 0, 0),
         "LeftArm": (-20, 0, 40),
         "RightArm": (-5, 0, -25),
         "LeftForeArm": (-55, 0, 7),
         "RightForeArm": (-35, 0, -10),
-        "Head": (-8, 0, 0),
+        "Head": (-43, 0, 0),
     },
 }
 
-# Respiration/reprise d'appui à l'apex. Les amplitudes restent sous 1,5° :
-# elles retirent l'effet mannequin sans concurrencer la simulation de gîte.
-APEX_OFFSETS_DEG = {
-    "Spine02": (1.5, 0.0, 0.0),
-    "Spine01": (1.0, 0.0, 0.0),
-    "Spine": (0.7, 0.0, 0.0),
-    "neck": (-0.8, 0.0, 0.0),
-    "LeftArm": (0.0, 0.0, 0.5),
-    "RightArm": (0.0, 0.0, -0.5),
+# ── MOUVEMENT PORTÉ PAR CHAQUE POSE ─────────────────────────────────────────
+#
+# Par os : amplitude en degrés sur (x, y, z), nombre de CYCLES sur la boucle, et
+# déphasage en tours. La valeur écrite à la clé est
+# `base + amplitude * sin(2π * (cycles * u + phase))`, avec u la progression
+# dans la boucle. Un nombre entier de cycles referme donc la boucle exactement,
+# ce que le rapport vérifie encore.
+#
+# ⚠️ CE QUE CES AMPLITUDES DOIVENT ÊTRE, ET CE QU'ELLES NE DOIVENT PAS ÊTRE.
+#
+# L'ancien jeu d'offsets était calibré comme un CLIP mélangé faiblement — sous
+# 1,5°, parce que le plafond de `setClipBlend` est à 0,35 et qu'un clip ne doit
+# pas concurrencer la mer. Mais ces cinq actions ne passent PAS par ce plafond :
+# elles sont des poses macro, tenues à 0,74 pour l'assise et jusqu'à 0,82 pour
+# la station. Ce qui est écrit ici arrive donc à l'écran quasiment au réel.
+#
+# 1,5° × 0,8 ne se voyait pas. Cinq degrés se voient. Vingt seraient de la
+# gymnastique : un homme sous charge respire et se rétablit, il ne danse pas.
+#
+# Les déphasages désolidarisent les membres. Sans eux, seize os montent et
+# descendent ensemble et le corps entier « pompe » — un défaut plus visible que
+# l'immobilité, parce qu'aucun corps réel ne fait ça.
+POSE_MOTION_DEG = {
+    # os                amplitude (x, y, z)   cycles  phase
+    "Spine02": ((5.0, 0.0, 1.2), 2.0, 0.00),
+    "Spine01": ((3.4, 0.0, 0.8), 2.0, 0.04),
+    "Spine": ((2.0, 0.0, 0.5), 2.0, 0.08),
+    "neck": ((-2.6, 1.4, 0.0), 2.0, 0.12),
+    # La tête suit sa propre horloge : c'est le seul os dont le décalage se lit
+    # à la distance de jeu, et il suffit à distinguer six hommes déphasés.
+    "Head": ((-2.0, 4.5, 0.0), 1.0, 0.30),
+    # Les clavicules. Elles n'étaient KEYÉES NULLE PART — huit os sur vingt-
+    # quatre ne l'étaient pas, et ce sont elles qui portent la ceinture
+    # scapulaire. Sans elles, l'épaule est une bille : le bras bouge, le buste
+    # ne l'accompagne jamais.
+    "LeftShoulder": ((1.6, 0.0, 3.2), 2.0, 0.02),
+    "RightShoulder": ((1.6, 0.0, -3.2), 2.0, 0.02),
+    "LeftArm": ((2.4, 0.0, 2.0), 1.0, 0.10),
+    "RightArm": ((2.4, 0.0, -2.0), 1.0, 0.60),
+    "LeftForeArm": ((3.0, 0.0, 0.0), 1.0, 0.15),
+    "RightForeArm": ((3.0, 0.0, 0.0), 1.0, 0.65),
+    "Hips": ((2.2, 1.6, 0.0), 1.0, 0.00),
+    # Les jambes en opposition de phase : un appui se charge pendant que
+    # l'autre se relâche. C'est ce report de poids qui fait « tenir », et il est
+    # invisible si les deux jambes bougent ensemble.
+    "LeftUpLeg": ((2.0, 0.0, 1.2), 1.0, 0.50),
+    "RightUpLeg": ((2.0, 0.0, -1.2), 1.0, 0.00),
+    "LeftLeg": ((-2.4, 0.0, 0.0), 1.0, 0.55),
+    "RightLeg": ((-2.4, 0.0, 0.0), 1.0, 0.05),
+    "LeftFoot": ((1.4, 0.0, 0.0), 1.0, 0.60),
+    "RightFoot": ((1.4, 0.0, 0.0), 1.0, 0.10),
 }
+
+# La transition n'est pas une boucle : elle est jouée par PROGRESSION de la
+# traversée, pas par le temps. Elle garde donc un seul cycle — comprimer, puis
+# rendre — et une amplitude plus franche, parce qu'elle décrit un geste et non
+# une tenue.
+TRANSITION_MOTION_GAIN = 2.1
+
+# Plancher d'amplitude d'une action, en degrés. Volontairement bas : on exige un
+# signe de vie, pas une chorégraphie. L'ancien jeu de poses plafonnait à 1,5° et
+# passait tous les contrôles.
+MINIMUM_ACTION_AMPLITUDE_DEG = 4.0
+
+
+def pose_keyframes(name: str) -> list[tuple[float, dict[str, tuple[float, float, float]]]]:
+    """Les clés d'une action, en degrés, dans l'ordre des frames.
+
+    ⚠️ UNE SEULE SOURCE DE VÉRITÉ, ET C'EST LE POINT DE CETTE FONCTION.
+    `scaffold_action` écrivait la formule, `action_summary` la RECOPIAIT pour
+    vérifier que le .blend correspondait toujours au seed. Deux recopies de la
+    même règle finissent toujours par diverger sans rien dire — le projet a
+    déjà payé ce défaut sur `HULL_STATIONS`. Les deux appellent désormais ici.
+    """
+    base_pose = POSE_ROTATIONS_DEG[name]
+    transition = name == "compression_transition"
+    frames = TRANSITION_FRAMES if transition else LOOP_FRAMES
+    gain = TRANSITION_MOTION_GAIN if transition else 1.0
+    keyed_bones = sorted(set(base_pose) | set(POSE_MOTION_DEG))
+    # Chaque action décale sa propre horloge : le runtime déphase déjà les six
+    # hommes entre eux, mais deux actions voisines qui démarreraient au même
+    # endroit du cycle rendraient ce déphasage illisible sur un changement de
+    # station.
+    offset = REQUIRED_ACTIONS.index(name) * 0.17
+    span = frames[-1] - frames[0]
+    keys: list[tuple[float, dict[str, tuple[float, float, float]]]] = []
+    for frame in frames:
+        progress = (frame - frames[0]) / span if span else 0.0
+        angles: dict[str, tuple[float, float, float]] = {}
+        for bone_name in keyed_bones:
+            base = base_pose.get(bone_name, (0.0, 0.0, 0.0))
+            amplitude, cycles, phase = POSE_MOTION_DEG.get(
+                bone_name, ((0.0, 0.0, 0.0), 1.0, 0.0)
+            )
+            # La traversée est un GESTE, pas une tenue : un seul aller-retour,
+            # quel que soit le rythme propre de l'os dans les boucles.
+            if transition:
+                cycles = 1.0
+            wave = math.sin(math.tau * (cycles * progress + phase + offset))
+            angles[bone_name] = tuple(
+                float(base[axis]) + float(amplitude[axis]) * gain * wave
+                for axis in range(3)
+            )
+        keys.append((float(frame), angles))
+    return keys
+
+
+def action_keyed_bones(name: str) -> list[str]:
+    return sorted(set(POSE_ROTATIONS_DEG[name]) | set(POSE_MOTION_DEG))
 
 EXPECTED_BONES = (
     "Hips",
@@ -256,6 +433,14 @@ def parse_arguments() -> argparse.Namespace:
         "--force-prepare",
         action="store_true",
         help="Autorise la régénération du .blend candidat. Jamais la production.",
+    )
+    parser.add_argument(
+        "--reauthor-actions",
+        action="store_true",
+        help=(
+            "Réécrit les cinq Actions depuis les seeds au lieu de conserver "
+            "celles du .blend. Décision explicite : elle écrase le posing."
+        ),
     )
     parser.add_argument(
         "--require-authored-actions",
@@ -401,10 +586,20 @@ def reset_pose(armature: bpy.types.Object) -> None:
     bpy.context.view_layer.update()
 
 
-def scaffold_action(armature: bpy.types.Object, name: str) -> bpy.types.Action:
+def scaffold_action(
+    armature: bpy.types.Object, name: str, reauthor: bool = False
+) -> bpy.types.Action:
     action = bpy.data.actions.get(name)
-    if action is not None:
+    if action is not None and not reauthor:
         return action
+    if action is not None:
+        # Réécriture demandée : le datablock est jeté et refait. Les cinq
+        # actions sont ENTIÈREMENT dérivées du seed — `declaredSeedMatches` le
+        # vérifiait déjà à chaque export — donc il n'y a rien de fait main à
+        # préserver ici. Le jour où il y en aura, ce sera à `--reauthor-actions`
+        # de rester une décision explicite, ce qu'elle est.
+        armature.animation_data_clear()
+        bpy.data.actions.remove(action)
 
     action = bpy.data.actions.new(name=name)
     action.use_fake_user = True
@@ -417,37 +612,20 @@ def scaffold_action(armature: bpy.types.Object, name: str) -> bpy.types.Action:
 
     animation = armature.animation_data_create()
     animation.action = action
-    base_pose = POSE_ROTATIONS_DEG[name]
-    frames = TRANSITION_FRAMES if name == "compression_transition" else LOOP_FRAMES
-    keyed_bones = sorted(set(base_pose) | set(APEX_OFFSETS_DEG))
+    keyed_bones = action_keyed_bones(name)
     missing_bones = [bone_name for bone_name in keyed_bones if bone_name not in armature.pose.bones]
     if missing_bones:
         raise CrewBuildError(
             f"Os requis absents pour {name} : {', '.join(missing_bones)}"
         )
 
-    # Un très léger regard alterné empêche les six clones de respirer comme
-    # un seul homme quand leurs actions sont déphasées dans le runtime.
-    head_y_apex = 0.8 if REQUIRED_ACTIONS.index(name) % 2 == 0 else -0.8
-    for frame_index, frame in enumerate(frames):
-        at_apex = frame_index == 1
+    for frame, angles in pose_keyframes(name):
         for bone_name in keyed_bones:
             pose_bone = armature.pose.bones[bone_name]
             pose_bone.rotation_mode = "XYZ"
-            base = base_pose.get(bone_name, (0.0, 0.0, 0.0))
-            offset = APEX_OFFSETS_DEG.get(bone_name, (0.0, 0.0, 0.0))
-            if bone_name == "Head" and at_apex:
-                offset = (
-                    offset[0],
-                    offset[1] + head_y_apex,
-                    offset[2],
-                )
-            angles = (
-                math.radians(base[0] + (offset[0] if at_apex else 0.0)),
-                math.radians(base[1] + (offset[1] if at_apex else 0.0)),
-                math.radians(base[2] + (offset[2] if at_apex else 0.0)),
+            pose_bone.rotation_euler = tuple(
+                math.radians(value) for value in angles[bone_name]
             )
-            pose_bone.rotation_euler = angles
             inserted = pose_bone.keyframe_insert(
                 data_path="rotation_euler",
                 frame=frame,
@@ -458,11 +636,22 @@ def scaffold_action(armature: bpy.types.Object, name: str) -> bpy.types.Action:
                     f"Impossible de créer les clés de {name}/{pose_bone.name}."
                 )
 
+    # ⚠️ LINÉAIRE, ET CE N'EST PAS UN DÉTAIL DE CONFORT.
+    #
+    # Avec des poignées Bézier et `export_force_sampling=False`, l'exportateur
+    # glTF sort du CUBICSPLINE : la spec y range TROIS quaternions par clé —
+    # tangente entrante, valeur, tangente sortante. `GLTFLoader` laisse ce
+    # tampon tel quel, et le consommateur qui lit `values[k * 4]` ramène alors
+    # une TANGENTE. Celles d'une pose Blender valent (0, 0, 0, 0), et un
+    # quaternion nul finit en échelle d'os — c'est le défaut mesuré le 4 août.
+    #
+    # Le runtime sait désormais lire les deux pas, mais rien ne justifie de
+    # tripler le tampon : `CrewClipLibrary` interpole en slerp et ignore de
+    # toute façon les tangentes. Douze intervalles par boucle rendent la corde
+    # indiscernable de la courbe.
     for fcurve in iter_action_fcurves(action):
         for point in fcurve.keyframe_points:
-            point.interpolation = "BEZIER"
-            point.handle_left_type = "AUTO_CLAMPED"
-            point.handle_right_type = "AUTO_CLAMPED"
+            point.interpolation = "LINEAR"
     animation.action = None
     reset_pose(armature)
     return action
@@ -488,6 +677,7 @@ def configure_master(
     armature: bpy.types.Object,
     mesh: bpy.types.Object,
     source: Path,
+    reauthor_actions: bool = False,
 ) -> None:
     reset_pose(armature)
     armature.name = "CrewArmature"
@@ -501,7 +691,7 @@ def configure_master(
     move_to_collection(mesh, export_collection)
 
     for action_name in REQUIRED_ACTIONS:
-        scaffold_action(armature, action_name)
+        scaffold_action(armature, action_name, reauthor=reauthor_actions)
 
     scene = bpy.context.scene
     scene.render.fps = FPS
@@ -526,7 +716,7 @@ def configure_master(
         pass
 
 
-def prepare_scene(source: Path) -> dict:
+def prepare_scene(source: Path, reauthor_actions: bool = False) -> dict:
     if not source.is_file():
         raise CrewBuildError(f"Source GLB introuvable : {source}")
 
@@ -551,7 +741,7 @@ def prepare_scene(source: Path) -> dict:
     removed_actions = remove_null_actions()
     custom_shapes = clear_custom_shapes((armature,))
     removed_helpers = remove_helper_meshes(mesh)
-    configure_master(armature, mesh, source)
+    configure_master(armature, mesh, source, reauthor_actions=reauthor_actions)
 
     return {
         "nullActionsRemoved": removed_actions,
@@ -560,12 +750,12 @@ def prepare_scene(source: Path) -> dict:
     }
 
 
-def upgrade_scene(source: Path) -> dict:
+def upgrade_scene(source: Path, reauthor_actions: bool = False) -> dict:
     """Complète un master interactif sans toucher à ses collections QA."""
     armature, mesh = imported_rig()
     removed_actions = remove_null_actions()
     custom_shapes = clear_custom_shapes((armature,))
-    configure_master(armature, mesh, source)
+    configure_master(armature, mesh, source, reauthor_actions=reauthor_actions)
     return {
         "nullActionsRemoved": removed_actions,
         "customShapesCleared": custom_shapes,
@@ -625,38 +815,18 @@ def action_summary(action: bpy.types.Action) -> dict:
 
     seed_matches: bool | None = None
     if action.name in POSE_ROTATIONS_DEG:
-        base_pose = POSE_ROTATIONS_DEG[action.name]
-        frames = (
-            TRANSITION_FRAMES
-            if action.name == "compression_transition"
-            else LOOP_FRAMES
-        )
-        keyed_bones = sorted(set(base_pose) | set(APEX_OFFSETS_DEG))
+        keyed_bones = action_keyed_bones(action.name)
         curve_map = {
             (curve.data_path, curve.array_index): curve
             for curve in curves
         }
         seed_matches = len(curves) == len(keyed_bones) * 3
-        head_y_apex = (
-            0.8 if REQUIRED_ACTIONS.index(action.name) % 2 == 0 else -0.8
-        )
-        for frame_index, frame in enumerate(frames):
-            at_apex = frame_index == 1
+        for frame, angles in pose_keyframes(action.name):
             for bone_name in keyed_bones:
-                base = base_pose.get(bone_name, (0.0, 0.0, 0.0))
-                offset = APEX_OFFSETS_DEG.get(bone_name, (0.0, 0.0, 0.0))
-                if bone_name == "Head" and at_apex:
-                    offset = (
-                        offset[0],
-                        offset[1] + head_y_apex,
-                        offset[2],
-                    )
                 data_path = f'pose.bones["{bone_name}"].rotation_euler'
                 for axis in range(3):
                     curve = curve_map.get((data_path, axis))
-                    expected = math.radians(
-                        base[axis] + (offset[axis] if at_apex else 0.0)
-                    )
+                    expected = math.radians(angles[bone_name][axis])
                     if curve is None or not math.isclose(
                         float(curve.evaluate(frame)),
                         expected,
@@ -664,6 +834,32 @@ def action_summary(action: bpy.types.Action) -> dict:
                         abs_tol=1e-6,
                     ):
                         seed_matches = False
+
+    # ── AMPLITUDE ────────────────────────────────────────────────────────────
+    #
+    # ⚠️ LA MESURE QUI MANQUAIT, ET QUI A LAISSÉ PASSER CINQ POSES FIGÉES.
+    #
+    # Tout ce qui précède COMPTE : des courbes, des clés, des os, des chemins.
+    # Rien ne comparait jamais deux clés entre elles. Une action de trois clés
+    # rigoureusement identiques cochait donc `authored`, `loopClosed`,
+    # `minimumKeysPerCurve` et sortait `productionReady`.
+    #
+    # `frozenCurves` compte les courbes plates, `amplitudeMaxDeg` mesure la plus
+    # grande excursion de l'action. Une action dont l'amplitude ne dépasse pas
+    # `MINIMUM_ACTION_AMPLITUDE_DEG` n'est pas une animation : c'est une pose.
+    frozen_curves = 0
+    amplitude_max = 0.0
+    amplitude_bone = ""
+    for curve in curves:
+        values = [float(point.co.y) for point in curve.keyframe_points]
+        if not values:
+            continue
+        excursion = math.degrees(max(values) - min(values))
+        if excursion <= 1e-9:
+            frozen_curves += 1
+        if excursion > amplitude_max:
+            amplitude_max = excursion
+            amplitude_bone = curve.data_path
 
     return {
         "name": action.name,
@@ -674,6 +870,10 @@ def action_summary(action: bpy.types.Action) -> dict:
         "rotationOnly": rotation_only,
         "loopClosed": loop_closed,
         "authored": authored,
+        "amplitudeMaxDeg": round(amplitude_max, 3),
+        "amplitudeBone": amplitude_bone,
+        "frozenCurves": frozen_curves,
+        "animated": amplitude_max >= MINIMUM_ACTION_AMPLITUDE_DEG,
         "contactValidated": bool(action.get("ybb_contact_validated", False)),
         "declaredStatus": action.get("ybb_status", "unknown"),
         "declaredSeedMatches": seed_matches,
@@ -751,6 +951,12 @@ def validate_scene() -> dict:
     unauthored_actions = [
         name for name, info in actions.items() if not info["authored"]
     ]
+    # `authored` ne dit que « au moins une clé sort de l'identité » : une pose
+    # tenue trois clés durant le satisfait. `frozen_actions` dit si l'action
+    # BOUGE, ce qui n'a jamais été vérifié nulle part.
+    frozen_actions = [
+        name for name, info in actions.items() if not info["animated"]
+    ]
     unvalidated_contacts = [
         name for name, info in actions.items() if not info["contactValidated"]
     ]
@@ -777,6 +983,7 @@ def validate_scene() -> dict:
         "allRequiredActionsPresent": not missing_actions,
         "allActionsStructurallyValid": not invalid_actions,
         "allActionsAuthored": not unauthored_actions,
+        "allActionsAnimated": not frozen_actions,
         "allDeclaredSeedsMatch": all(
             info["declaredSeedMatches"] is not False
             for info in actions.values()
@@ -801,6 +1008,8 @@ def validate_scene() -> dict:
         "missingActions": missing_actions,
         "invalidActions": invalid_actions,
         "unauthoredActions": unauthored_actions,
+        "frozenActions": frozen_actions,
+        "minimumActionAmplitudeDeg": MINIMUM_ACTION_AMPLITUDE_DEG,
         "unvalidatedContacts": unvalidated_contacts,
         "checks": checks,
         "structuralOk": all(checks[key] for key in structural_keys),
@@ -962,7 +1171,7 @@ def main() -> int:
                     "Utiliser --mode export pour préserver le posing, ou "
                     "--force-prepare pour repartir explicitement de la source."
                 )
-            cleanup = prepare_scene(args.source)
+            cleanup = prepare_scene(args.source, reauthor_actions=args.reauthor_actions)
             scene_report = validate_scene()
             if not scene_report["structuralOk"]:
                 raise CrewBuildError("La scène préparée viole le contrat structurel.")
@@ -973,7 +1182,7 @@ def main() -> int:
             result = bpy.ops.wm.open_mainfile(filepath=str(args.blend_out))
             if "FINISHED" not in result:
                 raise CrewBuildError(f"Ouverture .blend échouée : {result}")
-            cleanup = upgrade_scene(args.source)
+            cleanup = upgrade_scene(args.source, reauthor_actions=args.reauthor_actions)
             scene_report = validate_scene()
             if not scene_report["structuralOk"]:
                 raise CrewBuildError("Le master upgradé viole le contrat structurel.")

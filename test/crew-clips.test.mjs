@@ -355,6 +355,64 @@ const actions = [
     `amplitude de respiration hors échelle : ${degres.toFixed(2)}° (on vise ~1,7°)`);
 }
 
+// ── PISTES CUBICSPLINE ───────────────────────────────────────────────────────
+//
+// ⚠️ NON-RÉGRESSION D'UN DÉFAUT QUI A ÉTÉ LIVRÉ, ET QUI NE SE VOYAIT PAS.
+//
+// En CUBICSPLINE, la spec glTF range TROIS quaternions par clé — tangente
+// entrante, VALEUR, tangente sortante — et `GLTFLoader` laisse ce tampon brut
+// dans `track.values` : il ne remplace que la fabrique d'interpolant. Le
+// `sample` d'origine indexait `values[k * 4]` et ramenait donc une TANGENTE.
+//
+// Celles d'une pose exportée depuis Blender valent (0, 0, 0, 0). Aux bornes de
+// la boucle, l'os recevait ce quaternion NUL ; `Quaternion.slerp` le propage
+// sans renormaliser, et `Matrix4.compose` lit une norme n comme une ÉCHELLE de
+// n². Mesuré sur le GLB livré : jusqu'à 0,66 d'écart à la norme, soit des corps
+// entre 0,11× et 2,7× de leur taille, en boucle et à contretemps.
+//
+// L'asset est repassé en LINEAR, ce qui retire le déclencheur — raison de plus
+// pour verrouiller la LECTURE ici : le jour où un export repasse en
+// CUBICSPLINE, c'est ce test qui doit tomber, pas la silhouette en jeu.
+{
+  const valeurDeCle = axeVersQuat(0, 1, 0, 0.8);
+  const cubique = {
+    name: "Spine.quaternion",
+    times: new Float32Array([0, 0.5, 1.0]),
+    // tangente nulle · valeur · tangente nulle, pour chacune des trois clés
+    values: new Float32Array([
+      0, 0, 0, 0, ...valeurDeCle, 0, 0, 0, 0,
+      0, 0, 0, 0, ...valeurDeCle, 0, 0, 0, 0,
+      0, 0, 0, 0, ...valeurDeCle, 0, 0, 0, 0
+    ])
+  };
+  const bibliotheque = new CrewClipLibrary([
+    { name: "pont_interieur", duration: 1.0, tracks: [cubique] }
+  ]);
+  assert.ok(bibliotheque.has("pont_interieur"),
+    "une piste CUBICSPLINE valide a été rejetée à l'indexation");
+
+  const q = new THREE.Quaternion();
+  // Les BORNES sont le cœur du test : c'est là que le tampon était lu de
+  // travers, et un balayage qui les éviterait ne verrait rien.
+  for (const t of [0, 1e-6, 0.25, 0.5, 0.75, 0.999999, 1.0, 1.5, 2.0]) {
+    assert.ok(bibliotheque.sample("pont_interieur", "Spine", t, q),
+      `aucune valeur échantillonnée à t=${t}`);
+    assert.ok(Math.abs(q.length() - 1) < 1e-3,
+      `quaternion non unitaire à t=${t} : norme ${q.length().toFixed(4)} — l'os arriverait à l'écran avec une ÉCHELLE de ${(q.length() ** 2).toFixed(2)}`);
+    assert.ok(Math.abs(q.y - valeurDeCle[1]) < 1e-3,
+      `valeur lue à t=${t} : ${q.y.toFixed(4)} au lieu de ${valeurDeCle[1].toFixed(4)} — une tangente a été prise pour une clé`);
+  }
+
+  // Et le pas de quatre reste lu comme avant : la déduction ne doit pas casser
+  // les clips fabriqués en code, qui n'ont jamais eu de tangentes.
+  const lineaire = new CrewClipLibrary([
+    clip("charge", 1.0, [piste("Spine", [[0, valeurDeCle], [1.0, valeurDeCle]])])
+  ]);
+  lineaire.sample("charge", "Spine", 0, q);
+  assert.ok(Math.abs(q.y - valeurDeCle[1]) < 1e-6,
+    "une piste à quatre flottants par clé n'est plus lue correctement");
+}
+
 console.log(JSON.stringify({
   ok: true,
   actionsAttendues: CREW_CLIPS,
