@@ -172,11 +172,50 @@ export function normalizeTrackTarget(name) {
   return cible.replace(/[^\w]/g, "");
 }
 
+// ⚠️ UNE PISTE glTF N'A PAS TOUJOURS QUATRE FLOTTANTS PAR CLÉ.
+//
+// En CUBICSPLINE, la spec range TROIS quaternions par clé — tangente entrante,
+// VALEUR, tangente sortante — et `GLTFLoader` laisse ce tampon tel quel dans
+// `track.values` : il ne remplace que la fabrique d'interpolant. Lire
+// `values[k * 4]` ramène donc une tangente, et les tangentes d'une pose exportée
+// depuis Blender valent (0, 0, 0, 0).
+//
+// ⚠️ MESURÉ LE 4 AOÛT 2026 SUR LE GLB LIVRÉ, ET CE N'ÉTAIT PAS BÉNIN.
+// Les cinq poses macro sont exportées en CUBICSPLINE. Aux bornes de la boucle
+// (`t <= times[0]`, `t >= times[dernier]`) `sample` rendait le quaternion NUL.
+// `Quaternion.slerp` le propage SANS renormaliser — il n'y a pas de division
+// par la norme dans ce chemin — et un quaternion de norme n arrive au bout de
+// `Matrix4.compose` comme une ÉCHELLE de n². Chaque corps s'effondrait à ~16 %
+// de sa taille pendant 1,4 % de son cycle, en boucle et à contretemps d'un
+// homme à l'autre. À l'intérieur du cycle le défaut se voyait moins : la
+// normalisation manuelle de `sample` ramenait par chance la bonne valeur.
+//
+// On DÉDUIT donc le pas du tampon au lieu de le supposer.
+function trackStride(track) {
+  const cles = track?.times?.length ?? 0;
+  if (cles < MINIMUM_KEYS) return 0;
+  const pas = track.values.length / cles;
+  return pas === 4 || pas === 12 ? pas : 0;
+}
+
+// Écrit une clé dans `out`, sauf si elle est dégénérée. Le seuil est large :
+// on ne cherche pas à valider une normalisation, seulement à ne jamais laisser
+// passer un quaternion dont la norme se transformerait en échelle d'os.
+function ecritCle(values, base, out) {
+  const x = values[base];
+  const y = values[base + 1];
+  const z = values[base + 2];
+  const w = values[base + 3];
+  if (!(x * x + y * y + z * z + w * w > 0.25)) return false;
+  out.set(x, y, z, w);
+  return true;
+}
+
 function isQuaternionTrack(track) {
   return typeof track?.name === "string"
     && track.name.endsWith(".quaternion")
     && track.values?.length >= 8
-    && track.times?.length >= MINIMUM_KEYS;
+    && trackStride(track) > 0;
 }
 
 /**
@@ -199,7 +238,18 @@ export class CrewClipLibrary {
         continue;
       }
       const os = new Map();
-      for (const piste of pistes) os.set(normalizeTrackTarget(piste.name), piste);
+      // Le pas et le décalage de valeur sont résolus UNE FOIS, à l'indexation :
+      // `sample` tourne par os et par corps à chaque frame et n'a pas à
+      // redécouvrir la disposition du tampon.
+      for (const piste of pistes) {
+        const pas = trackStride(piste);
+        os.set(normalizeTrackTarget(piste.name), {
+          times: piste.times,
+          values: piste.values,
+          pas,
+          decalage: pas === 12 ? 4 : 0
+        });
+      }
       this.actions.set(this.constructor.canonical(nom), {
         name: nom,
         duration: duree,
@@ -276,20 +326,24 @@ export class CrewClipLibrary {
 
     const times = piste.times;
     const values = piste.values;
+    const pas = piste.pas;
+    const decalage = piste.decalage;
     const dernier = times.length - 1;
     // Les actions bouclent : un rappel n'a pas de fin.
     const duree = entree.duration || times[dernier] || 1;
     let t = time % duree;
     if (t < 0) t += duree;
 
+    // Les deux bornes rendent une clé BRUTE, sans passer par la normalisation
+    // du chemin interpolé. Un quaternion dégénéré y arriverait donc intact
+    // jusqu'à l'os, où il se lirait comme une échelle — le défaut mesuré le
+    // 4 août. On refuse plutôt de répondre : l'os garde son repos, ce qui est
+    // le comportement déjà prévu pour un os non animé.
     if (t <= times[0]) {
-      out.set(values[0], values[1], values[2], values[3]);
-      return true;
+      return ecritCle(values, decalage, out);
     }
     if (t >= times[dernier]) {
-      const b = dernier * 4;
-      out.set(values[b], values[b + 1], values[b + 2], values[b + 3]);
-      return true;
+      return ecritCle(values, dernier * pas + decalage, out);
     }
 
     // Recherche dichotomique : une action de 2 s à 30 fps porte 60 clés, et on
@@ -304,8 +358,8 @@ export class CrewClipLibrary {
     }
     const span = times[haut] - times[bas];
     const alpha = span > 1e-9 ? (t - times[bas]) / span : 0;
-    const a = bas * 4;
-    const b = haut * 4;
+    const a = bas * pas + decalage;
+    const b = haut * pas + decalage;
 
     // ⚠️ SLERP ÉCRIT À LA MAIN, ET CE N'EST PAS UNE RÉINVENTION GRATUITE.
     // `THREE.Quaternion.slerp(qb, t)` lit les champs PRIVÉS de sa cible

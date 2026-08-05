@@ -47,5 +47,31 @@ if (controlledByOldWorker && !resetAlreadyReloaded) {
 } else {
   await resetLocalDevelopmentCache();
   sessionStorage.removeItem(LOCAL_RESET_KEY);
-  await import("./main.js");
+  try {
+    await import("./main.js");
+  } catch (error) {
+    // Un graphe de modules incohérent (typiquement un ancien service worker
+    // local qui mélange deux builds) ne doit jamais laisser un bouton JOUER
+    // apparemment cliquable mais sans gestionnaire. On rend l'échec explicite
+    // et le bouton de reprise nettoie une dernière fois l'atelier avant reload.
+    console.error("Démarrage du jeu impossible :", error);
+    const loading = document.getElementById("loading");
+    const menu = document.getElementById("menu");
+    const fatal = document.getElementById("fatal");
+    const fatalText = document.getElementById("fatalText");
+    const retry = document.getElementById("retryBtn");
+    loading?.classList.add("hidden");
+    menu?.classList.add("hidden");
+    fatal?.classList.remove("hidden");
+    if (fatalText) {
+      fatalText.textContent = "Une ancienne version locale bloque le démarrage. Appuie sur RÉESSAYER pour nettoyer le cache et relancer le jeu.";
+    }
+    if (retry) {
+      retry.onclick = async () => {
+        retry.disabled = true;
+        await resetLocalDevelopmentCache();
+        location.reload();
+      };
+    }
+  }
 }

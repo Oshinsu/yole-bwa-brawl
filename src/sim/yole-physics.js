@@ -17,7 +17,22 @@ export function crewMechanicalAuthority(activeCrew) {
   return 1 - mechanicalLosses * 0.08;
 }
 
-// Eight longitudinal stations × port/starboard. z<0 is bow in this model.
+// Eight longitudinal stations × port/starboard.
+//
+// ⚠️ z>0 EST LA PROUE. Cette ligne annonçait l'inverse depuis l'origine, et
+// c'était FAUX — au point que la table d'équipage a été construite dessus.
+//
+// Les trois autorités disent la même chose, et aucune ne dit ce qui était écrit :
+//   1. `forward(out)` juste en dessous rend `(sin heading, cos heading)`, donc à
+//      cap nul la yole avance vers +z ;
+//   2. `yole-visual.js` pose `root.rotation.y = state.heading`, ce qui envoie
+//      le +z LOCAL du modèle sur ce vecteur d'avance ;
+//   3. la coque elle-même : la station la plus fine est ici z=+4,82 (0,223 m de
+//      demi-largeur) contre 0,348 m à z=−5,05, et le mesh ne relève son étrave
+//      qu'à l'extrémité +z.
+//
+// Conséquence corrigée le 4 août 2026 : le patron et sa pagaie de gouverne
+// travaillaient à la PROUE, et le bwa laissé libre pour lui aussi.
 //
 // ⚠️ RECALÉES SUR LA COQUE VISIBLE LE 2 AOÛT 2026. CHANGEMENT AUTORITAIRE.
 //

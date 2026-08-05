@@ -98,11 +98,23 @@ const CREW_HIKE_YAW = 1.36;
 // Bascule du buste au-dessus de l'eau. L'ancienne valeur (0,62 rad appliquée à
 // la racine) tenait l'homme presque droit ; la photo montre un renversement
 // franc, tête plus basse que le bassin sur les hommes du bout.
-// ⚠️ Valeur RETENUE APRÈS CAPTURE, pas calculée. À 1,62 (66° mesurés) les
-// hommes passaient à l'horizontale et lisaient comme des plongeurs en vol :
-// épaules très au large, bras traînant derrière, plus aucune assise lisible.
-// 1,30 donne ~50°, ce que montrent les photos de course.
-const CREW_HIKE_RECLINE = 1.30;
+//
+// ⚠️ RAMENÉ À 1,62 LE 4 AOÛT 2026, SUR PHOTOS DE COURSE FOURNIES.
+//
+// Cette valeur avait été reculée à 1,30 parce qu'à 1,62 « les hommes passaient
+// à l'horizontale et lisaient comme des plongeurs en vol ». Les photos du Tour
+// montrent EXACTEMENT ça : au rappel plein le corps est horizontal, tête plus
+// basse que le bassin, jambes repliées vers la coque. Le défaut de l'époque
+// n'était donc pas le renversement mais ce qui l'accompagnait — bras traînant
+// derrière et assise illisible, deux points corrigés depuis (`bindSplay`,
+// contacts IK sur le bwa).
+//
+// ⚠️ ET CE N'EST PLUS LE LEVIER PRINCIPAL. Depuis que l'assise et la station
+// tiennent l'essentiel de l'autorité, `syncRig` ne laisse au procédural que
+// 41 % de son amplitude. Le renversement se joue donc surtout dans les seeds de
+// `tools/build_crew_asset.py` (`Hips`), et cette constante ne fait plus que
+// l'accompagner. Mesure de contrôle : `tools/mesure_silhouette_equipage.mjs`.
+const CREW_HIKE_RECLINE = 1.62;
 // Ouverture des cuisses de part et d'autre du bois. C'est ce qui fait lire
 // « à califourchon » plutôt que « posé dessus ».
 const CREW_STRADDLE = 0.34;
@@ -174,10 +186,19 @@ const CREW_PROCEDURAL_HIP_HEIGHT = 0.38;
 // changent pas : le plancher `porteeAuVentMin > 4.40` reste tenu.
 const BEAM_LAYOUT = [[-1.85, 5.4], [-1.22, 5.7], [-0.60, 5.9], [0.0, 6.0], [0.58, 5.8], [1.18, 5.6], [1.80, 5.3]];
 
-// Quel bois porte quel équipier, de la proue vers la poupe. Dans le repère du
-// bateau z<0 est la proue (le turbo est à z>0) : l'ancienne table était
-// inversée et faisait partir le « premier dresseur » depuis l'arrière. Le bois
-// 6 reste libre près de la poupe, où travaille le patron à la grande pagaie.
+// Quel bois porte quel équipier. Le septième reste libre.
+//
+// ⚠️ LE COMMENTAIRE QUI TENAIT ICI ÉTAIT FAUX, PAS LA TABLE.
+// Il disait « z<0 est la proue » — d'après `yole-physics.js`, qui l'annonçait
+// aussi et se trompait. La yole avance vers +z (démonstration en tête de
+// `HULL_STATIONS`), donc le bois libre en 6 est à la PROUE, pas à la poupe, et
+// le patron ne travaille pas là.
+//
+// La table, elle, reste juste et n'est pas décalée pour autant : le patron est
+// désormais en z=−4,18, à 2,3 m du bois le plus proche, donc il a sa place sans
+// qu'on déplace six hommes. Les longueurs de perche ne sont d'ailleurs pas
+// interchangeables — réattribuer les bois faisait dépasser un équipier de
+// 0,98 m au-delà du sien pendant une traversée (`crew-seating`).
 const CREW_BEAMS = [0, 1, 2, 3, 4, 5];
 
 // Six postes, mais seulement trois familles visuelles. Une bordée crédible
@@ -213,6 +234,23 @@ export function crewPoseForStation(station) {
   return CREW_STATION_POSES[station] ?? null;
 }
 
+// Poids de l'assise, tenu en permanence sous la station. Il est HAUT et pas
+// « faible comme un clip » : ce n'est pas une texture de vie mélangée sous la
+// simulation, c'est la pose du corps quand il est encore dans le bateau. Sans
+// elle, ce moment-là n'avait aucune pose du tout.
+export const CREW_SEAT_POSE_WEIGHT = 0.74;
+
+// Autorité de la station à pleine sortie. Elle recouvre l'assise plutôt que le
+// bind, donc elle peut monter plus haut qu'avant sans écraser la simulation :
+// ce qu'elle remplace est déjà une pose posée à la main, pas un repos neutre.
+export const CREW_STATION_POSE_WEIGHT = 0.82;
+
+/** Pose tenue tant que l'homme n'est pas sorti au rappel. */
+export function selectCrewSeatAction(library) {
+  const action = CREW_STATION_POSES.interieur;
+  return library?.has(action) ? action : null;
+}
+
 export function selectCrewPoseAction(library, role, station) {
   if (!library) return null;
   const action = role === "patron" || role === "ecoute"
@@ -234,9 +272,29 @@ export const CREW_CONTACT_LEAD_FOOT = 1;
 // À l'extension maximale, une jambe s'accroche et l'autre équilibre la
 // silhouette. Pendant la compression de traversée, le pied directeur reste
 // seul verrouillé afin que l'autre puisse réellement changer d'appui.
+// ⚠️ SEUIL D'OVERLAY RELEVÉ DE 0,05 À 0,35 LE 4 AOÛT 2026 — C'EST LUI QUI
+// DÉCROCHAIT L'ÉQUIPAGE.
+//
+// Libérer un pied n'a de sens que pour l'homme en extension maximale, ou pour
+// celui qui change réellement d'appui. Mais `compression` vaut
+// `max(transferCrouch, brace × 0,58, catchLoad × 0,72)` : sous charge tenue, à
+// gîte installée, la seule reprise d'appui suffisait à le porter au-dessus de
+// 0,05. Mesuré dans le jeu à 30° de gîte, sans le moindre changement de bord :
+// les SIX équipiers en `overlayWeight` 0,155 à 0,167, donc les six en mode
+// pied directeur seul — chacun avec une jambe pendante dans le vide, entre
+// 0,53 et 0,66 m du bois.
+//
+// C'est ce que le joueur lit comme « ils sont détachés des bois » : le bassin
+// est pourtant posé au millimètre et la main directrice agrippe à 3 cm. Six
+// jambes qui pendent suffisent à défaire les deux.
+//
+// Une VRAIE traversée pousse `transferCrouch` vers 1, donc l'overlay vers 0,68 :
+// le seuil de 0,35 la laisse passer intacte et ferme la porte au reste.
+const CREW_TRANSFER_FOOT_RELEASE = 0.35;
+
 export function crewContactMode(poseAction, overlayAction, overlayWeight = 0, poseWeight = 1) {
   return (poseAction === "extension_extreme" && poseWeight > 0.05)
-    || (overlayAction === "compression_transition" && overlayWeight > 0.05)
+    || (overlayAction === "compression_transition" && overlayWeight > CREW_TRANSFER_FOOT_RELEASE)
     ? CREW_CONTACT_LEAD_FOOT
     : CREW_CONTACT_BOTH_FEET;
 }
@@ -266,15 +324,32 @@ export function crewProfileDeployment(profile, deployment) {
 // le nouveau rappel, le dernier garde l'ancien appui un peu plus longtemps.
 // Ces délais ne touchent qu'au dessin : la physique reste entièrement dans
 // YoleDynamics et les checksums de replay ne dépendent pas du framerate.
+// Amplitude du ballant de sortie, en mètres. Volontairement petite : c'est un
+// ajustement d'appui contre la risée, pas un va-et-vient. À 5,5 cm sur une
+// perche qui porte à près de 4 m, ça se lit comme de la vie et jamais comme un
+// homme qui glisse. La marge au bout du bois est de 1,34 m — il n'y a aucun
+// risque de sortir de la perche, et `crew-seating` le vérifie.
+const CREW_REACH_BREATH = 0.055;
+
 const CREW_SIDE_DELAYS = [0, 0.07, 0.14, 0.22, 0.32, 0.50];
 const CREW_SIDE_TRAVEL = 0.46;
 export const CREW_ROLES = Object.freeze([
   "premier", "corde", "dresseur", "ecopeur", "dresseur", "dernier"
 ]);
 export const CREW_SPECIALIST_ROLES = Object.freeze(["ecoute", "patron"]);
+// ⚠️ LES DEUX POSTES ÉTAIENT DU MAUVAIS CÔTÉ, POUR LA MÊME RAISON.
+//
+// Avec +z pour proue, l'ancien patron en z=+4,18 gouvernait DEPUIS L'AVANT — un
+// homme debout à l'étrave, une pagaie de 3,55 m dont la pale sortait de la
+// coque, et rien à faire là. Il gouverne désormais depuis la poupe, où sa
+// pagaie a un bras de levier.
+//
+// L'écoute suivait : il tenait la corde de la voile 22 cm DEVANT le mât
+// (`this.mast.position.z = 0.5`). On borde une écoute derrière le mât, sinon la
+// corde traverse le gréement.
 const CREW_SPECIALISTS = Object.freeze([
-  Object.freeze({ role: "ecoute", x: -0.34, z: 0.72 }),
-  Object.freeze({ role: "patron", x: 0.42, z: 4.18 })
+  Object.freeze({ role: "ecoute", x: -0.34, z: -0.28 }),
+  Object.freeze({ role: "patron", x: 0.42, z: -4.18 })
 ]);
 
 const motionPulse = (value, enterStart, enterEnd, leaveStart, leaveEnd) =>
@@ -286,6 +361,16 @@ const motionPulse = (value, enterStart, enterEnd, leaveStart, leaveEnd) =>
 // décalage depuis la longueur propre à chaque bwa évite qu'un bois court et un
 // bois long aient des débords opposés incohérents.
 const BEAM_INBOARD_REACH = 0.76;
+
+// Où la main du patron prend le manche, compté depuis le centre du cylindre.
+// Le manche fait 3,55 m, donc sa poignée est à 1,775 m : la main tombe ainsi à
+// une trentaine de centimètres du bout, ce qui laisse voir le pommeau.
+const PADDLE_GRIP_DROP = 1.45;
+
+// Longueur du brin d'écoute au repos. La distance réelle point d'amure ↔ poing
+// varie avec la pose du manœuvrier, donc `sheetLine.scale.y` la corrige à
+// chaque frame ; cette constante n'est plus que l'unité de cette échelle.
+const SHEET_LINE_LENGTH = 2.45;
 
 // Hauteur des bois dressés, reprise de leur construction (beamRoot.position.y).
 // C'est la cote d'assise de l'équipage : les deux DOIVENT rester d'accord.
@@ -505,12 +590,32 @@ export class CrewVisual {
     // Pose macro Blender + transition superposée. Tous les quaternions de
     // travail sont persistants : 18 os × 8 hommes × 60 fps ne doivent produire
     // aucune allocation dans la boucle de rendu.
+    // ── TROIS COUCHES, PAS DEUX ────────────────────────────────────────────────
+    //
+    // assise (dans le bateau) → station (sorti au rappel) → traversée.
+    //
+    // ⚠️ POURQUOI L'ASSISE A DÛ EXISTER. Le poids de station valait
+    // `0,78 × déploiement`, donc ZÉRO tant que la yole ne gîtait pas : plus
+    // aucune pose macro, et le rig retombait sur son bind brut. C'est ce bind
+    // que montrait tout le départ, depuis que l'équipage reste à bord tant
+    // qu'il n'y a pas de gîte.
+    //
+    // Faire simplement basculer l'ACTION vers `pont_interieur` en dessous d'un
+    // seuil aurait produit un saut : les poses macro sont distantes de 9 à 25°
+    // (mesuré sur le GLB livré), et 25° d'un coup sur les bras se voient. Il
+    // faut donc les deux en même temps, et un fondu entre elles — d'où une
+    // couche de plus, l'emplacement de traversée restant pris par la
+    // compression pendant les changements de bord.
+    this.seatAction = null;
+    this.seatTime = 0;
+    this.seatWeight = 0;
     this.poseAction = null;
     this.poseTime = 0;
     this.poseWeight = 0;
     this.overlayAction = null;
     this.overlayTime = 0;
     this.overlayWeight = 0;
+    this.seatScratch = THREE.Quaternion ? new THREE.Quaternion() : null;
     this.poseScratch = THREE.Quaternion ? new THREE.Quaternion() : null;
     this.overlayScratch = THREE.Quaternion ? new THREE.Quaternion() : null;
     this.poseBaseScratch = THREE.Quaternion ? new THREE.Quaternion() : null;
@@ -532,6 +637,10 @@ export class CrewVisual {
     this.fall = 0;
     this.fallSpin = phase * 0.37;
     this.fromRig = false;
+    // Ouverture d'épaules déjà portée par le bind, mesurée par `bindRig`. Zéro
+    // pour le corps procédural, dont les bras pendent à la verticale au repos.
+    // Voir `measureBindSplay` : c'est la valeur qui fabriquait le T-pose.
+    this.bindSplay = 0;
     this.jerseyMaterial = null;
     this.shortsMaterial = null;
 
@@ -713,8 +822,49 @@ export class CrewVisual {
     this.poleCross = new THREE.Vector3();
     this.poleDelta = new THREE.Quaternion();
     this.captureRestPoles(THREE);
+    this.measureBindSplay(THREE);
     this.measureHipHeight(THREE);
     return true;
+  }
+
+  // ── OUVERTURE D'ÉPAULES DU BIND ─────────────────────────────────────────────
+  //
+  // ⚠️ C'EST CE QUI FABRIQUAIT LE T-POSE, ET IL N'ÉTAIT PAS DANS L'ASSET.
+  //
+  // Les rotations `z` des pivots de bras décrivent une silhouette ABSOLUE :
+  // `splay = 0,62` veut dire « bras ouverts de 35° ». Elles ont été calibrées
+  // sur le corps procédural, dont les bras PENDENT À LA VERTICALE au repos.
+  //
+  // Le rig importé, lui, arrive déjà ouvert : 35,6° mesurés sur le bind de
+  // `assets/models/yole_crew.glb` — un A-pose, pas un T-pose. Mais `syncRig`
+  // compose `repos × proxy`, donc les deux ouvertures S'ADDITIONNENT.
+  //
+  // Mesuré le 4 août 2026 sur le GLB livré : 74,6° d'abduction et 1,47 m
+  // d'envergure de mains pour 1,70 m de haut. C'est un T-pose, et c'était
+  // l'état PAR DÉFAUT — au départ `crewDeploymentForRoll` rend zéro, donc
+  // `poseWeight` vaut zéro et aucune pose macro ne venait le corriger.
+  //
+  // On défalque donc des consignes ce que le bind apporte déjà. MESURÉE plutôt
+  // que constante, pour la même raison que les poles : un réexport qui repose
+  // les bras autrement se corrige tout seul, sans valeur en dur à reprendre ici.
+  measureBindSplay(THREE) {
+    this.bindSplay = 0;
+    const chain = this.ikChains?.leftArm ?? this.ikChains?.rightArm;
+    if (!chain || !this.rigRoot?.updateWorldMatrix || !THREE?.Vector3) return;
+    const epaule = chain.joints[chain.joints.length - 1];
+    const coude = chain.joints[0];
+    if (!epaule?.getWorldPosition || !coude?.getWorldPosition || !this.root?.worldToLocal) return;
+    this.root.updateWorldMatrix(true, true);
+    // Dans le repère du corps, pas dans celui du monde : la racine n'est pas
+    // encore tournée à la construction, mais le dire évite de le supposer.
+    const haut = this.root.worldToLocal(epaule.getWorldPosition(new THREE.Vector3()));
+    const bas = this.root.worldToLocal(coude.getWorldPosition(new THREE.Vector3()));
+    const lateral = Math.abs(bas.x - haut.x);
+    const descente = haut.y - bas.y;
+    if (!(lateral > 1e-4) || !(descente > 1e-4)) return;
+    // Borné : un rig exotique ne doit pas pouvoir retourner les bras à
+    // l'intérieur du torse. Au-delà d'un demi-droit, on renonce à corriger.
+    this.bindSplay = clamp(Math.atan2(lateral, descente), 0, 0.9);
   }
 
   // Hauteur du bassin AU-DESSUS DE LA RACINE, mesurée sur le corps réellement
@@ -910,6 +1060,23 @@ export class CrewVisual {
     return Number.isFinite(height) ? { height, min: box.min.y } : null;
   }
 
+  /**
+   * Position MONDE d'un os piloté, après pose, procédural et IK.
+   *
+   * Les champs `leftHand`, `rightHand`… de cette classe sont des PROXYS : ils
+   * portent la consigne de rotation mais ne sont pas dans le graphe de scène,
+   * donc leur matrice monde ne veut rien dire. L'os réel vit dans `rigJoints`.
+   * Sans ce détour, un accessoire « tenu en main » suivrait un objet immobile.
+   *
+   * Rend `null` sur le corps procédural, qui n'a pas ces os.
+   */
+  boneWorldPosition(boneName, out) {
+    const joint = this.rigJoints?.find((entree) => entree.boneName === boneName)?.joint;
+    if (!joint?.getWorldPosition || !out) return null;
+    this.root.updateWorldMatrix(true, true);
+    return joint.getWorldPosition(out);
+  }
+
   // Rotation de repos × rotation de jeu, une fois par frame et par articulation.
   // Choisit l'action mélangée sous la pose procédurale.
   //
@@ -922,6 +1089,18 @@ export class CrewVisual {
     this.clipTime = Number.isFinite(time) ? time : 0;
     this.clipWeight = clamp(Number.isFinite(weight) ? weight : 0, 0, 0.35);
     return this.clipWeight;
+  }
+
+  // Pose d'assise : ce que le corps fait quand il n'est PAS sorti au rappel.
+  // Elle est tenue en permanence et la station se superpose par-dessus, ce qui
+  // fait du déploiement un vrai fondu au lieu d'un changement d'action.
+  setSeatBlend(action, time = 0, weight = 0) {
+    this.seatAction = typeof action === "string" ? action : null;
+    this.seatTime = Number.isFinite(time) ? time : 0;
+    this.seatWeight = this.seatAction
+      ? clamp(Number.isFinite(weight) ? weight : 0, 0, 0.82)
+      : 0;
+    return this.seatWeight;
   }
 
   setPoseBlend(action, time = 0, weight = 0, overlayAction = null, overlayTime = 0, overlayWeight = 0) {
@@ -945,6 +1124,10 @@ export class CrewVisual {
   // nul le calcul est identique au précédent, instruction pour instruction.
   syncRig() {
     const bibliotheque = this.clipLibrary;
+    const seatActive = Boolean(
+      bibliotheque && this.seatScratch && this.seatWeight > 0.001
+      && bibliotheque.has(this.seatAction)
+    );
     const poseActive = Boolean(
       bibliotheque && this.poseScratch && this.poseWeight > 0.001
       && bibliotheque.has(this.poseAction)
@@ -955,7 +1138,8 @@ export class CrewVisual {
     );
     // Sans les nouvelles actions, le chemin historique reste strictement
     // identique. Les GLB déjà livrés et les tests à poids nul ne changent pas.
-    if (poseActive || overlayActive) {
+    if (seatActive || poseActive || overlayActive) {
+      const seatRelative = seatActive && bibliotheque.isRelative(this.seatAction);
       const poseRelative = poseActive && bibliotheque.isRelative(this.poseAction);
       const overlayRelative = overlayActive && bibliotheque.isRelative(this.overlayAction);
       for (let index = 0; index < this.rigJoints.length; index++) {
@@ -963,12 +1147,25 @@ export class CrewVisual {
         const base = this.poseBaseScratch.copy(rest);
         let absoluteAuthority = 0;
 
+        // L'assise pose le corps dans le bateau ; la station la recouvre à
+        // mesure que l'homme sort. Un os que l'assise n'anime pas garde son
+        // repos et la station le reprend telle quelle.
+        if (seatActive && bibliotheque.sample(
+          this.seatAction, boneName, this.seatTime, this.seatScratch
+        )) {
+          if (seatRelative) this.seatScratch.premultiply(rest);
+          base.slerp(this.seatScratch, this.seatWeight);
+          if (!seatRelative) absoluteAuthority = this.seatWeight;
+        }
+
         if (poseActive && bibliotheque.sample(
           this.poseAction, boneName, this.poseTime, this.poseScratch
         )) {
-          if (poseRelative) this.poseScratch.premultiply(rest);
+          // Même règle que l'overlay : un offset relatif s'applique autour de
+          // la pose déjà obtenue — donc autour de l'assise — pas autour du bind.
+          if (poseRelative) this.poseScratch.premultiply(base);
           base.slerp(this.poseScratch, this.poseWeight);
-          if (!poseRelative) absoluteAuthority = this.poseWeight;
+          if (!poseRelative) absoluteAuthority = Math.max(absoluteAuthority, this.poseWeight);
         }
 
         if (overlayActive && bibliotheque.sample(
@@ -1166,7 +1363,7 @@ export class CrewVisual {
         enRappel ? surLeBoisX(appuiG) : -0.15,
         footY,
         enRappel ? surLeBoisZ(appuiG) : 0.02 - deckContact * 0.10,
-        legStrength, 3
+        legStrength, 6
       );
     }
     if (contactMode === CREW_CONTACT_BOTH_FEET || !leadLeft) {
@@ -1175,7 +1372,7 @@ export class CrewVisual {
         enRappel ? surLeBoisX(appuiD) : 0.15,
         footY,
         enRappel ? surLeBoisZ(appuiD) : 0.02 + deckContact * 0.10,
-        legStrength, 3
+        legStrength, 6
       );
     }
     firmWorst = Math.max(firmWorst, leadLeft ? leftFootError : rightFootError);
@@ -1397,7 +1594,10 @@ export class CrewVisual {
     this.rightArmPivot.rotation.x = (stride * 0.9 - 0.25) * settle + grip + pump * effort * 0.30 - scoop * 1.15;
     // L'écart latéral se REFERME avec la sortie : les deux mains convergent
     // vers la perche au lieu de rester en croix.
-    const splay = 0.62 * settle + 0.16 * hike;
+    // `bindSplay` retire l'ouverture que le rig importé porte déjà dans son
+    // bind ; il vaut zéro pour le corps procédural, qui garde donc au geste
+    // près la silhouette d'avant. Voir `measureBindSplay`.
+    const splay = 0.62 * settle + 0.16 * hike - this.bindSplay;
     this.leftArmPivot.rotation.z = -splay - impact * 0.8 - stumble * 0.45 - dashLean * 0.55;
     this.rightArmPivot.rotation.z = splay + impact * 0.8 + stumble * 0.45 - dashLean * 0.55;
     this.leftArmPivot.rotation.x += drive * 0.24 + catchLoad * 0.34;
@@ -1467,8 +1667,9 @@ export class CrewVisual {
       this.torso.rotation.z = helm * 0.06;
       this.leftArmPivot.rotation.x = -0.92 - helm * 0.23;
       this.rightArmPivot.rotation.x = -1.14 + helm * 0.19;
-      this.leftArmPivot.rotation.z = -0.32;
-      this.rightArmPivot.rotation.z = 0.18;
+      // Consignes ABSOLUES, donc défalquées du bind comme le splay de course.
+      this.leftArmPivot.rotation.z = -0.32 + this.bindSplay;
+      this.rightArmPivot.rotation.z = 0.18 - this.bindSplay;
       this.leftLegPivot.rotation.x = -0.34;
       this.rightLegPivot.rotation.x = -0.46;
       if (this.leftForeArm) this.leftForeArm.rotation.x = -0.48 + helm * 0.16;
@@ -1485,8 +1686,8 @@ export class CrewVisual {
       this.torso.rotation.z = -0.10;
       this.leftArmPivot.rotation.x = -0.72 - pull * 0.28;
       this.rightArmPivot.rotation.x = -1.08 + pull * 0.24;
-      this.leftArmPivot.rotation.z = -0.22;
-      this.rightArmPivot.rotation.z = 0.26;
+      this.leftArmPivot.rotation.z = -0.22 + this.bindSplay;
+      this.rightArmPivot.rotation.z = 0.26 - this.bindSplay;
       this.leftLegPivot.rotation.x = -0.42;
       this.rightLegPivot.rotation.x = -0.28;
       if (this.leftForeArm) this.leftForeArm.rotation.x = -0.58 + pull * 0.22;
@@ -1604,14 +1805,19 @@ export class CrewVisual {
       const overlayAction = selectCrewTransitionAction(
         this.clipLibrary, sideChanging, compression
       );
-      const specialist = this.role === "patron" || this.role === "ecoute";
       const deployment = Number.isFinite(this.stagingDeployment)
         ? clamp(this.stagingDeployment, 0, 1)
         : hike;
-      const poseWeight = poseAction
-        ? specialist || this.stagingStation === "interieur"
-          ? 0.72
-          : 0.78 * deployment
+      // L'assise est tenue en permanence : c'est elle qui donne une pose à
+      // l'homme resté dans le bateau, là où il n'en avait aucune.
+      const seatAction = selectCrewSeatAction(this.clipLibrary);
+      const seatWeight = seatAction ? CREW_SEAT_POSE_WEIGHT : 0;
+      // La station se superpose à l'assise, donc son poids n'a plus à ramener
+      // le corps depuis le bind : il ne décrit plus que la SORTIE. Elle reste
+      // muette pour ceux dont la station EST l'assise — spécialistes et poste
+      // intérieur — sinon la même pose se mélangerait à elle-même.
+      const poseWeight = poseAction && poseAction !== seatAction
+        ? CREW_STATION_POSE_WEIGHT * deployment
         : 0;
       const overlayWeight = overlayAction === "compression_transition"
         ? compression * 0.68
@@ -1623,7 +1829,8 @@ export class CrewVisual {
         ? sideTransfer
         : clamp((shiftLocal + 0.08) / 1.0, 0, 1);
 
-      if (poseWeight > 0.001 || overlayWeight > 0.001) {
+      if (seatWeight > 0.001 || poseWeight > 0.001 || overlayWeight > 0.001) {
+        this.setSeatBlend(seatAction, clipTime, seatWeight);
         this.setPoseBlend(
           poseAction,
           clipTime,
@@ -1635,6 +1842,7 @@ export class CrewVisual {
         // Gardé prêt pour le retour au repos ; la branche macro l'ignore.
         this.setClipBlend("rappel_idle", clipTime, CREW_IDLE_BLEND * calme);
       } else {
+        this.setSeatBlend(null, 0, 0);
         this.setPoseBlend(null, 0, 0, null, 0, 0);
         const legacyAction = this.role === "patron" && this.clipLibrary?.has("barre")
           ? "barre"
@@ -2029,6 +2237,9 @@ varying vec3 vHullWorld;`)
     this.tiltRoot.add(this.patronPaddleRoot);
     this.paddleUp = new THREE.Vector3(0, 1, 0);
     this.paddleDirection = new THREE.Vector3();
+    // Position de la main du patron, réutilisée d'une frame à l'autre : lire un
+    // os à chaque image ne doit rien allouer.
+    this.paddleGrip = new THREE.Vector3();
 
     const sheetMaterial = new THREE.MeshStandardMaterial({
       color: 0xe5d7aa,
@@ -2036,10 +2247,13 @@ varying vec3 vHullWorld;`)
       metalness: 0
     });
     this.sheetRoot = new THREE.Group();
-    this.sheetLine = cylinderBetween(THREE, 0.014, 2.45, sheetMaterial);
+    this.sheetLine = cylinderBetween(THREE, 0.014, SHEET_LINE_LENGTH, sheetMaterial);
     this.sheetRoot.add(this.sheetLine);
     this.tiltRoot.add(this.sheetRoot);
     this.sheetDirection = new THREE.Vector3();
+    // Point d'amure et poing du manœuvrier, réutilisés d'une frame à l'autre.
+    this.sheetAnchor = new THREE.Vector3();
+    this.sheetGrip = new THREE.Vector3();
 
     this.weaponPod = new THREE.Mesh(
       new THREE.BoxGeometry(0.46, 0.34, 0.9),
@@ -2632,11 +2846,43 @@ varying vec3 vHullWorld;`)
       // charge tôt, les leviers suivent, l'extension ne sort que sous vraie gîte.
       const staging = CREW_STAGING_PROFILES[index];
       const profileDeployment = crewProfileDeployment(staging, deploiement);
-      const restReach = Math.max(0, staging.reach - bailRetraction) * profileDeployment;
+      const sideProgress = this.crewSideProgress[index] ?? 1;
+      // ── RESPIRATION DE SORTIE ────────────────────────────────────────────
+      //
+      // ⚠️ MESURÉ LE 4 AOÛT 2026 : À GÎTE TENUE, LES SIX SONT À 1,00 PILE.
+      //
+      // Les profils échelonnent bien la SORTIE — les ancrages s'engagent à 6°
+      // de gîte, l'homme du bout à 10° — mais dès que la charge est installée
+      // tout le monde sature et l'échelonnement disparaît. Relevé dans le jeu à
+      // 30° de gîte : **0,000 d'amplitude de déploiement** sur les six. Tout le
+      // reste varie pourtant largement (2,14 m d'écart latéral, 49,7° de lacet,
+      // 60,7° de bascule de buste, 9 % de gabarit) — cet axe-là, non.
+      //
+      // Un rappel réel ne se fige pas : la bordée avance et recule de quelques
+      // centimètres au rythme des risées, et jamais ensemble. On rend donc ce
+      // ballant, déphasé par homme ET de périodes légèrement différentes — une
+      // période commune produirait une VAGUE parcourant la bordée, ce qui se lit
+      // comme un ressort, pas comme six hommes qui tiennent.
+      //
+      // Il s'éteint sur l'homme encore à bord (`profileDeployment`) et pendant
+      // une traversée (`sideProgress`), où le corps a déjà tout un déplacement
+      // à raconter.
+      //
+      // ⚠️ PUREMENT VISUEL, ET C'EST STRUCTUREL. `restReach` ne touche ni
+      // `dynamics` ni `crewPositions` : le couple de redressement, les
+      // checksums de replay et le Duel local sont calculés en amont et ne
+      // voient rien d'ici. Même règle que la gorgée de rhum.
+      const souffle = Math.sin(time * (0.58 + index * 0.047) + index * 1.27)
+        * CREW_REACH_BREATH
+        * profileDeployment
+        * sideProgress;
+      const restReach = Math.max(
+        0,
+        (staging.reach - bailRetraction) * profileDeployment + souffle
+      );
       crew.visual.stagingDeployment = profileDeployment;
       const x = this.crewSides[index] * restReach
         + normalized * spread + (index - 2.5) * 0.07;
-      const sideProgress = this.crewSideProgress[index] ?? 1;
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08
         && this.sideChangeElapsed < CREW_SIDE_DELAYS[index] + CREW_SIDE_TRAVEL;
       // ── GORGÉE DE RHUM, ÉCHELONNÉE ─────────────────────────────────────
@@ -2717,15 +2963,90 @@ varying vec3 vHullWorld;`)
         );
       }
 
+      // ── LA PAGAIE DU PATRON ────────────────────────────────────────────────
+      //
+      // ⚠️ ELLE N'ÉTAIT DANS LES MAINS DE PERSONNE.
+      //
+      // C'était un `Group` posé à une cote FIXE de la coque, sans le moindre
+      // lien avec le squelette du patron. L'homme faisait son geste de barre
+      // d'un côté, la pagaie flottait de l'autre — et sa pale tombait vers
+      // z ≈ 6,0 alors que la coque s'arrête à 5,55, donc hors du bateau.
+      //
+      // On la fait désormais tenir : le manche part de la main HAUTE et vise la
+      // main basse. Les deux mains sortent de l'IK d'équipage, donc la pagaie
+      // hérite gratuitement de la houle, des chocs et du geste de barre.
       const helm = clamp((state.yawRate ?? 0) * 0.58 + (state.roll ?? 0) * 0.14, -0.55, 0.55);
-      this.patronPaddleRoot.position.set(0.58 + helm * 0.12, 0.12, 4.35);
-      this.paddleDirection.set(-0.24 - helm * 0.34, 0.36, -0.90).normalize();
+      // L'INCLINAISON reste dictée par la barre, pas par la ligne des mains.
+      // Un aviron de gouverne traîne derrière le bateau et n'entre dans l'eau
+      // que par sa pale ; le déduire de deux mains distantes de cinquante
+      // centimètres le dresserait à la verticale, ce qu'aucun patron ne fait.
+      // `+Y` local court de la pale vers la poignée : la pale part donc vers le
+      // bas ET vers l'arrière, soit −z depuis que la proue est en +z.
+      // ⚠️ La composante verticale est CONTRAINTE PAR LA PALE, pas choisie.
+      // Du poing à la pale il y a 3,28 m de manche (`PADDLE_GRIP_DROP` + 1,83),
+      // et la main du patron tombe à 1,30 m au-dessus de la flottaison : à 0,36
+      // la pale ressortait 11 cm AU-DESSUS de l'eau — un aviron de gouverne qui
+      // ne gouverne rien. 0,50 la fait mordre de 34 cm.
+      this.paddleDirection.set(0.10 - helm * 0.30, 0.50, 0.86).normalize();
+      const patron = this.specialists.find((entree) => entree.role === "patron");
+      const main = patron?.visual.boneWorldPosition("RightHand", this.paddleGrip);
+      if (main) {
+        // La main arrive en repère MONDE ; la pagaie vit sous `tiltRoot`, qui
+        // porte déjà gîte et tangage. On repasse donc par lui, sinon la pagaie
+        // encaisserait la gîte deux fois.
+        this.tiltRoot.updateWorldMatrix(true, false);
+        this.tiltRoot.worldToLocal(main);
+        this.patronPaddleRoot.position
+          .copy(main)
+          .addScaledVector(this.paddleDirection, -PADDLE_GRIP_DROP);
+      } else {
+        // Corps procédural, ou équipage masqué : placement fixe, désormais côté
+        // POUPE comme le patron lui-même.
+        this.patronPaddleRoot.position.set(0.58 + helm * 0.12, 0.12, -4.35);
+      }
       this.patronPaddleRoot.quaternion?.setFromUnitVectors?.(this.paddleUp, this.paddleDirection);
 
+      // ── L'ÉCOUTE DE VOILE ──────────────────────────────────────────────────
+      //
+      // Même défaut que la pagaie, corrigé de la même façon : c'était un
+      // cylindre posé à une cote fixe de la coque, sans lien avec le
+      // manœuvrier. Une écoute qui ne part de la main de personne ne dit pas
+      // qu'on règle la voile — elle dit qu'une corde flotte.
+      //
+      // Elle court désormais du point d'amure au POING, et sa longueur suit la
+      // distance réelle : un brin de 2,45 m fixe traverserait le pont dès que
+      // l'homme bouge. Le tirage anime le point haut, côté voile, parce que
+      // c'est la voile qui travaille — la main, elle, tient.
       const sheetPull = Math.sin(cadence * 0.72 + this.index * 0.33) * 0.08;
-      this.sheetRoot.position.set(-0.17 + sheetPull, 1.48, 0.38);
-      this.sheetDirection.set(0.17 - sheetPull, 2.05, -0.36).normalize();
-      this.sheetRoot.quaternion?.setFromUnitVectors?.(this.paddleUp, this.sheetDirection);
+      this.sheetAnchor.set(-0.07 + sheetPull, 2.67, 0.17);
+      const ecoute = this.specialists.find((entree) => entree.role === "ecoute");
+      const poing = ecoute?.visual.boneWorldPosition("LeftHand", this.sheetGrip);
+      if (poing) {
+        this.tiltRoot.updateWorldMatrix(true, false);
+        this.tiltRoot.worldToLocal(poing);
+      } else {
+        // Corps procédural : on garde le bas de brin d'origine.
+        this.sheetGrip.set(-0.17 + sheetPull, 0.26, 0.55);
+      }
+      // ⚠️ `set` et `copy` seulement : le mock Three des tests n'implémente ni
+      // `subVectors` ni `addScaledVector`, et `full-game-smoke` tourne dessus.
+      // S'appuyer sur l'API complète ici a cassé `npm run verify` une fois.
+      const brinX = this.sheetAnchor.x - this.sheetGrip.x;
+      const brinY = this.sheetAnchor.y - this.sheetGrip.y;
+      const brinZ = this.sheetAnchor.z - this.sheetGrip.z;
+      const brin = Math.hypot(brinX, brinY, brinZ);
+      if (brin > 1e-3) {
+        this.sheetDirection.set(brinX / brin, brinY / brin, brinZ / brin);
+        // Le cylindre est centré sur son axe : son milieu tombe donc à
+        // mi-distance, et son échelle rend la longueur exacte.
+        this.sheetRoot.position.set(
+          this.sheetGrip.x + brinX * 0.5,
+          this.sheetGrip.y + brinY * 0.5,
+          this.sheetGrip.z + brinZ * 0.5
+        );
+        this.sheetLine.scale.y = brin / SHEET_LINE_LENGTH;
+        this.sheetRoot.quaternion?.setFromUnitVectors?.(this.paddleUp, this.sheetDirection);
+      }
     }
 
     const windPower = clamp(state.sailPower ?? 0.7, 0, 1.5);

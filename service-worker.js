@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-869d07846b75";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-7774ff1fcf5d";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 // Stable entre deux versions du shell : une mise à jour de code ne force pas
 // le retéléchargement des pistes déjà écoutées. Incrémenter si les MP3 changent.
@@ -16,7 +16,7 @@ const CORE = [
   // ⚠️ Les captures du manifeste ne sont PAS precachees : le navigateur ne les
   // demande qu'a l'ouverture de la fiche d'installation, et jamais ensuite.
   // 271 Ko payes a l'installation pour une image vue une fois, non merci.
-  "./src/bootstrap.js?v=local-cache-v2", "./src/main.js",
+  "./src/bootstrap.js?v=local-cache-v3", "./src/main.js",
   "./src/core/math.js", "./src/core/rng.js", "./src/core/quality.js",
   "./src/core/settings.js", "./src/core/telemetry.js", "./src/core/spatial-hash.js",
   "./src/core/audio.js",
@@ -220,9 +220,17 @@ self.addEventListener("install", (event) => {
     // interrompu fait échouer CETTE installation sans activer un cache partiel.
     // L'ancien worker et son cache restent alors utilisables.
     await cache.addAll(CORE);
-    // Pas de skipWaiting : une page déjà ouverte garde un seul couple
-    // shell/runtime. La nouvelle version prend la main à la prochaine ouverture,
-    // au lieu de mélanger l'ancien index avec de nouveaux modules ou modèles.
+    // En production, pas de skipWaiting : une page déjà ouverte garde un seul
+    // couple shell/runtime et le toast laisse le joueur relancer entre deux
+    // manches. En atelier local, en revanche, un vieux worker peut servir un
+    // ancien index avec les nouveaux modules du disque : le bouton JOUER devient
+    // alors inerte. Il n'y a ni partie distante ni progression à protéger sur
+    // localhost, donc la version complète fraîchement précachée prend la main
+    // immédiatement et bootstrap.js désinscrit ensuite le worker.
+    const workerHost = new URL(self.location.href).hostname;
+    if (["localhost", "127.0.0.1", "::1"].includes(workerHost)) {
+      await self.skipWaiting();
+    }
   })());
 });
 
@@ -237,6 +245,14 @@ self.addEventListener("activate", (event) => {
       ))
       .map((key) => caches.delete(key)));
     await self.clients.claim();
+    const workerHost = new URL(self.location.href).hostname;
+    if (["localhost", "127.0.0.1", "::1"].includes(workerHost)) {
+      // La page actuellement ouverte a été construite par l'ancien worker.
+      // La recharger une fois évite de laisser à l'écran son menu inerte alors
+      // que le nouveau cache complet vient déjà de prendre le contrôle.
+      const windows = await self.clients.matchAll?.({ type: "window" }) || [];
+      await Promise.all(windows.map((client) => client.navigate?.(client.url)));
+    }
   })());
 });
 

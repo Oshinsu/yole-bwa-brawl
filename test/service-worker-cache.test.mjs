@@ -21,12 +21,16 @@ const musiquesRuntime = [...blocMusiquesRuntime.matchAll(/"(\.\/[^"]*)"/g)]
 
 function chargerWorker(caches, networkFetch = fetch, workerHooks = {}) {
   const handlers = {};
+  const workerUrl = new URL(workerHooks.locationHref || "https://yole.example/service-worker.js");
   const self = {
     location: {
-      origin: "https://yole.example",
-      href: "https://yole.example/service-worker.js"
+      origin: workerUrl.origin,
+      href: workerUrl.href
     },
-    clients: { claim: async () => {} },
+    clients: {
+      claim: async () => {},
+      matchAll: async () => workerHooks.clients || []
+    },
     skipWaiting: async () => workerHooks.skipWaiting?.(),
     addEventListener(type, handler) {
       handlers[type] = handler;
@@ -45,7 +49,7 @@ function chargerWorker(caches, networkFetch = fetch, workerHooks = {}) {
   return handlers;
 }
 
-test("l'installation précache tout CORE en une transaction et attend la prochaine ouverture", async () => {
+test("l'installation précache tout CORE et attend la prochaine ouverture en production", async () => {
   let recus = null;
   const caches = {
     open: async () => ({
@@ -63,12 +67,28 @@ test("l'installation précache tout CORE en une transaction et attend la prochai
   assert.equal(new Set(core).size, core.length, "CORE ne doit contenir aucun doublon");
   const installationSource = /self\.addEventListener\("install"([\s\S]*?)self\.addEventListener\("activate"/
     .exec(source)?.[1] || "";
-  assert.doesNotMatch(
+  assert.match(
     installationSource,
-    /self\.skipWaiting\s*\(/,
-    "l'installation ne doit pas prendre un onglet en cours"
+    /127\.0\.0\.1[\s\S]*self\.skipWaiting\s*\(/,
+    "seul l'atelier local doit pouvoir remplacer immédiatement son ancien worker"
   );
   assert.doesNotMatch(source, /Promise\.allSettled/, "aucun asset nécessaire ne doit devenir optionnel");
+});
+
+test("l'atelier local remplace immédiatement un ancien worker après un précache complet", async () => {
+  let appels = 0;
+  const handlers = chargerWorker(
+    { open: async () => ({ addAll: async () => {} }) },
+    fetch,
+    {
+      locationHref: "http://127.0.0.1:8765/service-worker.js",
+      skipWaiting() { appels++; }
+    }
+  );
+  let installation;
+  handlers.install({ waitUntil(promise) { installation = promise; } });
+  await installation;
+  assert.equal(appels, 1);
 });
 
 test("SKIP_WAITING ne s'exécute qu'après le message explicite de l'interface", async () => {
@@ -135,6 +155,27 @@ test("l'activation ne supprime que les anciens caches de YOLE", async () => {
   ]);
 });
 
+test("l'activation locale recharge la page encore construite par l'ancien worker", async () => {
+  const navigations = [];
+  const handlers = chargerWorker(
+    { keys: async () => [], delete: async () => true },
+    fetch,
+    {
+      locationHref: "http://localhost:8765/service-worker.js",
+      clients: [{
+        url: "http://localhost:8765/",
+        navigate(url) {
+          navigations.push(url);
+        }
+      }]
+    }
+  );
+  let activation;
+  handlers.activate({ waitUntil(promise) { activation = promise; } });
+  await activation;
+  assert.deepEqual(navigations, ["http://localhost:8765/"]);
+});
+
 test("les deux modules Three critiques appartiennent à CORE et donc au fingerprint", () => {
   const blocCore = /const CORE = \[(.*?)\];/s.exec(source)?.[1] || "";
   assert.match(blocCore, /"\.\/vendor\/three\.module\.min\.js"/);
@@ -143,8 +184,8 @@ test("les deux modules Three critiques appartiennent à CORE et donc au fingerpr
 });
 
 test("les contrats visuels couplés utilisent la même version dans les imports et le précache", () => {
-  assert.match(indexSource, /src\/bootstrap\.js\?v=local-cache-v2/);
-  assert.match(source, /\.\/src\/bootstrap\.js\?v=local-cache-v2/);
+  assert.match(indexSource, /src\/bootstrap\.js\?v=local-cache-v3/);
+  assert.match(source, /\.\/src\/bootstrap\.js\?v=local-cache-v3/);
   assert.match(mainSource, /render\/assets\.js\?v=crew-v2/);
   assert.match(yoleVisualSource, /\.\/assets\.js\?v=crew-v2/);
   assert.match(source, /\.\/src\/render\/assets\.js\?v=crew-v2/);
@@ -154,6 +195,7 @@ test("les contrats visuels couplés utilisent la même version dans les imports 
   assert.match(cameraSource, /\.\/cinematic\.js\?v=director-v1/);
   assert.match(source, /\.\/src\/game\/cinematic\.js\?v=director-v1/);
   assert.match(bootstrapSource, /resetLocalDevelopmentCache/);
+  assert.match(bootstrapSource, /ancienne version locale bloque le démarrage/);
   assert.match(mainSource, /!localDevelopmentHost/);
 });
 

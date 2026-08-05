@@ -128,8 +128,36 @@ Ce qui a été renforcé :
    Couvert par `test/crew-pole-target.test.mjs` : capture, refus sur membre
    tendu, retour d'un coude retourné de 2,2 rad, et vérification que
    l'effecteur ne bouge pas de plus de 2 mm pendant la correction.
-2. **Contacts prop/main** : la pagaie et l'écoute suivent une animation
-   coordonnée, pas encore les matrices exactes des mains.
+2. ~~**Contacts prop/main**~~ — **RÉSOLU le 4 août 2026 pour la pagaie.** Elle
+   n'était dans les mains de personne : un `Group` posé à une cote FIXE de la
+   coque, sans lien avec le squelette du patron. L'homme faisait son geste de
+   barre d'un côté, la pagaie flottait de l'autre.
+
+   Le manche part désormais de la main du patron, lue par
+   `boneWorldPosition()` **après** pose, procédural et IK. Mesuré dans le jeu :
+   distance main↔manche de **0 m**, pale à **0,35 m sous la flottaison** et
+   1,02 m derrière l'étambot.
+
+   Deux pièges payés au passage. La main sort en repère MONDE alors que la
+   pagaie vit sous `tiltRoot` : sans repasser par lui, elle encaissait la gîte
+   deux fois. Et l'INCLINAISON ne doit pas se déduire de la ligne des deux
+   mains — un aviron de gouverne traîne derrière le bateau, le déduire de deux
+   poings distants de cinquante centimètres le dressait à la verticale.
+
+   **L'écoute de voile a suivi le même jour**, et portait le même défaut : un
+   brin de 2,45 m posé à une cote fixe de la coque. Elle court désormais du
+   point d'amure au POING du manœuvrier, et sa longueur suit la distance réelle
+   — un brin fixe traversait le pont dès que l'homme bougeait. Mesuré dans le
+   jeu : main↔corde **0 m**, brin **1,46 m** au lieu de 2,45.
+
+   Le tirage anime le point HAUT, côté voile, et non le bas : c'est la voile qui
+   travaille, la main tient.
+
+   ⚠️ Piège payé au passage : `subVectors` et `addScaledVector` n'existent pas
+   dans `test/mock-three.module.js`, sur lequel tourne `full-game-smoke`.
+   S'appuyer sur l'API complète de Three dans un chemin de rendu casse
+   `npm run verify` sans que rien ne le laisse prévoir. `set` et `copy` sont le
+   dénominateur commun.
 3. **Validation par pratiquants** : les sources écrites valident l'ordre et les
    fonctions, pas chaque angle de bassin. Une séance vidéo avec un maître
    yoleur reste la meilleure validation.
@@ -138,9 +166,22 @@ Ce qui a été renforcé :
 
 ### Priorité moyenne
 
-5. **Bibliothèque Blender** : produire cinq actions courtes (`rappel_idle`,
-   `charge`, `traversee`, `ecoute`, `barre`) puis les mélanger faiblement sous
-   les contacts procéduraux.
+5. ~~**Bibliothèque Blender**~~ — **RÉSOLU le 4 août 2026**, mais pas sous la
+   forme demandée. Ce sont cinq **poses de station** (`pont_interieur`,
+   `cale_court`, `demi_sorti`, `extension_extreme`, `compression_transition`),
+   pas cinq actions courtes mélangées faiblement : la station décrit où le corps
+   travaille sur le bwa, donc elle a besoin d'autorité, pas d'un plafond à 0,35.
+
+   ⚠️ **Elles avaient été livrées en février dans un état que le rapport
+   d'export validait en vert.** Trois clés rigoureusement identiques, 1,5°
+   d'amplitude interne maximum, neuf canaux sur seize strictement gelés — des
+   poses, pas des animations. Le rapport ne le voyait pas parce qu'il COMPTAIT
+   des courbes, des clés et des os sans jamais en comparer deux.
+
+   Corrigé des deux côtés : les actions portent 13 clés et 8,8 à 19,5°
+   d'amplitude, et `action_summary()` mesure désormais `amplitudeMaxDeg` avec un
+   plancher (`allActionsAnimated`). Les clavicules, qui n'étaient keyées nulle
+   part — huit os sur vingt-quatre ne l'étaient pas — le sont aussi.
 6. **Variété corporelle** : la taille change, mais les 32 corps partagent le
    même mesh et la même silhouette.
 7. **Ordres du patron** : regard et posture existent, mais aucun signal de bras

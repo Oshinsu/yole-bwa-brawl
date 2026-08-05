@@ -142,6 +142,12 @@ L'audit du fichier source se lance dans Blender 5.2 sans modifier le GLB :
 
 ## Actions courtes mélangées sous le procédural
 
+> ⚠️ **Section partiellement dépassée depuis le 4 août 2026.** Le plafond de
+> 0,35 décrit ci-dessous ne vaut plus que pour le CLIP de respiration. Les cinq
+> poses macro existent désormais et passent par un chemin distinct, à autorité
+> bien plus haute — voir [« Trois couches »](#trois-couches-assise--station--traversée)
+> plus bas. Le reste de cette section reste exact.
+
 Depuis le 2 août 2026, une bibliothèque d'actions peut tirer **faiblement** la
 pose de repos vers un clip, sans jamais toucher à la pose de jeu :
 
@@ -179,14 +185,147 @@ Les confondre faisait slerper le repos vers l'identité : l'os `LeftArm` ayant u
 repos à 81° de l'identité, un offset de 0,9° mélangé à 0,16 déplaçait l'os de
 **~13° au lieu de 0,15°**.
 
-**Les cinq vraies actions n'existent toujours pas** : leur production est
-conditionnée au volet droits. Contrat, pipeline, voie sans vidéo et démarche
-auprès de la CMT dans [`CREW_CLIP_LIBRARY.md`](CREW_CLIP_LIBRARY.md).
+Contrat, pipeline et voie sans vidéo dans
+[`CREW_CLIP_LIBRARY.md`](CREW_CLIP_LIBRARY.md).
 
-## ⚠️ Défaut ouvert — les jambes pendantes et la grappe étalée
+### ⚠️ Une piste glTF n'a pas toujours quatre flottants par clé
 
-État au 2 août 2026, après deux correctifs géométriques (assise, repère de
-prise). Mesures reproductibles :
+Corrigé le 4 août 2026, après avoir été livré. En **CUBICSPLINE**, la spec range
+TROIS quaternions par clé — tangente entrante, valeur, tangente sortante — et
+`GLTFLoader` laisse ce tampon brut dans `track.values` : il ne remplace que la
+fabrique d'interpolant. `CrewClipLibrary.sample()` indexait `values[k * 4]` et
+ramenait donc une **tangente**, qui vaut (0, 0, 0, 0) sur une pose Blender.
+
+Ce n'était pas bénin. Aux bornes de la boucle, l'os recevait ce quaternion nul ;
+`Quaternion.slerp` le propage **sans renormaliser**, et `Matrix4.compose` lit
+une norme *n* comme une **échelle** de *n*². Mesuré sur le GLB alors livré :
+jusqu'à **0,66 d'écart à la norme**, soit des corps entre 0,11× et 2,7× de leur
+taille, en boucle et à contretemps d'un homme à l'autre.
+
+`crew-clips.js` déduit désormais le pas du tampon. L'export est repassé en
+LINEAR par-dessus, mais la lecture reste verrouillée par un test dédié dans
+`test/crew-clips.test.mjs` : un futur export en CUBICSPLINE doit faire tomber ce
+test, pas la silhouette en jeu.
+
+## Trois couches : assise → station → traversée
+
+Depuis le 4 août 2026, la pose macro ne passe plus par le plafond de clip :
+
+```text
+repos --(assise 0,74)--> --(station 0,82 × déploiement)--> --(traversée)--> × procédural --> IK
+```
+
+**Pourquoi l'assise a dû exister.** Le poids de station valait
+`0,78 × déploiement`, donc **zéro** tant que la yole ne gîtait pas : plus aucune
+pose macro, et le rig retombait sur son bind brut. C'est ce bind que montrait
+tout le départ, depuis que l'équipage reste à bord tant qu'il n'y a pas de gîte.
+
+Faire simplement basculer l'action vers `pont_interieur` sous un seuil aurait
+produit un saut : les poses macro sont distantes de 9 à 25° (mesuré sur le GLB
+livré). Il faut donc les deux en même temps et un fondu entre elles — d'où une
+couche de plus, l'emplacement de traversée restant pris par la compression
+pendant les changements de bord.
+
+Conséquence à connaître : `absoluteAuthority` monte à 0,74 en permanence, donc
+`syncRig()` ne laisse plus que **41 %** de son amplitude au procédural. Les
+constantes procédurales (`CREW_HIKE_RECLINE`, `CREW_LEG_HOOK`…) ont perdu la
+moitié de leur effet ; la posture se règle désormais surtout dans les seeds de
+`tools/build_crew_asset.py`.
+
+### La silhouette est un continuum piloté par la gîte
+
+Les deux postures des photos de course ne sont pas deux options : ce sont deux
+points de la même courbe. Assis à califourchon buste vers la coque quand ça
+tient, renversés tête sous les hanches pour contrer. Mesuré le 4 août 2026 avec
+`tools/mesure_silhouette_equipage.mjs` (bascule du buste, 0° = debout,
+90° = horizontal) :
+
+| gîte | court ×2 | intermédiaire ×2 | extension ×1 |
+|---|---|---|---|
+| 0° | 28° | 28° | 29° |
+| 6° | 30° | 33° | 29° |
+| 8° | 32° | 43° | 34° |
+| 12° | 32° | 46° | **61°** |
+
+L'échelonnement n'est pas cosmétique : les ancrages se lèvent les premiers,
+l'homme du bout ne s'engage qu'à 10°. C'est ce qui produit la grappe des photos
+au lieu de six silhouettes identiques.
+
+### ⚠️ Le yoleur porte le levier PAR LE DOS
+
+Corrigé le 4 août 2026, après **trois lectures successives des mêmes photos dont
+deux fausses**. Une passe a conclu au ventral et livré des hommes couchés à plat
+ventre sur le bwa, regard mesuré à **−1,00** — plein sur l'eau. Aucun seuil n'a
+bronché, parce que toutes les mesures de silhouette étaient **aveugles au roulis
+du bassin** : ventre et dos donnent le même tronc, la même tête, le même genou.
+
+Le balayage, dans le repère de la yole :
+
+| `Hips` | corps | tête ↔ hanches | regard | lecture |
+|---|---|---|---|---|
+| 140° | dehors | −0,40 m | −0,67 | ventre à la mer |
+| 110° | dehors | −0,11 m | −0,23 | de profil |
+| **70°** | dehors | +0,31 m | **+0,42** | **dos à la mer** |
+| 40° | dehors | +0,54 m | +0,80 | dos à la mer, assis |
+
+Aucune valeur ne donne à la fois « dos à la mer » et « tête sous les hanches » :
+au-delà de ~110° le bassin ne penche plus, il **roule** l'homme sur le ventre.
+L'échelle est donc plafonnée à 70°, près de ses valeurs d'origine.
+
+`regardDorsalMin` verrouille désormais ce critère dans
+`tools/mesure_silhouette_equipage.mjs`. Et ce n'est pas une photo qui a tranché,
+mais un praticien : aucune vue de trois quarts ne permet de décider — il faut un
+profil, ou quelqu'un qui pratique.
+
+## ✅ Défaut fermé le 4 août 2026 — les jambes pendantes
+
+Le « L » décrit ci-dessous est corrigé. Le genou ne pliait que de **19°** au
+rappel plein : le seed de station le laissait quasi tendu, et le procédural qui
+devait le replier n'arrive plus qu'à 41 % depuis l'ajout de l'assise. Les seeds
+`LeftLeg`/`RightLeg` sont passés de −25/−40 à −95/−115, et `Hips` de 80 à 140 en
+extension.
+
+Mesuré après correction, dans le jeu, au rappel plein :
+
+| Mesure | Avant | Après | Référence |
+|---|---|---|---|
+| flexion du genou | 19° | **88°** | franche ✅ |
+| bascule du buste (0 = debout) | 19° | **58°** | levier dorsal ✅ |
+| orientation du regard | −1,00 | **+0,44** | dos à la mer ✅ |
+| bras en croix | 85,4° | **19°** | — ✅ |
+| envergure des mains | 1,56 m | **0,81 m** | — ✅ |
+
+Vérification en une commande, sans navigateur ni capture :
+
+```bash
+node tools/mesure_silhouette_equipage.mjs
+```
+
+L'outil recharge le GLB livré, rebâtit le squelette avec le vrai Three.js,
+instancie le vrai `CrewVisual` et lit les os après composition complète. Il est
+branché dans `npm run test:crew` en mode `--strict`.
+
+### ⚠️ Trois jauges d'écartement de bras ont été essayées, deux mentaient
+
+1. **Angle depuis la verticale du monde.** Un yoleur au rappel est renversé :
+   la jauge dépasse 90° pour des bras collés au corps. Elle annonçait 97° sur
+   une silhouette juste, et a failli faire corriger une pose correcte.
+2. **Angle depuis l'axe du tronc.** Corrigé pour l'orientation, mais incapable
+   de séparer les deux choses qui comptent : sur un corps horizontal, des bras
+   qui **pendent** font ~90° par rapport au tronc, exactement comme des bras
+   **en croix**.
+3. **Projection sur l'axe transverse du corps** (épaule gauche → épaule droite).
+   La seule qui tienne : un bras en croix y est aligné, un bras qui pend lui est
+   perpendiculaire, et ça reste vrai la tête en bas.
+
+Le seuil est calibré sur le défaut lui-même : **85,4°** mesuré sur le GLB et le
+code d'origine, plafond à 45°, **19°** aujourd'hui.
+
+---
+
+### Archive — l'état au 2 août 2026
+
+Mesures reproductibles de l'époque :
 
 ```bash
 PORT=8791 python tools/serve.py &
