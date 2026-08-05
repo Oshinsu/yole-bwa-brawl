@@ -331,6 +331,13 @@ export function crewProfileDeployment(profile, deployment) {
 // risque de sortir de la perche, et `crew-seating` le vérifie.
 const CREW_REACH_BREATH = 0.055;
 
+// Cote d'attente d'un équipier non déployé, mesurée depuis l'axe du bateau.
+// Le plat-bord est à ~0,90 m au maître-bau (demi-largeur de coque × l'affinage
+// de rendu) : 0,86 pose l'homme SUR le bord, fesses au plat-bord et jambes
+// dans la coque, sans déborder. C'est la position d'attente d'une bordée qui
+// n'est pas encore sortie — pas une position de rappel.
+const CREW_GUNWALE_REST = 0.86;
+
 const CREW_SIDE_DELAYS = [0, 0.07, 0.14, 0.22, 0.32, 0.50];
 const CREW_SIDE_TRAVEL = 0.46;
 export const CREW_ROLES = Object.freeze([
@@ -1751,7 +1758,19 @@ export class CrewVisual {
     // d'avoir franchi le plat-bord (|x| = 0,90) : dès qu'on est dessus, on est
     // sur le bois. Lier les deux laissait un homme à 1,6 m — donc largement
     // au-dessus de l'eau — encore à moitié debout, bassin à 0,19 m de la perche.
-    const seated = clamp((Math.abs(drawnX) - 0.75) / 0.75, 0, 1);
+    // ⚠️ SEUIL ABAISSÉ AVEC L'ARRIVÉE DE `CREW_GUNWALE_REST`, ET IL DEVAIT
+    // BOUGER EN MÊME TEMPS.
+    //
+    // Il valait `(|x| − 0,75) / 0,75` : calibré pour le bwa, il n'atteignait 1
+    // qu'à 1,50 m. Un homme posé au plat-bord à 0,86 m n'aurait été « assis »
+    // qu'à 15 %, donc resté debout à 0,28 m de haut — on aurait remplacé le tas
+    // au milieu par une haie de types debout sur le bord.
+    //
+    // Le plat-bord et le bwa sont à la MÊME cote (0,25) : s'asseoir sur l'un ou
+    // sur l'autre est le même geste, et `seat` place déjà le bassin à cette
+    // hauteur. Le seuil décrit donc simplement « a franchi le bord », ce qui
+    // arrive dès 0,83 m.
+    const seated = clamp((Math.abs(drawnX) - 0.55) / 0.28, 0, 1);
     // ⚠️ L'ASSISE SUIT LE CORPS RÉELLEMENT UTILISÉ — MESURE DU 2 AOÛT 2026.
     // `0.38` était la hauteur de bassin du corps PROCÉDURAL, appliquée aussi au
     // rig GLB qui, lui, est normalisé en hauteur : ses six équipiers flottaient
@@ -2876,13 +2895,37 @@ varying vec3 vHullWorld;`)
         * CREW_REACH_BREATH
         * profileDeployment
         * sideProgress;
+      // ── LA COTE DE REPOS, AU PLAT-BORD ───────────────────────────────────
+      //
+      // ⚠️ IL N'Y EN AVAIT AUCUNE, ET C'EST CE QUI FAISAIT LE TAS AU MILIEU.
+      //
+      // `restReach` valait `reach × deployment` : à gîte nulle il tombait à
+      // ZÉRO. La formule savait où les hommes vont quand ils sortent, jamais où
+      // ils sont quand ils ne sortent pas. Ils retombaient donc à l'axe du
+      // bateau — mesuré `deportX = 0,04 m` — c'est-à-dire au milieu de la coque,
+      // là où les bwa traversent toute la largeur à la cote 0,25. Les perches
+      // leur passaient au travers du corps, et par-dessus ils tenaient une pose
+      // accroupie. Six hommes empilés et empalés : c'est ce que le joueur voit
+      // au départ de chaque course.
+      //
+      // Une bordée au repos est ASSISE SUR LE PLAT-BORD, épaules serrées,
+      // jambes à l'intérieur — la position d'attente d'un équipage qui va
+      // sortir. On lui donne donc sa cote, et le déploiement la remplace
+      // progressivement au lieu de partir de rien.
       const restReach = Math.max(
         0,
-        (staging.reach - bailRetraction) * profileDeployment + souffle
+        CREW_GUNWALE_REST * (1 - profileDeployment)
+          + (staging.reach - bailRetraction) * profileDeployment
+          + souffle
       );
       crew.visual.stagingDeployment = profileDeployment;
+      // L'éventail de 7 cm par rang n'existe QUE sortis : c'est lui qui évite
+      // six hommes alignés au cordeau sur les bwa. Au plat-bord, les photos
+      // montrent l'inverse — une rangée serrée, épaules contre épaules. Le
+      // laisser courir au repos tirait en outre les premiers rangs en deçà du
+      // seuil d'assise, et ils restaient à mi-hauteur, ni debout ni assis.
       const x = this.crewSides[index] * restReach
-        + normalized * spread + (index - 2.5) * 0.07;
+        + normalized * spread + (index - 2.5) * 0.07 * profileDeployment;
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08
         && this.sideChangeElapsed < CREW_SIDE_DELAYS[index] + CREW_SIDE_TRAVEL;
       // ── GORGÉE DE RHUM, ÉCHELONNÉE ─────────────────────────────────────
