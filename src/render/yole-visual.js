@@ -1523,6 +1523,10 @@ export class CrewVisual {
     const transferCrouch = sideChanging ? Math.sin(sideTransfer * Math.PI) : 0;
     const transferStep = sideChanging ? Math.sin(sideTransfer * Math.PI * 2) : 0;
     const anticipation = clamp(shiftMotion?.anticipation ?? 0, 0, 1);
+    // Décrochage au chavirage : la perche se dresse, l'homme glisse vers la
+    // coque et s'y accroche recroquevillé. Piloté par la gîte lissée côté
+    // YoleVisual ; présentation seule.
+    const decrochage = clamp(shiftMotion?.decrochage ?? 0, 0, 1);
     const scoutBrace = anticipation * (this.role === "premier" ? 0.16 : 0.055);
     this.shiftPhase = Math.max(brace, drive, catchLoad, absorb);
     this.motionState = sideChanging
@@ -1678,7 +1682,8 @@ export class CrewVisual {
       ? 0
       : (1 - clamp(hike * 2.4, 0, 1))
         * (1 - clamp(impact + stumble, 0, 1))
-        * (1 - transferCrouch);
+        * (1 - transferCrouch)
+        * (1 - decrochage);
     const tourneRepos = Math.sin(this.phase * 2.63);
     const pencheRepos = Math.cos(this.phase * 1.71);
     if (auPont > 0.001) {
@@ -1797,6 +1802,21 @@ export class CrewVisual {
           -0.42, -0.22, -0.02, 0.12
         );
     if (attenteOrdre > 0.001) this.head.rotation.y += attenteOrdre * -side * 0.55;
+
+    // ── DÉCROCHAGE : RECROQUEVILLÉ CONTRE LA COQUE ───────────────────────
+    //
+    // La glisse vers le plat-bord est déjà jouée par le déploiement (côté
+    // YoleVisual) ; ici le corps se FERME : bassin et buste se replient, les
+    // bras se ramènent devant, la tête rentre et cherche la coque. C'est la
+    // posture de celui qui retient tout, en attendant que ça tranche.
+    if (decrochage > 0.001) {
+      this.hips.rotation.x += decrochage * 0.40;
+      this.torso.rotation.x += decrochage * 0.32;
+      this.leftArmPivot.rotation.x += decrochage * 0.30;
+      this.rightArmPivot.rotation.x += decrochage * 0.30;
+      this.head.rotation.x += decrochage * 0.20;
+      this.head.rotation.y += decrochage * -side * 0.35;
+    }
     if (this.neck) {
       this.neck.rotation.x = -recline * 0.18 + catchLoad * 0.08;
       this.neck.rotation.y = this.head.rotation.y * 0.42;
@@ -1896,7 +1916,8 @@ export class CrewVisual {
       // ou traversée, la simulation a bien mieux à dire qu'un souffle de repos.
       const calme = (1 - clamp(impact, 0, 1))
         * (1 - clamp(stumble, 0, 1))
-        * (1 - transferCrouch);
+        * (1 - transferCrouch)
+        * (1 - decrochage);
       const clipTime = time * 0.62 + this.phase * 1.9;
       const poseAction = selectCrewPoseAction(
         this.clipLibrary, this.role, this.stagingStation
@@ -2830,6 +2851,20 @@ varying vec3 vHullWorld;`)
     // hommes étaient pratiquement à leur poste maximal. Le déploiement lit
     // maintenant la gîte brute et progresse de 2° à 12°.
     const deploiement = crewDeploymentForRoll(this.rollSlow);
+    // ── DÉCROCHAGE AU CHAVIRAGE ──────────────────────────────────────────
+    //
+    // La plage de travail d'un rappel s'arrête vers 30-35° de gîte (0,52 rad
+    // est déjà une gîte de course franche). Au-delà, la perche se dresse et
+    // personne ne tient ASSIS dessus : l'équipage glisse le long du bwa vers
+    // la coque, se recroqueville et s'accroche — puis la chute (`fall`) prend
+    // le relais si le hors course se conclut. Captures de référence : à 49°
+    // et 63°, six hommes restaient posés en rang sur des perches dressées.
+    //
+    // Le levier est le déploiement VISUEL : en le rabattant vers la cote de
+    // repos, l'homme revient au plat-bord ET sa pose de station s'efface —
+    // une seule valeur pilote la glisse et la posture. Présentation seule :
+    // `dynamics.activeCrew` (checksum de replay) ne voit rien d'ici.
+    const decrochage = clamp((Math.abs(this.rollSlow) - 0.68) / 0.37, 0, 1);
     // Tant que la gîte lissée est proche de zéro on conserve le bord courant :
     // le clapot ne doit jamais faire traverser six hommes. Lors d'un vrai
     // changement de bord, les racines des équipiers et leurs bwa se déplacent
@@ -2949,7 +2984,11 @@ varying vec3 vHullWorld;`)
       // Chaque famille possède sa propre fenêtre : les ancrages prennent la
       // charge tôt, les leviers suivent, l'extension ne sort que sous vraie gîte.
       const staging = CREW_STAGING_PROFILES[index];
-      const profileDeployment = crewProfileDeployment(staging, deploiement);
+      // Décrochage légèrement échelonné : six glissades parfaitement synchrones
+      // liraient comme un ressort, pas comme des hommes qui perdent leur perche.
+      const decrochageHomme = clamp(decrochage - (index % 3) * 0.10, 0, 1);
+      const profileDeployment = crewProfileDeployment(staging, deploiement)
+        * (1 - decrochageHomme * 0.85);
       const sideProgress = this.crewSideProgress[index] ?? 1;
       // ── RESPIRATION DE SORTIE ────────────────────────────────────────────
       //
@@ -3011,6 +3050,13 @@ varying vec3 vHullWorld;`)
       // seuil d'assise, et ils restaient à mi-hauteur, ni debout ni assis.
       const x = this.crewSides[index] * restReach
         + normalized * spread + (index - 2.5) * 0.07 * profileDeployment;
+      // La glisse de décrochage rabat AUSSI le déport de simulation : à 60° de
+      // gîte, personne ne tient à deux mètres du bord quelle que soit la
+      // contre-gîte demandée. On vise la bande du plat-bord, pas l'axe —
+      // retomber au milieu de la coque relirait comme le « tas » d'avant la
+      // cote de repos.
+      const xGlisse = Math.abs(x) > 1e-4 ? Math.sign(x) * 0.75 : 0;
+      const xDecroche = x + (xGlisse - x) * decrochageHomme * 0.8;
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08
         && this.sideChangeElapsed < CREW_SIDE_DELAYS[index] + CREW_SIDE_TRAVEL;
       // ── GORGÉE DE RHUM, ÉCHELONNÉE ─────────────────────────────────────
@@ -3040,6 +3086,7 @@ varying vec3 vHullWorld;`)
       // du virement et son propre délai, pas seulement sa fenêtre de traversée.
       shiftMotion.bordElapsed = this.sideChangeElapsed;
       shiftMotion.bordDelai = CREW_SIDE_DELAYS[index];
+      shiftMotion.decrochage = decrochageHomme;
       shiftMotion.anticipation = anticipation;
       shiftMotion.momentum = crewMomentum;
       shiftMotion.loadRecoil = counterHeelLoad * clamp(
@@ -3052,7 +3099,7 @@ varying vec3 vHullWorld;`)
       // toujours les contacts complets.
       shiftMotion.solveContacts = this.crewDetail >= 2
         || (this.crewDetail === 1 && index % 2 === 0);
-      crew.visual.update(time, dt, x, crew.z, velocity, state.roll, this.impact, index < active, state.crewStumble ?? 0, state.arcadeBoostForward ?? 0, (state.arcadeBoostLateral ?? 0) * (state.lateralBoostDirection ?? 0), cadence, index === bailer ? bailStrength : 0, gorgee, state.cohesion ?? 1, shiftMotion);
+      crew.visual.update(time, dt, xDecroche, crew.z, velocity, state.roll, this.impact, index < active, state.crewStumble ?? 0, state.arcadeBoostForward ?? 0, (state.arcadeBoostLateral ?? 0) * (state.lateralBoostDirection ?? 0), cadence, index === bailer ? bailStrength : 0, gorgee, state.cohesion ?? 1, shiftMotion);
     }
 
     if (!this.overboard) {

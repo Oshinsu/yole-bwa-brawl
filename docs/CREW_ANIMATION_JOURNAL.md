@@ -105,6 +105,16 @@ regard +0,50, dorsal), départ à 34,3° d'abduction pour un seuil à 45°.
   seule la capture la voit.** C'est la limite du harnais : il verrouille les
   catastrophes, il ne juge pas la grâce.
 
+## Passe du 6 août (soir, bis) — chavirage crédible
+
+Remonté sur capture de jeu réel : à 67 % de hors course, l'équipage restait
+assis en rang sur des perches quasi verticales. Corrigé par le **décrochage** :
+au-delà de ~39° de gîte lissée, l'homme glisse le long du bwa vers le plat-bord,
+se recroqueville et s'accroche, légèrement décalé d'un rang à l'autre ; la
+chute existante conclut. Détails et seuils dans
+[`CREW_ANIMATION_ENGINE.md`](CREW_ANIMATION_ENGINE.md) ; captures témoins
+`previews/equipage/chavirage_*.png` (harnais `tools/capture_chavirage.py`).
+
 ## Comment améliorer encore — pistes classées
 
 1. **Vent arrière / contrepoids (audit #4, haute priorité).** Un dresseur peut

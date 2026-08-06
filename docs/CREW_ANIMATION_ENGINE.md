@@ -388,6 +388,36 @@ trois-quarts, profil côté équipage (l'angle des photos de référence) et ord
 du patron à 0,4 s de virement. C'est lui qui produit les `repos_*.png` et
 `ordre_patron.png` de `previews/equipage/`.
 
+## Passe du 6 août (soir, bis) — le décrochage au chavirage
+
+Remonté par le propriétaire sur capture de jeu réel : à 67 % de hors course,
+bateau presque sur le côté, **l'équipage restait assis en rang sur les bwa
+dressés** — une posture que la gravité interdit. Reproduit au harnais
+(`tools/capture_chavirage.py`, 49° et 63°) : six hommes posés sur des perches
+quasi verticales.
+
+La physique du moment, et ce que le jeu fait maintenant : la plage de travail
+d'un rappel s'arrête vers 30-35° de gîte ; au-delà, la perche se dresse et
+l'homme **glisse le long du bwa vers la coque**, se recroqueville et s'accroche.
+`decrochage = (|rollSlow| − 0,68) / 0,37` pilote deux choses : le déploiement
+visuel (× 1 − 0,85·d, donc retour au plat-bord ET effacement de la pose de
+station) et le déport final (rabattu vers 0,75 m — la simulation peut encore
+demander la contre-gîte pleine, mais à 60° personne ne tient à 2 m du bord).
+Le corps se ferme en plus (bassin +0,40, buste +0,32, bras ramenés, tête vers
+la coque), la respiration et la variété de repos s'éteignent, et la glisse est
+légèrement échelonnée (`index % 3`) pour éviter l'effet ressort. Si le hors
+course se conclut, la chute existante (`fall`) prend le relais : la séquence
+lit désormais glisse → accrochage → chute.
+
+Présentation seule, une fois de plus : `dynamics.activeCrew` et les checksums
+n'en voient rien (`test:crew`, `test:sim`, `test:replay`, `test:boost` verts).
+
+Non traité, à connaître : au plus fort de la gîte forcée, le premier dresseur
+peut croiser la bordure de la voile d'un demi-bras — l'état forcé du harnais
+est pire que ce que la simulation produit, et à distance de jeu ça ne se lit
+pas. Si ça devait se voir en jeu réel, la bonne réponse est côté staging
+(la place du premier dresseur), pas côté pose.
+
 ### Archive — l'état au 2 août 2026
 
 Mesures reproductibles de l'époque :
