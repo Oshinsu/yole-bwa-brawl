@@ -366,6 +366,22 @@ Ces trois points sont purement visuels : `dynamics`, les checksums de replay et
 `SIMULATION_VERSION` ne bougent pas (vérifié : `test:sim`, `test:replay`,
 `test:boost`, `test:crew` verts).
 
+**Compléments du soir.** Deux ajouts et une découverte :
+
+- le harnais silhouette verrouille désormais le **contact bassin ↔ bois**
+  (`contactBois`, ±2 cm, spécialistes exclus) — le verrou qui manquait depuis
+  le bug d'assise flottante du 2 août ;
+- chaque dresseur **guette le patron** dans la demi-seconde qui précède son
+  tour de traversée (`bordElapsed`/`bordDelai` servis à tous, plus seulement
+  au patron), le premier dresseur exempté puisqu'il engage ;
+- ⚠️ le verrou a d'abord tiré +21 cm partout : **le harnais mesurait un
+  transitoire** — le déport latéral est lissé et les huit instants du balayage
+  ne le convergent pas. Un échauffement de 60 frames précède désormais la
+  mesure. Les tables antérieures au 6 août au soir (genou 88°, buste 54°…) sont
+  donc des états de transition ; convergé, le rappel installé lit buste 64°,
+  genou 120°, regard +0,49 — plus couché, plus croché, plus proche des photos.
+  Détails dans [`CREW_ANIMATION_JOURNAL.md`](CREW_ANIMATION_JOURNAL.md).
+
 Le harnais historique (`tools/capture_crew_pose.py`) ne couvre que la gîte
 franche. `tools/capture_repos_patron.py` le complète : repos vue de jeu,
 trois-quarts, profil côté équipage (l'angle des photos de référence) et ordre

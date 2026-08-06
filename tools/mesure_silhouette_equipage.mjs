@@ -39,7 +39,7 @@ const module = (...bouts) => import(pathToFileURL(path.join(RACINE, ...bouts)).h
 
 const THREE = await module("vendor", "three.module.min.js");
 const { CrewClipLibrary } = await module("src", "render", "crew-clips.js");
-const { CrewVisual, CREW_STAGING_PROFILES, CREW_ROLES } = await module(
+const { CrewVisual, CREW_STAGING_PROFILES, CREW_ROLES, CREW_BEAM_Y } = await module(
   "src", "render", "yole-visual.js"
 );
 
@@ -141,6 +141,18 @@ function positionLocale(visuel, nom) {
   return visuel.root.worldToLocal(os.getWorldPosition(new THREE.Vector3()));
 }
 
+// Position MONDE cette fois : le contact bassin ↔ bois ne se mesure pas dans le
+// repère de la racine, où la hauteur du bassin est constante par construction.
+// C'est `root.position.y` (l'assise calculée) qu'on veut voir aboutir à la cote
+// du bwa — le défaut du 2 août (six hommes flottant 7 à 17 cm au-dessus du
+// bois) vivait exactement là, et aucune mesure locale ne pouvait l'attraper.
+function positionMonde(visuel, nom) {
+  const os = visuel.rigJoints?.find((entree) => entree.boneName === nom)?.joint;
+  if (!os) return null;
+  visuel.root.updateWorldMatrix(true, true);
+  return os.getWorldPosition(new THREE.Vector3());
+}
+
 // Abduction du BRAS, pas de la main. Un coude plié projette la main loin sur le
 // côté sans que l'épaule soit ouverte : mesurer épaule→main confond « bras en
 // croix » et « avant-bras replié ». C'est le segment épaule→coude qui décide de
@@ -219,6 +231,7 @@ function mesure(visuel, yole) {
   const mainD = positionLocale(visuel, "RightHand");
   const tete = positionLocale(visuel, "Head");
   const hanche = positionLocale(visuel, "Hips");
+  const hancheMonde = positionMonde(visuel, "Hips");
   const genou = positionLocale(visuel, "LeftLeg");
   const cheville = positionLocale(visuel, "LeftFoot");
 
@@ -256,6 +269,10 @@ function mesure(visuel, yole) {
     envergureMains: mainG && mainD ? Math.abs(mainG.x - mainD.x) : null,
     hauteurTete: tete?.y ?? null,
     hauteurHanche: hanche?.y ?? null,
+    // Écart vertical bassin ↔ cote du bois. Nul par construction quand l'assise
+    // est cohérente : toute dérive signe une hauteur de hanche ou une échelle
+    // de rig mal mesurée — c'est le bug du 2 août, verrouillé pour de bon.
+    contactBois: hancheMonde ? hancheMonde.y - CREW_BEAM_Y : null,
     teteSousHanche: tete && hanche ? tete.y - hanche.y : null,
     inclinaisonBuste,
     flexionGenou,
@@ -300,6 +317,18 @@ function joue(scenario, rig, bibliotheque) {
   visuel.posture = 1;
 
   let pire = null;
+  // ⚠️ ÉCHAUFFEMENT OBLIGATOIRE AVANT TOUTE MESURE. Le déport latéral de
+  // l'équipier est LISSÉ (damp) : les huit instants du balayage ne suffisent
+  // pas à le converger, et la première version de ce harnais mesurait alors un
+  // bassin à +21 cm du bois — un artefact de transitoire, pas un défaut du
+  // jeu. Une minute de temps simulé met l'assise à sa place définitive.
+  for (let k = 0; k < 60; k++) {
+    visuel.update(
+      10 + k / 60, 1 / 60, 1.2, 0.5, 6.4, scenario.roll, 0, true,
+      0, 0, 0, scenario.cadence, 0, 0, 1,
+      { elapsed: 99, duration: 0, precision: 0, kind: 0, delay: 0, sideTransfer: 1, sideChanging: false, anticipation: 0, momentum: 0, loadRecoil: 0, solveContacts: true }
+    );
+  }
   for (const instant of INSTANTS) {
     visuel.update(
       instant, 1 / 60, 1.2, 0.5, 6.4, scenario.roll, 0, true,
@@ -315,7 +344,7 @@ function joue(scenario, rig, bibliotheque) {
       pire = { ...releve, instant };
     }
   }
-  return { scenario: scenario.nom, deploye: scenario.deployment > 0.5, ...pire };
+  return { scenario: scenario.nom, deploye: scenario.deployment > 0.5, specialiste: Boolean(scenario.role), ...pire };
 }
 
 // ── AMPLITUDE INTERNE DES ACTIONS ────────────────────────────────────────────
@@ -386,7 +415,12 @@ const SEUILS = {
   // Orientation du regard dans le repère de la yole : positif = face au ciel,
   // donc dos à la mer. Un dresseur sorti au rappel doit rester franchement
   // dorsal ; on n'exige rien de celui qui est encore dans le bateau.
-  regardDorsalMin: 0.15
+  regardDorsalMin: 0.15,
+  // Contact bassin ↔ bois, en mètres. Le calcul d'assise vise la cote exacte
+  // (`CREW_BEAM_Y`) ; on tolère deux centimètres pour l'interpolation des
+  // poses, pas plus. Les spécialistes (patron, écoute) sont exclus : leurs
+  // postes ne sont pas sur le bois, leur assise est volontairement ailleurs.
+  contactBoisMax: 0.02
 };
 
 // ── RAPPORT ──────────────────────────────────────────────────────────────────
@@ -420,6 +454,9 @@ for (const ligne of releves) {
   if (ligne.derniveleQuaternion > SEUILS.derniveleQuaternionMax) {
     echecs.push(`« ${ligne.scenario} » : quaternion d'os non unitaire (écart ${ligne.derniveleQuaternion.toExponential(2)}) — l'os arrive à l'écran avec une ÉCHELLE`);
   }
+  if (!ligne.specialiste && ligne.contactBois !== null && Math.abs(ligne.contactBois) > SEUILS.contactBoisMax) {
+    echecs.push(`« ${ligne.scenario} » : bassin à ${(ligne.contactBois >= 0 ? "+" : "") + (ligne.contactBois * 100).toFixed(1)} cm de la cote du bois — l'assise ne pose plus l'homme SUR le bwa`);
+  }
 }
 
 const rapport = {
@@ -442,13 +479,14 @@ if (process.argv.includes("--json")) {
     console.log(`  ${l.action.padEnd(24)}  ${l.interpolation.padEnd(12)} ${l.duree.toFixed(2)}s ${(l.amplitudeMax.toFixed(2) + "°").padStart(10)}   ${(l.osLePlusMobile || "-").padEnd(18)}  ${l.canauxFiges}/${l.canaux}`);
   }
   console.log("\nSILHOUETTE COMPOSEE (assise + station + traversee + procedural + IK)");
-  console.log("  scenario                    bras en croix   envergure   buste   tete-hanches   genou   regard");
+  console.log("  scenario                    bras en croix   envergure   buste   tete-hanches   genou   regard   bassin-bois");
   for (const l of releves) {
     const buste = l.inclinaisonBuste === null ? "?" : l.inclinaisonBuste.toFixed(0) + "°";
     const delta = l.teteSousHanche === null ? "?" : (l.teteSousHanche >= 0 ? "+" : "") + l.teteSousHanche.toFixed(2) + " m";
     const genou = l.flexionGenou === null ? "?" : l.flexionGenou.toFixed(0) + "°";
     const regard = l.regard === null ? "?" : (l.regard >= 0 ? "+" : "") + l.regard.toFixed(2);
-    console.log(`  ${l.scenario.padEnd(26)} ${(l.abduction.toFixed(1) + "°").padStart(12)}   ${(l.envergureMains?.toFixed(2) ?? "?") + " m"}    ${buste.padStart(5)}   ${delta.padStart(9)}   ${genou.padStart(5)}   ${regard.padStart(6)}`);
+    const contact = l.contactBois === null ? "?" : (l.contactBois >= 0 ? "+" : "") + (l.contactBois * 100).toFixed(1) + " cm";
+    console.log(`  ${l.scenario.padEnd(26)} ${(l.abduction.toFixed(1) + "°").padStart(12)}   ${(l.envergureMains?.toFixed(2) ?? "?") + " m"}    ${buste.padStart(5)}   ${delta.padStart(9)}   ${genou.padStart(5)}   ${regard.padStart(6)}   ${contact.padStart(9)}`);
   }
   console.log("");
   console.log("  Repere : le yoleur porte le levier PAR LE DOS — regard > 0, face tournee");

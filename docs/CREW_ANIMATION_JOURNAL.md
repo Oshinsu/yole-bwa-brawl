@@ -82,6 +82,29 @@ regard +0,50, dorsal), départ à 34,3° d'abduction pour un seuil à 45°.
   « distance bassin ↔ lisse » dans `mesure_silhouette_equipage.mjs` serait le
   verrou qui manque.
 
+  **→ FAIT le soir même, et la mesure a d'abord menti autrement.** Le verrou
+  (`contactBois`, seuil ±2 cm) a tiré +21,3 cm sur TOUTES les silhouettes — un
+  défaut que les captures ne montraient pas. La raison : le déport latéral de
+  l'équipier est lissé (damp), et les huit instants du balayage ne le
+  convergent pas. Le harnais mesurait un transitoire. Après échauffement
+  (60 frames de temps simulé avant la mesure), le contact est **+0,0 cm**
+  partout — l'assise était juste, la mesure était jeune.
+
+  ⚠️ **Conséquence à connaître : les tables de mesures antérieures (celles du
+  4 août, et la mienne du matin même) ont été prises SANS échauffement.** Ce
+  sont des états de transition, pas la pose installée. Au rappel installé et
+  convergé, la vérité du jour est : buste **64°** (et non 54°), genou **120°**
+  (et non 88°), bras 17°, envergure 0,35 m — plus couché et plus croché que ce
+  que les docs citaient, et plus proche des photos, donc. Les anciennes tables
+  restent des archives de leur passe ; ne pas les comparer aux nouvelles sans
+  tenir compte de l'échauffement.
+
+  Leçon jumelle : à états convergés, l'ancien seed « à genoux » et le nouveau
+  « perché » donnent des jauges quasi identiques (27°/0,37 m contre 28°/0,40 m
+  au départ). **Les jauges ne voient pas la différence entre les deux assises —
+  seule la capture la voit.** C'est la limite du harnais : il verrouille les
+  catastrophes, il ne juge pas la grâce.
+
 ## Comment améliorer encore — pistes classées
 
 1. **Vent arrière / contrepoids (audit #4, haute priorité).** Un dresseur peut
@@ -91,18 +114,21 @@ regard +0,50, dorsal), départ à 34,3° d'abduction pour un seuil à 45°.
    simulation (autoritaire, `SIMULATION_VERSION`) ou si ça reste une lecture
    visuelle. **Ne pas l'inventer sans retour d'un pratiquant** : c'est le même
    piège que « ventre ou dos à la mer ».
-2. **Verrou de contact bassin ↔ plat-bord** (voir doute ci-dessus). Facile :
-   une mesure de plus dans le harnais silhouette, un seuil, et c'est verrouillé
-   pour toujours. Bon rapport coût/confiance.
+2. ~~**Verrou de contact bassin ↔ plat-bord**~~ — **FAIT le 6 août au soir**
+   (`contactBois`, ±2 cm, spécialistes exclus). Il a d'abord révélé un défaut…
+   du harnais lui-même (transitoire non convergé), corrigé par l'échauffement.
+   Voir « Mes pensées » ci-dessus.
 3. **Variété de mesh (audit #6, volet restant).** 32 corps, un seul mesh.
    Options : 2-3 meshes variantes dans le même GLB (poids ×2-3 sur le poste
    texture+mesh, attention au précache), ou échelle d'épaules/bassin par membre
    au runtime (attention : l'IK et les pole targets supposent les proportions
    du bind — à mesurer avant). Volontairement non commencé.
-4. **Regards vers le patron pendant l'ordre.** Les dresseurs ont déjà
-   `sideTransfer` ; un quart de tour de tête vers la poupe au tout début de la
-   traversée renforcerait la lecture collective. Subtil, présentation seule,
-   mais à vérifier en capture — un regard qui arrive en retard lit comme un bug.
+4. ~~**Regards vers le patron pendant l'ordre**~~ — **FAIT le 6 août au soir.**
+   Chaque dresseur reçoit `bordElapsed` + son délai (`bordDelai`) ; dans la
+   demi-seconde qui précède SON tour de traversée, la tête part vers la poupe
+   (−0,55 rad) et revient dès qu'il s'engage. Le premier dresseur en est exempt
+   (c'est lui qui engage). Vérifié en capture : le dernier dresseur regarde le
+   patron pendant que le bras est levé.
 5. **Geste différencié virer / empanner.** Aujourd'hui un seul geste pour tout
    changement de bord. Le `state` sait probablement dire dans quel sens on
    tourne ; deux gestes distincts seraient un vrai plus pédagogique pour le

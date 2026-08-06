@@ -381,7 +381,8 @@ const SHEET_LINE_LENGTH = 2.45;
 
 // Hauteur des bois dressés, reprise de leur construction (beamRoot.position.y).
 // C'est la cote d'assise de l'équipage : les deux DOIVENT rester d'accord.
-const CREW_BEAM_Y = 0.25;
+// Exportée pour le harnais silhouette, qui verrouille le contact bassin ↔ bois.
+export const CREW_BEAM_Y = 0.25;
 
 // Descente du bassin pour qu'il repose SUR le bois au lieu de flotter au-dessus
 // (mesuré : 0,324 m d'écart au repos). Réservé au rig importé — le corps
@@ -1782,6 +1783,20 @@ export class CrewVisual {
     this.head.rotation.y = this.role === "premier"
       ? Math.sin(cadence * 0.34 + this.phase) * 0.11 + scoutBrace * side * 0.85
       : transferStep * 0.08 + pencheRepos * 0.38 * auPont;
+    // ── LE COUP D'ŒIL AU PATRON ──────────────────────────────────────────
+    //
+    // Avant de traverser, l'homme guette le commandement : le regard part vers
+    // la poupe dans la demi-seconde qui précède son tour et revient dès qu'il
+    // s'engage. La fenêtre se ferme au début de SA traversée — un regard qui
+    // arriverait après son départ se lirait comme un retard. Le premier
+    // dresseur n'en a pas besoin : c'est lui qui engage, il a déjà le sien.
+    const attenteOrdre = (this.role === "patron" || this.role === "ecoute" || this.role === "premier")
+      ? 0
+      : motionPulse(
+          (shiftMotion?.bordElapsed ?? 99) - (shiftMotion?.bordDelai ?? 0),
+          -0.42, -0.22, -0.02, 0.12
+        );
+    if (attenteOrdre > 0.001) this.head.rotation.y += attenteOrdre * -side * 0.55;
     if (this.neck) {
       this.neck.rotation.x = -recline * 0.18 + catchLoad * 0.08;
       this.neck.rotation.y = this.head.rotation.y * 0.42;
@@ -3021,6 +3036,10 @@ varying vec3 vHullWorld;`)
       shiftMotion.delay = state.crewStartDelays?.[index] ?? 0;
       shiftMotion.sideTransfer = sideProgress;
       shiftMotion.sideChanging = sideChanging;
+      // Celui qui attend son tour guette le commandement : il lui faut l'horloge
+      // du virement et son propre délai, pas seulement sa fenêtre de traversée.
+      shiftMotion.bordElapsed = this.sideChangeElapsed;
+      shiftMotion.bordDelai = CREW_SIDE_DELAYS[index];
       shiftMotion.anticipation = anticipation;
       shiftMotion.momentum = crewMomentum;
       shiftMotion.loadRecoil = counterHeelLoad * clamp(
