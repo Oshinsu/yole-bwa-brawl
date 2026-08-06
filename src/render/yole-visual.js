@@ -1718,10 +1718,12 @@ export class CrewVisual {
       // C'est le bras GAUCHE qui se lève : la main droite tient la pagaie.
       const ordre = motionPulse(shiftMotion?.bordElapsed ?? 99, 0.0, 0.09, 0.55, 0.88);
       if (ordre > 0.001) {
-        this.leftArmPivot.rotation.x += (-2.55 - this.leftArmPivot.rotation.x) * ordre;
-        this.leftArmPivot.rotation.z += (0.14 - this.leftArmPivot.rotation.z) * ordre;
+        // Bras presque TENDU et haut : à la distance de jeu, un coude plié se
+        // lit comme un geste de fatigue, pas comme un commandement.
+        this.leftArmPivot.rotation.x += (-2.68 - this.leftArmPivot.rotation.x) * ordre;
+        this.leftArmPivot.rotation.z += (0.10 - this.leftArmPivot.rotation.z) * ordre;
         if (this.leftForeArm) {
-          this.leftForeArm.rotation.x += (-0.18 - this.leftForeArm.rotation.x) * ordre;
+          this.leftForeArm.rotation.x += (-0.06 - this.leftForeArm.rotation.x) * ordre;
         }
         // Il ne crie pas vers l'eau : il se tourne vers ses hommes.
         if (this.neck) this.neck.rotation.y += ordre * 0.34;

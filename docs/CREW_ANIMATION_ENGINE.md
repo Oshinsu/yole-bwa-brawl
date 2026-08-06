@@ -325,6 +325,9 @@ code d'origine, plafond à 45°, **19°** aujourd'hui.
 
 ## Passe du 6 août 2026 — repos crédible, équipage varié, ordre du patron
 
+> Le journal détaillé — méthode avant/après par worktree, doutes, et pistes
+> classées — vit dans [`CREW_ANIMATION_JOURNAL.md`](CREW_ANIMATION_JOURNAL.md).
+
 Référentiel utilisé : photos CC BY-SA 4.0 de Wikimedia Commons (Tour des yoles
 2019, GFA Caraïbes, courses de Sainte-Luce — copies de travail dans
 `tmp/references/`, hors paquet), plus les fiches déjà citées par l'audit. Ce que
