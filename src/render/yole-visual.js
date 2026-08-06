@@ -1770,7 +1770,31 @@ export class CrewVisual {
     // sur l'autre est le même geste, et `seat` place déjà le bassin à cette
     // hauteur. Le seuil décrit donc simplement « a franchi le bord », ce qui
     // arrive dès 0,83 m.
-    const seated = clamp((Math.abs(drawnX) - 0.55) / 0.28, 0, 1);
+    // ⚠️ ET LA RAMPE COMPTE AUTANT QUE LE SEUIL — CORRIGÉ LE 5 AOÛT 2026.
+    //
+    // La première version de ce reglage, `(|x| − 0,55) / 0,28`, atteignait bien
+    // 1 au plat-bord mais sur 28 cm de course seulement, contre 75 cm avant.
+    // Or l'assise fait varier la racine de 0,88 m : comprimée sur 28 cm, ça fait
+    // plus de trois mètres de hauteur par mètre de déport.
+    //
+    // Mesuré au balayage de gîte : entre 4° et 6°, la hauteur du plus haut
+    // équipier sautait de −0,53 m à +0,09 m. SOIXANTE-DEUX CENTIMÈTRES d'un
+    // coup — deux hommes se dressaient debout sur le bord pendant que les
+    // autres restaient assis. Ça arrive dès que le déport de simulation
+    // s'oppose au côté visuel et ramène brièvement `|x|` sous le seuil.
+    //
+    // ⚠️ ET LA RAMPE DOIT ÊTRE PLEINE DÈS LA PLUS PETITE STATION.
+    //
+    // Élargir ne suffisait pas : il restait 31 cm de saut à 6°, et la mesure a
+    // désigné le poste INTÉRIEUR. Sa portée est de 0,58 m, donc INFÉRIEURE à la
+    // cote de repos de 0,86 : en se déployant, cet homme-là rentre vers l'axe
+    // au lieu de sortir, repasse sous le seuil, et se lève.
+    //
+    // La rampe se termine donc à 0,58 — la plus petite portée de station — et
+    // non au plat-bord. Tout homme au travail, quelle que soit sa station, est
+    // alors franchement assis ; seul celui qu'on ramène vraiment au milieu de
+    // la coque se redresse.
+    const seated = clamp((Math.abs(drawnX) - 0.20) / 0.38, 0, 1);
     // ⚠️ L'ASSISE SUIT LE CORPS RÉELLEMENT UTILISÉ — MESURE DU 2 AOÛT 2026.
     // `0.38` était la hauteur de bassin du corps PROCÉDURAL, appliquée aussi au
     // rig GLB qui, lui, est normalisé en hauteur : ses six équipiers flottaient
