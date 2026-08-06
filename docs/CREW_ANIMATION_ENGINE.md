@@ -323,6 +323,52 @@ code d'origine, plafond à 45°, **19°** aujourd'hui.
 
 ---
 
+## Passe du 6 août 2026 — repos crédible, équipage varié, ordre du patron
+
+Référentiel utilisé : photos CC BY-SA 4.0 de Wikimedia Commons (Tour des yoles
+2019, GFA Caraïbes, courses de Sainte-Luce — copies de travail dans
+`tmp/references/`, hors paquet), plus les fiches déjà citées par l'audit. Ce que
+ces photos montrent, et qui manquait :
+
+1. **Sans gîte, on est perché sur le plat-bord, pas à genoux sur le pont.**
+   Le seed `pont_interieur` laissait les cuisses à 25° et les jambes à −95° :
+   une rangée d'hommes à genoux, lecture « pirogue à rameurs ». Recalé à
+   cuisses 62-66° (vers l'horizontale), jambes −100/−104°, avant-bras −56/−62°
+   posés sur les cuisses. Mesuré avant/après (harnais silhouette, production) :
+
+   | Mesure au départ | Avant | Après | Seuil |
+   |---|---|---|---|
+   | bras en croix | 32,5° | 34,3° | < 45° ✅ |
+   | envergure des mains | 0,91 m | 0,93 m | < 1,20 m ✅ |
+   | buste (0 = debout) | 16° | 16° | — |
+   | flexion du genou | 56° | 54° | — |
+
+   ⚠️ Contre-intuition payée : resserrer l'écart Z des bras (25° → 9°) faisait
+   MONTER la jauge d'abduction à 43° — avec les avant-bras repliés sur les
+   cuisses, un bras étroit projette le coude sur l'axe des épaules. L'écart
+   d'origine est revenu, la jauge est retombée à 34°.
+2. **Au repos, six hommes ne font pas le même geste.** Chaque dresseur reçoit
+   une orientation de racine, une inclinaison de buste, une asymétrie de bras
+   et un regard dérivés de `this.phase` — fixe par homme, donc rejouable à
+   l'identique, et nul dès que `hike` monte : au rappel, tout le monde
+   travaille. Couvre la partie pose de l'angle mort n°6 de l'audit.
+3. **Le virement se commande.** Le patron lève le bras gauche au début du
+   changement de bord (la droite tient la pagaie) et le rabat pendant que les
+   dresseurs traversent. Le geste est calé sur `sideChangeElapsed` — servi au
+   patron via `shiftMotion.bordElapsed`, qui valait 99 en permanence pour les
+   spécialistes — et non sur la gîte : un coup de tabac ne le fait pas
+   gesticuler. Angle mort n°7 de l'audit, refermé.
+
+Ces trois points sont purement visuels : `dynamics`, les checksums de replay et
+`SIMULATION_VERSION` ne bougent pas (vérifié : `test:sim`, `test:replay`,
+`test:boost`, `test:crew` verts).
+
+Le harnais historique (`tools/capture_crew_pose.py`) ne couvre que la gîte
+franche. `tools/capture_repos_patron.py` le complète : repos vue de jeu,
+trois-quarts, profil côté équipage (l'angle des photos de référence) et ordre
+du patron à 0,4 s de virement. C'est lui qui produit les `repos_*.png` et
+`ordre_patron.png` de `previews/equipage/`.
+
 ### Archive — l'état au 2 août 2026
 
 Mesures reproductibles de l'époque :

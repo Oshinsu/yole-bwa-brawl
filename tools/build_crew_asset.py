@@ -147,6 +147,12 @@ ACTION_BRIEFS = {
 # d'amplitude depuis que l'assise et la station tiennent l'autorité. Le tripler
 # ne suffisait donc plus — c'est un constat mesuré, pas une préférence.
 POSE_ROTATIONS_DEG = {
+    # Assise recalée le 6 août 2026 sur photos de bordée SANS gîte (Tour des
+    # yoles 2019, GFA Caraïbes, CC BY-SA — tmp/references/) : l'homme est ASSIS
+    # sur le plat-bord, cuisses relevées vers l'horizontale, tibias vers le fond
+    # de la coque, avant-bras posés sur les cuisses. La version précédente
+    # (cuisses à 25°, jambes à −95°) le laissait à genoux sur le pont — une
+    # lecture « pirogue à rameurs » que les photos ne montrent jamais.
     "pont_interieur": {
         "LeftShoulder": (2, 0, 5),
         "RightShoulder": (2, 0, -5),
@@ -155,16 +161,16 @@ POSE_ROTATIONS_DEG = {
         "Spine01": (8, 0, -1),
         "Spine": (3, 0, 0),
         "neck": (-21, 0, 0),
-        "LeftUpLeg": (25, 0, -10),
-        "RightUpLeg": (29, 0, 9),
-        "LeftLeg": (-95, 0, 0),
-        "RightLeg": (-98, 0, 0),
-        "LeftFoot": (12, 0, 0),
-        "RightFoot": (12, 0, 0),
-        "LeftArm": (-10, 0, 25),
-        "RightArm": (-10, 0, -23),
-        "LeftForeArm": (-35, 0, 5),
-        "RightForeArm": (-32, 0, -5),
+        "LeftUpLeg": (62, 0, -8),
+        "RightUpLeg": (66, 0, 8),
+        "LeftLeg": (-100, 0, 0),
+        "RightLeg": (-104, 0, 0),
+        "LeftFoot": (30, 0, 0),
+        "RightFoot": (28, 0, 0),
+        "LeftArm": (-13, 0, 25),
+        "RightArm": (-15, 0, -23),
+        "LeftForeArm": (-62, 0, 4),
+        "RightForeArm": (-56, 0, -4),
         "Head": (-40, 0, 0),
     },
     "cale_court": {

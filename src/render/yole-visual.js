@@ -1661,6 +1661,32 @@ export class CrewVisual {
     if (this.leftFoot) this.leftFoot.rotation.x = -0.20 * hike - transferStep * 0.15;
     if (this.rightFoot) this.rightFoot.rotation.x = -0.20 * hike + transferStep * 0.15;
 
+    // ── VARIÉTÉ D'ASSISE ─────────────────────────────────────────────────
+    //
+    // Photos de bordée sans gîte (Tour des yoles 2019, GFA Caraïbes) : au
+    // repos les hommes ne font PAS le même geste — l'un regarde la voile,
+    // l'autre le plan d'eau, un troisième se tourne vers son voisin. Six
+    // silhouettes strictement identiques lisent comme des clones, pas comme
+    // un équipage. Angle mort n°6 de l'audit, côté pose.
+    //
+    // Les coefficients dérivent de `this.phase` — `crewIndex * CREW_LAG`,
+    // FIXE par homme : deux relectures d'un même replay montrent exactement
+    // la même chose, et rien ici ne touche `dynamics`. Le tout s'efface dès
+    // la sortie sur les bwa : au rappel, tout le monde travaille.
+    const auPont = (this.role === "patron" || this.role === "ecoute")
+      ? 0
+      : (1 - clamp(hike * 2.4, 0, 1))
+        * (1 - clamp(impact + stumble, 0, 1))
+        * (1 - transferCrouch);
+    const tourneRepos = Math.sin(this.phase * 2.63);
+    const pencheRepos = Math.cos(this.phase * 1.71);
+    if (auPont > 0.001) {
+      this.root.rotation.y += tourneRepos * 0.24 * auPont;
+      this.torso.rotation.z += pencheRepos * 0.06 * auPont;
+      this.leftArmPivot.rotation.x += pencheRepos * 0.20 * auPont;
+      this.rightArmPivot.rotation.x -= tourneRepos * 0.22 * auPont;
+    }
+
     // Postes intérieurs documentés : le patron gouverne à la grande pagaie et
     // le manœuvrier d'écoute règle la voile. Ils partagent le même rig léger,
     // mais pas la gestuelle des dresseurs assis sur les bwa.
@@ -1682,6 +1708,24 @@ export class CrewVisual {
       if (this.leftForeArm) this.leftForeArm.rotation.x = -0.48 + helm * 0.16;
       if (this.rightForeArm) this.rightForeArm.rotation.x = -0.62 - helm * 0.13;
       if (this.neck) this.neck.rotation.y = 0.08 + helm * 0.06;
+      // ── L'ORDRE DU PATRON ─────────────────────────────────────────────
+      //
+      // Angle mort n°7 de l'audit d'authenticité : rien n'annonçait le
+      // changement de bord. Sur l'eau, le virement se COMMANDE — le patron
+      // lève le bras et les dresseurs traversent dans la foulée. Le geste est
+      // calé sur l'horloge réelle du virement (`bordElapsed`), pas sur la
+      // gîte : un coup de tabac ne doit pas faire gesticuler le patron.
+      // C'est le bras GAUCHE qui se lève : la main droite tient la pagaie.
+      const ordre = motionPulse(shiftMotion?.bordElapsed ?? 99, 0.0, 0.09, 0.55, 0.88);
+      if (ordre > 0.001) {
+        this.leftArmPivot.rotation.x += (-2.55 - this.leftArmPivot.rotation.x) * ordre;
+        this.leftArmPivot.rotation.z += (0.14 - this.leftArmPivot.rotation.z) * ordre;
+        if (this.leftForeArm) {
+          this.leftForeArm.rotation.x += (-0.18 - this.leftForeArm.rotation.x) * ordre;
+        }
+        // Il ne crie pas vers l'eau : il se tourne vers ses hommes.
+        if (this.neck) this.neck.rotation.y += ordre * 0.34;
+      }
     } else if (this.role === "ecoute") {
       const pull = Math.sin(cadence * 0.72 + this.phase);
       const load = 0.5 + 0.5 * Math.max(0, pull);
@@ -1735,7 +1779,7 @@ export class CrewVisual {
     this.head.rotation.z = 0;
     this.head.rotation.y = this.role === "premier"
       ? Math.sin(cadence * 0.34 + this.phase) * 0.11 + scoutBrace * side * 0.85
-      : transferStep * 0.08;
+      : transferStep * 0.08 + pencheRepos * 0.38 * auPont;
     if (this.neck) {
       this.neck.rotation.x = -recline * 0.18 + catchLoad * 0.08;
       this.neck.rotation.y = this.head.rotation.y * 0.42;
@@ -3009,6 +3053,12 @@ varying vec3 vHullWorld;`)
         roleMotion.anticipation = anticipation * 0.35;
         roleMotion.momentum = 0;
         roleMotion.loadRecoil = 0;
+        // L'ordre du patron se cale sur le virement RÉEL : il reçoit l'horloge
+        // du changement de bord, que seuls les dresseurs connaissaient jusqu'ici.
+        const finBord = CREW_SIDE_DELAYS[CREW_SIDE_DELAYS.length - 1] + CREW_SIDE_TRAVEL;
+        roleMotion.bordElapsed = isPatron && this.sideChangeElapsed <= finBord
+          ? this.sideChangeElapsed
+          : 99;
         roleMotion.solveContacts = this.crewDetail >= 2;
         specialist.visual.update(
           time,

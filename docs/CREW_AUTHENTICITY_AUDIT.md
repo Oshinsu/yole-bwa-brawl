@@ -183,9 +183,21 @@ Ce qui a été renforcé :
    plancher (`allActionsAnimated`). Les clavicules, qui n'étaient keyées nulle
    part — huit os sur vingt-quatre ne l'étaient pas — le sont aussi.
 6. **Variété corporelle** : la taille change, mais les 32 corps partagent le
-   même mesh et la même silhouette.
-7. **Ordres du patron** : regard et posture existent, mais aucun signal de bras
-   ou appel collectif n'annonce le changement de bord.
+   même mesh et la même silhouette. **Atténué le 6 août 2026 côté pose** : au
+   repos, chaque dresseur reçoit désormais une orientation, une inclinaison de
+   buste, une asymétrie de bras et un regard qui lui sont propres, dérivés de
+   `this.phase` (donc fixes d'un replay à l'autre), et l'assise livrée est
+   passée de « à genoux sur le pont » à « perché sur le plat-bord, avant-bras
+   sur les cuisses », d'après les photos du Tour (CC BY-SA, voir
+   `CREW_ANIMATION_ENGINE.md`). Le mesh, lui, reste unique.
+7. ~~**Ordres du patron**~~ — **RÉSOLU le 6 août 2026.** Le patron lève le
+   bras gauche au début du changement de bord et le rabat pendant que les
+   dresseurs traversent — la droite tient la pagaie. Le geste est calé sur
+   l'horloge réelle du virement (`sideChangeElapsed`, servie au patron via
+   `shiftMotion.bordElapsed`), pas sur la gîte : un coup de tabac ne le fait
+   pas gesticuler. Vérifié en capture (`previews/equipage/ordre_patron.png`,
+   harnais `tools/capture_repos_patron.py`). L'appel collectif SONORE reste,
+   lui, hors scope.
 
 ### À ne pas surproduire maintenant
 
