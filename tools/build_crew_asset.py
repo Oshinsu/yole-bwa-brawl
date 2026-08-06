@@ -150,7 +150,7 @@ POSE_ROTATIONS_DEG = {
     "pont_interieur": {
         "LeftShoulder": (2, 0, 5),
         "RightShoulder": (2, 0, -5),
-        "Hips": (20, 0, 4),
+        "Hips": (-11, 0, 4),
         "Spine02": (12, 0, -2),
         "Spine01": (8, 0, -1),
         "Spine": (3, 0, 0),
