@@ -418,6 +418,32 @@ est pire que ce que la simulation produit, et à distance de jeu ça ne se lit
 pas. Si ça devait se voir en jeu réel, la bonne réponse est côté staging
 (la place du premier dresseur), pas côté pose.
 
+## Passe du 6 août (soir, ter) — la flèche permanente des bwa, et l'accroche
+
+Question du propriétaire : « il faut une physique, une accroche — assis sur les
+bwa, ou les tenir par la main, ou penché dessus ? » La réponse d'un praticien
+serait : **les trois à la fois, et chacun porte quelque chose de différent** —
+le bassin porte le POIDS (charge verticale, celle qui ploie la perche), les
+mains portent le MOMENT (sans la prise, l'homme bascule en arrière), les jambes
+CROCHÈTENT (sans elles, il glisse le long du bois). Le jeu avait l'assise
+verrouillée et la prise IK ; il manquait le couplage charge → flexion → suivi.
+
+La flexion n'existait qu'en IMPULSION (0,028 rad pendant la contre-gîte, puis
+la perche redevenait raide avec l'homme encore dessus). Désormais chaque bwa
+porteur ploie en continu : `beamSag = déploiement × bras de levier × 0,06 rad`
+(amorti à 3,2/s), mesuré en jeu de 0,2° à 2,9° selon l'homme — et l'équipier
+**suit** sa perche : sa racine descend de `sag × |x| × 0,9` (jusqu'à ~13 cm au
+bout), et l'IK vise la perche affaissée, pas sa cote au repos. Quand l'homme
+rentre ou décroche, la perche se relève avec lui ; par-dessus bord, elle se
+détend. Le verrou `crew-seating` a suivi le contrat : l'assise juste est la
+cote de la perche **affaissée**, plus la cote au repos.
+
+Toujours présentation seule — le couple de rappel de la simulation reste
+calculé sur les positions, pas sur la flexion. La flexion qui ABSORBE la rafale
+(côté `yole-physics`) serait le vrai couplage physique, mais il est autoritaire
+(`SIMULATION_VERSION`, replays) : à décider en connaissance, pas à glisser dans
+une passe de présentation.
+
 ### Archive — l'état au 2 août 2026
 
 Mesures reproductibles de l'époque :

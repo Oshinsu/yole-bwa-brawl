@@ -115,6 +115,23 @@ chute existante conclut. Détails et seuils dans
 [`CREW_ANIMATION_ENGINE.md`](CREW_ANIMATION_ENGINE.md) ; captures témoins
 `previews/equipage/chavirage_*.png` (harnais `tools/capture_chavirage.py`).
 
+## Passe du 6 août (soir, ter) — la physique de l'accroche
+
+La question posée — « assis sur les bwa, ou tenir par la main, ou penché
+dessus ? il faut une physique » — a une réponse de mécanique : **les trois,
+simultanément, et chacun porte une chose différente**. Bassin = poids (il ploie
+la perche), mains = moment (elles empêchent la bascule arrière), jambes =
+crochet (elles empêchent la glissade). Le jeu avait déjà l'assise (+0,0 cm
+verrouillé) et la prise IK au rappel ; il manquait le chaînon visible :
+**la perche qui ploie sous la charge permanente, et l'homme qui la suit**.
+
+Fait : flèche continue par bwa (0,2° à 2,9° mesurés selon le bras de levier),
+racine de l'homme abaissée d'autant, IK visant la perche affaissée, détente au
+départ/au chavirage/par-dessus bord. Le verrou de `crew-seating` a été ajusté
+au nouveau contrat (cote affaissée, pas cote au repos) — et il le fallait :
+c'est lui qui a tiré le premier (`bassin a 0.207 m du bois`), prouvant au
+passage qu'il mesure la bonne chose.
+
 ## Comment améliorer encore — pistes classées
 
 1. **Vent arrière / contrepoids (audit #4, haute priorité).** Un dresseur peut
@@ -149,6 +166,12 @@ chute existante conclut. Détails et seuils dans
    branchement (`setClipBlend` sur les états) est écrit et attend les assets.
 7. **Prise de pagaie plus basse au repos.** Cosmétique ; les photos ne
    tranchent pas. Ne pas y toucher sans photo de profil au portant.
+8. **La flexion qui ABSORBE la rafale (côté simulation).** La flèche du 6 août
+   est visuelle ; la vraie physique du bwa flexible, c'est un levier qui
+   encaisse une partie du couple de risée et la rend avec retard — ça changerait
+   la SENSATION de la contre-gîte. Autoritaire par construction
+   (`SIMULATION_VERSION`, replays, Duel) : à cadrer comme une vraie passe de
+   simulation, avec mesures à l'appui, pas à glisser dans une passe visuelle.
 
 ## Protocole de vérification (rejouable)
 

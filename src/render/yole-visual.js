@@ -389,6 +389,13 @@ export const CREW_BEAM_Y = 0.25;
 // procédural a d'autres proportions et garde sa pose.
 const CREW_SEAT_Y = -0.055;
 
+// Flèche permanente d'un bwa CHARGÉ, en radians à plein bras de levier (~2,2 m).
+// La flexion n'existait qu'en impulsion (contre-gîte) : la perche pliait pendant
+// le geste puis redevenait raide avec l'homme encore dessus. Or un dresseur au
+// bout d'une perche flexible la ploie en CONTINU — c'est l'un des quatre
+// invariants visuels de YOLE_VISUAL_REFERENCE.md. 0,06 rad ≈ 13 cm au bout.
+const CREW_BEAM_SAG = 0.06;
+
 // Retard de l'effort d'un équipier au suivant, de la proue vers la poupe. Il
 // valait 1,13 rad, soit un déphasage de 65° : chacun battait la mesure dans son
 // coin. Un équipage de yole travaille à l'unisson, avec juste ce qu'il faut de
@@ -1284,7 +1291,11 @@ export class CrewVisual {
   applyRigContacts(hike, seated, catchLoad, transferCrouch) {
     if (!this.ikChains) return;
     const scale = Math.max(0.001, this.root.scale.y || 1);
-    const beamY = (CREW_BEAM_Y - this.root.position.y) / scale;
+    // La cible est la perche AFFAISSÉE à la station de l'homme, pas sa cote au
+    // repos : `root.position.y` porte déjà la flèche, on la retire donc aussi
+    // de la hauteur visée. Sans ça, mains et pieds viseraient droop/scale
+    // AU-DESSUS du bois — la prise flotterait d'autant que la perche travaille.
+    const beamY = (CREW_BEAM_Y - (this.beamDroopOffset ?? 0) - this.root.position.y) / scale;
     const rappelContact = clamp((hike - 0.16) / 0.58 + catchLoad * 0.55, 0, 1)
       * (1 - transferCrouch * 0.62);
     const deckContact = transferCrouch * (1 - seated * 0.7);
@@ -1896,7 +1907,14 @@ export class CrewVisual {
     // discret (4,6 cm) ; la conversion le corrige aussi.
     const echelleCorps = Math.max(0.001, this.root.scale.y || 1);
     const seat = CREW_BEAM_Y - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
+    // L'homme SUIT la flèche de sa perche : assis, il descend avec elle de
+    // l'affaissement lu à sa station. C'est l'accroche physique — le bassin
+    // porte le poids, donc il subit la flèche. `beamDroopOffset` sert aussi à
+    // l'IK, qui vise la perche affaissée et non sa cote au repos.
+    const beamDroop = (shiftMotion?.beamDroop ?? 0) * seated;
+    this.beamDroopOffset = beamDroop;
     this.root.position.y = 0.28 * (1 - seated) + seat * seated
+      - beamDroop
       + Math.abs(Math.sin(cycle)) * (0.035 + boostForward * 0.018) * run * (1 - seated)
       // Assis, le bassin EST le pivot sur le bois : l'abaisser pour donner du
       // poids ferait traverser la perche. La compression verticale ne concerne
@@ -2343,6 +2361,8 @@ varying vec3 vHullWorld;`)
       this.tiltRoot.add(visual.root);
     }
     this.crewSides = new Float32Array(this.crew.length);
+    // Flèche permanente de chaque bwa, pilotée par la charge de SON équipier.
+    this.beamSag = new Float32Array(this.beams.length);
     this.crewSideStarts = new Float32Array(this.crew.length);
     this.crewSideProgress = new Float32Array(this.crew.length);
     this.beamSides = new Float32Array(this.beams.length);
@@ -3057,6 +3077,19 @@ varying vec3 vHullWorld;`)
       // cote de repos.
       const xGlisse = Math.abs(x) > 1e-4 ? Math.sign(x) * 0.75 : 0;
       const xDecroche = x + (xGlisse - x) * decrochageHomme * 0.8;
+      // ── LA FLÈCHE PERMANENTE DU BWA, ET L'HOMME QUI LA SUIT ────────────
+      //
+      // Un dresseur au bout d'une perche flexible la ploie EN CONTINU, pas
+      // seulement pendant le geste de contre-gîte : la flèche suit le bras de
+      // levier réel de l'homme, et l'homme suit la flèche — c'est l'accroche :
+      // le bassin porte le poids (il descend avec la perche), les mains et les
+      // pieds visent la perche AFFAISSÉE (IK, voir `beamDroop`). Quand l'homme
+      // rentre — ou décroche au chavirage — la perche se relève avec lui.
+      const beamIndex = CREW_BEAMS[index];
+      const levierHomme = clamp(Math.abs(xDecroche) / 2.2, 0, 1);
+      const sagCible = profileDeployment * levierHomme * CREW_BEAM_SAG;
+      this.beamSag[beamIndex] = damp(this.beamSag[beamIndex], sagCible, 3.2, dt);
+      const beamDroop = this.beamSag[beamIndex] * Math.abs(xDecroche) * 0.9;
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08
         && this.sideChangeElapsed < CREW_SIDE_DELAYS[index] + CREW_SIDE_TRAVEL;
       // ── GORGÉE DE RHUM, ÉCHELONNÉE ─────────────────────────────────────
@@ -3087,6 +3120,7 @@ varying vec3 vHullWorld;`)
       shiftMotion.bordElapsed = this.sideChangeElapsed;
       shiftMotion.bordDelai = CREW_SIDE_DELAYS[index];
       shiftMotion.decrochage = decrochageHomme;
+      shiftMotion.beamDroop = beamDroop;
       shiftMotion.anticipation = anticipation;
       shiftMotion.momentum = crewMomentum;
       shiftMotion.loadRecoil = counterHeelLoad * clamp(
@@ -3301,10 +3335,15 @@ varying vec3 vHullWorld;`)
           1
         )
         : 0;
+      // La flèche permanente est calculée dans la boucle d'équipage (la charge
+      // y est connue) ; par-dessus bord, plus personne ne pèse : la perche se
+      // détend, même si la boucle d'équipage ne tourne plus.
+      if (this.overboard) this.beamSag[index] = damp(this.beamSag[index], 0, 3.2, dt);
       entry.root.rotation.z = carriesCrew
         ? -beamSide * (
           loadFlex * 0.028
           + counterHeelLoad * actualCrewLoad * 0.030
+          + this.beamSag[index]
         )
         : (1 - integrity) * 0.16 * (index % 2 ? 1 : -1);
     });

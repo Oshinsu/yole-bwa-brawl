@@ -237,7 +237,13 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
         } else {
           bassinY = homme.root.position.y + 0.38 * homme.root.scale.y;
         }
-        const ecartAssise = Math.abs(bassinY - BEAM_Y);
+        // ⚠️ LE BOIS PLOIE SOUS LA CHARGE — CONTRAT AJUSTÉ LE 6 AOÛT 2026.
+        // Depuis la flèche permanente des bwa, l'assise juste n'est plus la
+        // cote au repos mais la cote de la perche AFFAISSÉE à la station de
+        // l'homme : `beamSag × bras de levier × 0,9`, exactement la valeur que
+        // `YoleVisual.update` retire à la racine de l'équipier.
+        const fleche = (boat.visual.beamSag?.[CREW_BEAMS[i]] ?? 0) * Math.abs(x) * 0.9;
+        const ecartAssise = Math.abs(bassinY - (BEAM_Y - fleche));
         if (ecartAssise > pireAssise) pireAssise = ecartAssise;
       }
       samples++;
