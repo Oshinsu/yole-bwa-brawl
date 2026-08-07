@@ -39,7 +39,7 @@ const module = (...bouts) => import(pathToFileURL(path.join(RACINE, ...bouts)).h
 
 const THREE = await module("vendor", "three.module.min.js");
 const { CrewClipLibrary } = await module("src", "render", "crew-clips.js");
-const { CrewVisual, CREW_STAGING_PROFILES, CREW_ROLES, CREW_BEAM_Y } = await module(
+const { CrewVisual, CREW_STAGING_PROFILES, CREW_ROLES, CREW_BEAM_Y, CREW_SEAT_LIFT } = await module(
   "src", "render", "yole-visual.js"
 );
 
@@ -269,10 +269,11 @@ function mesure(visuel, yole) {
     envergureMains: mainG && mainD ? Math.abs(mainG.x - mainD.x) : null,
     hauteurTete: tete?.y ?? null,
     hauteurHanche: hanche?.y ?? null,
-    // Écart vertical bassin ↔ cote du bois. Nul par construction quand l'assise
-    // est cohérente : toute dérive signe une hauteur de hanche ou une échelle
-    // de rig mal mesurée — c'est le bug du 2 août, verrouillé pour de bon.
-    contactBois: hancheMonde ? hancheMonde.y - CREW_BEAM_Y : null,
+    // Écart vertical bassin ↔ cote d'assise (axe du bois + remontée d'assise,
+    // soit la surface de la perche plus le tissu comprimé). Nul par construction
+    // quand l'assise est cohérente : toute dérive signe une hauteur de hanche
+    // ou une échelle de rig mal mesurée — le bug du 2 août, verrouillé.
+    contactBois: hancheMonde ? hancheMonde.y - (CREW_BEAM_Y + CREW_SEAT_LIFT) : null,
     teteSousHanche: tete && hanche ? tete.y - hanche.y : null,
     inclinaisonBuste,
     flexionGenou,

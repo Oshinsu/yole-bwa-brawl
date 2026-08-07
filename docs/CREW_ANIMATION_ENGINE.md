@@ -444,6 +444,39 @@ calculé sur les positions, pas sur la flexion. La flexion qui ABSORBE la rafale
 (`SIMULATION_VERSION`, replays) : à décider en connaissance, pas à glisser dans
 une passe de présentation.
 
+## Passe du 6 août (soir, quater) — l'accroche mesurée au millimètre
+
+Après « toujours pas bon » : arrêt des réglages à l'œil, écriture de
+`tools/analyse_accroche_equipage.py` — distances os ↔ axe de perche en
+millimètres, en état de jeu forcé et convergé. Ce qu'elle a mesuré au rappel
+installé (30°), et ce que ça vaut après correction :
+
+| Mesure | Avant | Après | Lecture |
+|---|---|---|---|
+| bassin ↔ axe de la perche | **−100 mm** (dessous) | **+93 mm** (dessus) | assis SUR le bois, plus drapé sous |
+| main « libre » ↔ perche | 265-588 mm | 82-121 mm | les deux mains tiennent |
+| pieds ↔ perche | 10-21 / 415-718 mm | 10-21 mm | pince refermée (sauf jambe libre voulue de l'extension) |
+| tête sous la perche (homme du bout) | −120 mm | +73 mm | plus personne de pendu |
+| corps ↔ perche (ancrages) | 54-81° en travers | 48-49° | le long pour corde/dresseurs (13-27°) |
+
+Quatre défauts, quatre causes :
+
+1. **Ma flèche de bwa faisait descendre l'homme depuis l'axe du bateau** au lieu
+   du pivot de la perche : il finissait 8 cm SOUS son bois. La flèche se mesure
+   depuis `windwardOffset`, point final.
+2. **L'assise visait l'AXE de la perche** (fix du 2 août) : une perche de 12 cm
+   de diamètre traversait le bassin. `CREW_SEAT_LIFT = 0,105` (rayon + tissu
+   comprimé) — le verrou `contactBois` et `crew-seating` suivent le nouveau
+   contrat.
+3. **La main « libre » était un choix** (éviter les menottes symétriques) qui
+   la laissait battre dans le vide : elle rejoint maintenant le bois plus loin
+   le long de la perche, en prise souple (force ×0,5, cible propre).
+4. **Les ancrages restaient en travers** (`yaw 0,78`) : remonté à 0,94.
+
+Au passage, la remontée d'assise a cassé la portée de la main directrice
+(échec IK à 0,101 m, pris par `crew-animation-v2`) : la cible est désormais le
+DESSUS de la perche (+0,055), pas son axe — plus physique et plus atteignable.
+
 ### Archive — l'état au 2 août 2026
 
 Mesures reproductibles de l'époque :

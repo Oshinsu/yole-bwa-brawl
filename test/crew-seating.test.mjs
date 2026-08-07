@@ -238,12 +238,15 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
           bassinY = homme.root.position.y + 0.38 * homme.root.scale.y;
         }
         // ⚠️ LE BOIS PLOIE SOUS LA CHARGE — CONTRAT AJUSTÉ LE 6 AOÛT 2026.
-        // Depuis la flèche permanente des bwa, l'assise juste n'est plus la
-        // cote au repos mais la cote de la perche AFFAISSÉE à la station de
-        // l'homme : `beamSag × bras de levier × 0,9`, exactement la valeur que
-        // `YoleVisual.update` retire à la racine de l'équipier.
-        const fleche = (boat.visual.beamSag?.[CREW_BEAMS[i]] ?? 0) * Math.abs(x) * 0.9;
-        const ecartAssise = Math.abs(bassinY - (BEAM_Y - fleche));
+        // Deux corrections le soir même. La flèche se mesure DEPUIS LE PIVOT de
+        // la perche (son ancrage au plat-bord), pas depuis l'axe du bateau :
+        // `beamSag × max(0, |x| − windwardOffset)`, la valeur exacte retirée à
+        // la racine de l'équipier. Et l'assise vise la SURFACE du bois, pas son
+        // axe : +10,5 cm (rayon + tissu comprimé), sinon la perche traverse le
+        // bassin — le « drapé » mesuré à −100 mm sous l'axe.
+        const pivot = boat.visual.beams[CREW_BEAMS[i]]?.windwardOffset ?? 0;
+        const fleche = (boat.visual.beamSag?.[CREW_BEAMS[i]] ?? 0) * Math.max(0, Math.abs(x) - pivot);
+        const ecartAssise = Math.abs(bassinY - (BEAM_Y + 0.105 - fleche));
         if (ecartAssise > pireAssise) pireAssise = ecartAssise;
       }
       samples++;

@@ -300,7 +300,11 @@ export function crewContactMode(poseAction, overlayAction, overlayWeight = 0, po
 }
 
 const CREW_FAMILY_POSE = Object.freeze({
-  ancrage: Object.freeze({ yaw: 0.78, recline: 0.72, hook: 1.08, grip: 0.88 }),
+  // ⚠️ ancrage.yaw remonté de 0,78 à 0,94 le 6 août au soir : mesuré au
+  // millimètre, les ancrages gardaient le corps à 54-81° EN TRAVERS de la
+  // perche au rappel installé, là où les leviers/extensions sont à 11-27° LE
+  // LONG. Les photos au près montrent tout le monde allongé dans l'axe du bois.
+  ancrage: Object.freeze({ yaw: 0.94, recline: 0.72, hook: 1.08, grip: 0.88 }),
   levier: Object.freeze({ yaw: 0.96, recline: 0.94, hook: 1.00, grip: 1.00 }),
   extension: Object.freeze({ yaw: 1.04, recline: 1.10, hook: 0.78, grip: 1.08 })
 });
@@ -337,6 +341,13 @@ const CREW_REACH_BREATH = 0.055;
 // dans la coque, sans déborder. C'est la position d'attente d'une bordée qui
 // n'est pas encore sortie — pas une position de rappel.
 const CREW_GUNWALE_REST = 0.86;
+
+// Remontée du bassin AU-DESSUS de l'axe de la perche, en mètres. L'assise visait
+// historiquement l'AXE du bwa (CREW_BEAM_Y) : la perche de 11-13 cm de diamètre
+// traversait donc le bassin — mesuré le 6 août au soir, bassin à −100 mm sous
+// l'axe, lecture « homme drapé sur une barre ». Assis DESSUS, le bassin repose
+// à rayon + tissu comprimé au-dessus de l'axe : 0,058 + ~0,05.
+export const CREW_SEAT_LIFT = 0.105;
 
 const CREW_SIDE_DELAYS = [0, 0.07, 0.14, 0.22, 0.32, 0.50];
 const CREW_SIDE_TRAVEL = 0.46;
@@ -1332,15 +1343,31 @@ export class CrewVisual {
     // seconde sur une cible symétrique demandait près de 70 cm d'étirement et
     // fabriquait les deux bras identiques du mannequin. La main libre reste
     // pilotée par la pose d'effort.
+    //
+    // ⚠️ …MAIS ELLE NE FLOTTait PAS NON PLUS DANS LE VIDE — corrigé le 6 août
+    // au soir. Mesuré : la main « libre » battait à 27-59 cm de la perche. Sur
+    // les photos, les DEUX mains tiennent : la seconde rejoint le bois plus
+    // loin le long de la perche, en prise souple (force réduite, cible propre)
+    // — ce qui la différencie de la directrice sans la lâcher.
     const ECART_MAINS = 0.155;
     const mainExterieureDroite = this.root.position.x >= 0;
     const handDx = mainExterieureDroite ? ECART_MAINS : -ECART_MAINS;
     const handChain = mainExterieureDroite ? this.ikChains.rightArm : this.ikChains.leftArm;
+    // La cible est le DESSUS de la perche (axe + rayon), pas son axe : la paume
+    // se pose dessus. Depuis la remontée d'assise (+10,5 cm), viser l'axe
+    // demandait 10 cm de portée de trop — la prise échouait à 0,101 m.
     firmWorst = Math.max(firmWorst, this.solveLimbContact(
       handChain,
-      surLeBoisX(handDx), beamY + 0.025, surLeBoisZ(handDx),
+      surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx),
       rappelContact, 4
     ));
+    const chaineLibre = mainExterieureDroite ? this.ikChains.leftArm : this.ikChains.rightArm;
+    const dxLibre = -handDx * 1.9;
+    this.solveLimbContact(
+      chaineLibre,
+      surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre),
+      rappelContact * 0.5, 3
+    );
 
     // En rappel les pieds referment la pince autour du bois. Pendant la
     // traversée ils quittent la perche et cherchent deux appuis distincts sur
@@ -1906,7 +1933,7 @@ export class CrewVisual {
     // L'ancien `0.38` du corps procédural souffrait déjà du même défaut, en plus
     // discret (4,6 cm) ; la conversion le corrige aussi.
     const echelleCorps = Math.max(0.001, this.root.scale.y || 1);
-    const seat = CREW_BEAM_Y - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
+    const seat = CREW_BEAM_Y + CREW_SEAT_LIFT - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
     // L'homme SUIT la flèche de sa perche : assis, il descend avec elle de
     // l'affaissement lu à sa station. C'est l'accroche physique — le bassin
     // porte le poids, donc il subit la flèche. `beamDroopOffset` sert aussi à
@@ -3089,7 +3116,15 @@ varying vec3 vHullWorld;`)
       const levierHomme = clamp(Math.abs(xDecroche) / 2.2, 0, 1);
       const sagCible = profileDeployment * levierHomme * CREW_BEAM_SAG;
       this.beamSag[beamIndex] = damp(this.beamSag[beamIndex], sagCible, 3.2, dt);
-      const beamDroop = this.beamSag[beamIndex] * Math.abs(xDecroche) * 0.9;
+      // ⚠️ LA FLÈCHE SE MESURE DEPUIS LE PIVOT DE LA PERCHE, PAS DEPUIS L'AXE
+      // DU BATEAU. La première version calculait `sag × |x|` depuis l'axe :
+      // l'homme descendait ~19 cm là où sa perche ne plongeait que de ~11 cm
+      // — il finissait 8 cm SOUS le bois, drapé dessous (mesuré, bassin à
+      // −100 mm de l'axe de la perche). Le pivot est l'ancrage au plat-bord :
+      // `windwardOffset` depuis l'axe.
+      const pivotBwa = this.beams[beamIndex]?.windwardOffset ?? 0;
+      const beamDroop = this.beamSag[beamIndex]
+        * Math.max(0, Math.abs(xDecroche) - pivotBwa);
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08
         && this.sideChangeElapsed < CREW_SIDE_DELAYS[index] + CREW_SIDE_TRAVEL;
       // ── GORGÉE DE RHUM, ÉCHELONNÉE ─────────────────────────────────────

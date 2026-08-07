@@ -132,6 +132,19 @@ au nouveau contrat (cote affaissée, pas cote au repos) — et il le fallait :
 c'est lui qui a tiré le premier (`bassin a 0.207 m du bois`), prouvant au
 passage qu'il mesure la bonne chose.
 
+## Passe du 6 août (soir, quater) — mesurer, puis régler
+
+Leçon de méthode : « toujours pas bon » sans chiffres, c'est du réglage à
+l'aveugle. `tools/analyse_accroche_equipage.py` mesure les distances os ↔ axe
+de perche au millimètre en jeu forcé convergé. Elle a trouvé quatre défauts que
+les captures montraient sans les nommer, dont un de MA passe du soir (la flèche
+calculée depuis l'axe du bateau au lieu du pivot — l'homme finissait 8 cm sous
+sa perche). Table complète et correctifs dans
+[`CREW_ANIMATION_ENGINE.md`](CREW_ANIMATION_ENGINE.md), section « soir, quater ».
+
+Réflexe à garder : toute retouche d'assise ou de contact passe par cet outil
+AVANT la capture. La capture juge, l'outil explique.
+
 ## Comment améliorer encore — pistes classées
 
 1. **Vent arrière / contrepoids (audit #4, haute priorité).** Un dresseur peut
