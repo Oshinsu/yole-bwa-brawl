@@ -15424,7 +15424,11 @@ function crewContactMode(poseAction, overlayAction, overlayWeight = 0, poseWeigh
 }
 
 const CREW_FAMILY_POSE = Object.freeze({
-  ancrage: Object.freeze({ yaw: 0.78, recline: 0.72, hook: 1.08, grip: 0.88 }),
+  // ⚠️ ancrage.yaw remonté de 0,78 à 0,94 le 6 août au soir : mesuré au
+  // millimètre, les ancrages gardaient le corps à 54-81° EN TRAVERS de la
+  // perche au rappel installé, là où les leviers/extensions sont à 11-27° LE
+  // LONG. Les photos au près montrent tout le monde allongé dans l'axe du bois.
+  ancrage: Object.freeze({ yaw: 0.94, recline: 0.72, hook: 1.08, grip: 0.88 }),
   levier: Object.freeze({ yaw: 0.96, recline: 0.94, hook: 1.00, grip: 1.00 }),
   extension: Object.freeze({ yaw: 1.04, recline: 1.10, hook: 0.78, grip: 1.08 })
 });
@@ -15461,6 +15465,13 @@ const CREW_REACH_BREATH = 0.055;
 // dans la coque, sans déborder. C'est la position d'attente d'une bordée qui
 // n'est pas encore sortie — pas une position de rappel.
 const CREW_GUNWALE_REST = 0.86;
+
+// Remontée du bassin AU-DESSUS de l'axe de la perche, en mètres. L'assise visait
+// historiquement l'AXE du bwa (CREW_BEAM_Y) : la perche de 11-13 cm de diamètre
+// traversait donc le bassin — mesuré le 6 août au soir, bassin à −100 mm sous
+// l'axe, lecture « homme drapé sur une barre ». Assis DESSUS, le bassin repose
+// à rayon + tissu comprimé au-dessus de l'axe : 0,058 + ~0,05.
+const CREW_SEAT_LIFT = 0.105;
 
 const CREW_SIDE_DELAYS = [0, 0.07, 0.14, 0.22, 0.32, 0.50];
 const CREW_SIDE_TRAVEL = 0.46;
@@ -15505,12 +15516,20 @@ const SHEET_LINE_LENGTH = 2.45;
 
 // Hauteur des bois dressés, reprise de leur construction (beamRoot.position.y).
 // C'est la cote d'assise de l'équipage : les deux DOIVENT rester d'accord.
+// Exportée pour le harnais silhouette, qui verrouille le contact bassin ↔ bois.
 const CREW_BEAM_Y = 0.25;
 
 // Descente du bassin pour qu'il repose SUR le bois au lieu de flotter au-dessus
 // (mesuré : 0,324 m d'écart au repos). Réservé au rig importé — le corps
 // procédural a d'autres proportions et garde sa pose.
 const CREW_SEAT_Y = -0.055;
+
+// Flèche permanente d'un bwa CHARGÉ, en radians à plein bras de levier (~2,2 m).
+// La flexion n'existait qu'en impulsion (contre-gîte) : la perche pliait pendant
+// le geste puis redevenait raide avec l'homme encore dessus. Or un dresseur au
+// bout d'une perche flexible la ploie en CONTINU — c'est l'un des quatre
+// invariants visuels de YOLE_VISUAL_REFERENCE.md. 0,06 rad ≈ 13 cm au bout.
+const CREW_BEAM_SAG = 0.06;
 
 // Retard de l'effort d'un équipier au suivant, de la proue vers la poupe. Il
 // valait 1,13 rad, soit un déphasage de 65° : chacun battait la mesure dans son
@@ -16407,7 +16426,11 @@ class CrewVisual {
   applyRigContacts(hike, seated, catchLoad, transferCrouch) {
     if (!this.ikChains) return;
     const scale = Math.max(0.001, this.root.scale.y || 1);
-    const beamY = (CREW_BEAM_Y - this.root.position.y) / scale;
+    // La cible est la perche AFFAISSÉE à la station de l'homme, pas sa cote au
+    // repos : `root.position.y` porte déjà la flèche, on la retire donc aussi
+    // de la hauteur visée. Sans ça, mains et pieds viseraient droop/scale
+    // AU-DESSUS du bois — la prise flotterait d'autant que la perche travaille.
+    const beamY = (CREW_BEAM_Y - (this.beamDroopOffset ?? 0) - this.root.position.y) / scale;
     const rappelContact = clamp((hike - 0.16) / 0.58 + catchLoad * 0.55, 0, 1)
       * (1 - transferCrouch * 0.62);
     const deckContact = transferCrouch * (1 - seated * 0.7);
@@ -16444,15 +16467,31 @@ class CrewVisual {
     // seconde sur une cible symétrique demandait près de 70 cm d'étirement et
     // fabriquait les deux bras identiques du mannequin. La main libre reste
     // pilotée par la pose d'effort.
+    //
+    // ⚠️ …MAIS ELLE NE FLOTTait PAS NON PLUS DANS LE VIDE — corrigé le 6 août
+    // au soir. Mesuré : la main « libre » battait à 27-59 cm de la perche. Sur
+    // les photos, les DEUX mains tiennent : la seconde rejoint le bois plus
+    // loin le long de la perche, en prise souple (force réduite, cible propre)
+    // — ce qui la différencie de la directrice sans la lâcher.
     const ECART_MAINS = 0.155;
     const mainExterieureDroite = this.root.position.x >= 0;
     const handDx = mainExterieureDroite ? ECART_MAINS : -ECART_MAINS;
     const handChain = mainExterieureDroite ? this.ikChains.rightArm : this.ikChains.leftArm;
+    // La cible est le DESSUS de la perche (axe + rayon), pas son axe : la paume
+    // se pose dessus. Depuis la remontée d'assise (+10,5 cm), viser l'axe
+    // demandait 10 cm de portée de trop — la prise échouait à 0,101 m.
     firmWorst = Math.max(firmWorst, this.solveLimbContact(
       handChain,
-      surLeBoisX(handDx), beamY + 0.025, surLeBoisZ(handDx),
+      surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx),
       rappelContact, 4
     ));
+    const chaineLibre = mainExterieureDroite ? this.ikChains.leftArm : this.ikChains.rightArm;
+    const dxLibre = -handDx * 1.9;
+    this.solveLimbContact(
+      chaineLibre,
+      surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre),
+      rappelContact * 0.5, 3
+    );
 
     // En rappel les pieds referment la pince autour du bois. Pendant la
     // traversée ils quittent la perche et cherchent deux appuis distincts sur
@@ -16646,6 +16685,10 @@ class CrewVisual {
     const transferCrouch = sideChanging ? Math.sin(sideTransfer * Math.PI) : 0;
     const transferStep = sideChanging ? Math.sin(sideTransfer * Math.PI * 2) : 0;
     const anticipation = clamp(shiftMotion?.anticipation ?? 0, 0, 1);
+    // Décrochage au chavirage : la perche se dresse, l'homme glisse vers la
+    // coque et s'y accroche recroquevillé. Piloté par la gîte lissée côté
+    // YoleVisual ; présentation seule.
+    const decrochage = clamp(shiftMotion?.decrochage ?? 0, 0, 1);
     const scoutBrace = anticipation * (this.role === "premier" ? 0.16 : 0.055);
     this.shiftPhase = Math.max(brace, drive, catchLoad, absorb);
     this.motionState = sideChanging
@@ -16785,6 +16828,33 @@ class CrewVisual {
     if (this.leftFoot) this.leftFoot.rotation.x = -0.20 * hike - transferStep * 0.15;
     if (this.rightFoot) this.rightFoot.rotation.x = -0.20 * hike + transferStep * 0.15;
 
+    // ── VARIÉTÉ D'ASSISE ─────────────────────────────────────────────────
+    //
+    // Photos de bordée sans gîte (Tour des yoles 2019, GFA Caraïbes) : au
+    // repos les hommes ne font PAS le même geste — l'un regarde la voile,
+    // l'autre le plan d'eau, un troisième se tourne vers son voisin. Six
+    // silhouettes strictement identiques lisent comme des clones, pas comme
+    // un équipage. Angle mort n°6 de l'audit, côté pose.
+    //
+    // Les coefficients dérivent de `this.phase` — `crewIndex * CREW_LAG`,
+    // FIXE par homme : deux relectures d'un même replay montrent exactement
+    // la même chose, et rien ici ne touche `dynamics`. Le tout s'efface dès
+    // la sortie sur les bwa : au rappel, tout le monde travaille.
+    const auPont = (this.role === "patron" || this.role === "ecoute")
+      ? 0
+      : (1 - clamp(hike * 2.4, 0, 1))
+        * (1 - clamp(impact + stumble, 0, 1))
+        * (1 - transferCrouch)
+        * (1 - decrochage);
+    const tourneRepos = Math.sin(this.phase * 2.63);
+    const pencheRepos = Math.cos(this.phase * 1.71);
+    if (auPont > 0.001) {
+      this.root.rotation.y += tourneRepos * 0.24 * auPont;
+      this.torso.rotation.z += pencheRepos * 0.06 * auPont;
+      this.leftArmPivot.rotation.x += pencheRepos * 0.20 * auPont;
+      this.rightArmPivot.rotation.x -= tourneRepos * 0.22 * auPont;
+    }
+
     // Postes intérieurs documentés : le patron gouverne à la grande pagaie et
     // le manœuvrier d'écoute règle la voile. Ils partagent le même rig léger,
     // mais pas la gestuelle des dresseurs assis sur les bwa.
@@ -16806,6 +16876,26 @@ class CrewVisual {
       if (this.leftForeArm) this.leftForeArm.rotation.x = -0.48 + helm * 0.16;
       if (this.rightForeArm) this.rightForeArm.rotation.x = -0.62 - helm * 0.13;
       if (this.neck) this.neck.rotation.y = 0.08 + helm * 0.06;
+      // ── L'ORDRE DU PATRON ─────────────────────────────────────────────
+      //
+      // Angle mort n°7 de l'audit d'authenticité : rien n'annonçait le
+      // changement de bord. Sur l'eau, le virement se COMMANDE — le patron
+      // lève le bras et les dresseurs traversent dans la foulée. Le geste est
+      // calé sur l'horloge réelle du virement (`bordElapsed`), pas sur la
+      // gîte : un coup de tabac ne doit pas faire gesticuler le patron.
+      // C'est le bras GAUCHE qui se lève : la main droite tient la pagaie.
+      const ordre = motionPulse(shiftMotion?.bordElapsed ?? 99, 0.0, 0.09, 0.55, 0.88);
+      if (ordre > 0.001) {
+        // Bras presque TENDU et haut : à la distance de jeu, un coude plié se
+        // lit comme un geste de fatigue, pas comme un commandement.
+        this.leftArmPivot.rotation.x += (-2.68 - this.leftArmPivot.rotation.x) * ordre;
+        this.leftArmPivot.rotation.z += (0.10 - this.leftArmPivot.rotation.z) * ordre;
+        if (this.leftForeArm) {
+          this.leftForeArm.rotation.x += (-0.06 - this.leftForeArm.rotation.x) * ordre;
+        }
+        // Il ne crie pas vers l'eau : il se tourne vers ses hommes.
+        if (this.neck) this.neck.rotation.y += ordre * 0.34;
+      }
     } else if (this.role === "ecoute") {
       const pull = Math.sin(cadence * 0.72 + this.phase);
       const load = 0.5 + 0.5 * Math.max(0, pull);
@@ -16859,7 +16949,36 @@ class CrewVisual {
     this.head.rotation.z = 0;
     this.head.rotation.y = this.role === "premier"
       ? Math.sin(cadence * 0.34 + this.phase) * 0.11 + scoutBrace * side * 0.85
-      : transferStep * 0.08;
+      : transferStep * 0.08 + pencheRepos * 0.38 * auPont;
+    // ── LE COUP D'ŒIL AU PATRON ──────────────────────────────────────────
+    //
+    // Avant de traverser, l'homme guette le commandement : le regard part vers
+    // la poupe dans la demi-seconde qui précède son tour et revient dès qu'il
+    // s'engage. La fenêtre se ferme au début de SA traversée — un regard qui
+    // arriverait après son départ se lirait comme un retard. Le premier
+    // dresseur n'en a pas besoin : c'est lui qui engage, il a déjà le sien.
+    const attenteOrdre = (this.role === "patron" || this.role === "ecoute" || this.role === "premier")
+      ? 0
+      : motionPulse(
+          (shiftMotion?.bordElapsed ?? 99) - (shiftMotion?.bordDelai ?? 0),
+          -0.42, -0.22, -0.02, 0.12
+        );
+    if (attenteOrdre > 0.001) this.head.rotation.y += attenteOrdre * -side * 0.55;
+
+    // ── DÉCROCHAGE : RECROQUEVILLÉ CONTRE LA COQUE ───────────────────────
+    //
+    // La glisse vers le plat-bord est déjà jouée par le déploiement (côté
+    // YoleVisual) ; ici le corps se FERME : bassin et buste se replient, les
+    // bras se ramènent devant, la tête rentre et cherche la coque. C'est la
+    // posture de celui qui retient tout, en attendant que ça tranche.
+    if (decrochage > 0.001) {
+      this.hips.rotation.x += decrochage * 0.40;
+      this.torso.rotation.x += decrochage * 0.32;
+      this.leftArmPivot.rotation.x += decrochage * 0.30;
+      this.rightArmPivot.rotation.x += decrochage * 0.30;
+      this.head.rotation.x += decrochage * 0.20;
+      this.head.rotation.y += decrochage * -side * 0.35;
+    }
     if (this.neck) {
       this.neck.rotation.x = -recline * 0.18 + catchLoad * 0.08;
       this.neck.rotation.y = this.head.rotation.y * 0.42;
@@ -16938,8 +17057,15 @@ class CrewVisual {
     // L'ancien `0.38` du corps procédural souffrait déjà du même défaut, en plus
     // discret (4,6 cm) ; la conversion le corrige aussi.
     const echelleCorps = Math.max(0.001, this.root.scale.y || 1);
-    const seat = CREW_BEAM_Y - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
+    const seat = CREW_BEAM_Y + CREW_SEAT_LIFT - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
+    // L'homme SUIT la flèche de sa perche : assis, il descend avec elle de
+    // l'affaissement lu à sa station. C'est l'accroche physique — le bassin
+    // porte le poids, donc il subit la flèche. `beamDroopOffset` sert aussi à
+    // l'IK, qui vise la perche affaissée et non sa cote au repos.
+    const beamDroop = (shiftMotion?.beamDroop ?? 0) * seated;
+    this.beamDroopOffset = beamDroop;
     this.root.position.y = 0.28 * (1 - seated) + seat * seated
+      - beamDroop
       + Math.abs(Math.sin(cycle)) * (0.035 + boostForward * 0.018) * run * (1 - seated)
       // Assis, le bassin EST le pivot sur le bois : l'abaisser pour donner du
       // poids ferait traverser la perche. La compression verticale ne concerne
@@ -16959,7 +17085,8 @@ class CrewVisual {
       // ou traversée, la simulation a bien mieux à dire qu'un souffle de repos.
       const calme = (1 - clamp(impact, 0, 1))
         * (1 - clamp(stumble, 0, 1))
-        * (1 - transferCrouch);
+        * (1 - transferCrouch)
+        * (1 - decrochage);
       const clipTime = time * 0.62 + this.phase * 1.9;
       const poseAction = selectCrewPoseAction(
         this.clipLibrary, this.role, this.stagingStation
@@ -17385,6 +17512,8 @@ varying vec3 vHullWorld;`)
       this.tiltRoot.add(visual.root);
     }
     this.crewSides = new Float32Array(this.crew.length);
+    // Flèche permanente de chaque bwa, pilotée par la charge de SON équipier.
+    this.beamSag = new Float32Array(this.beams.length);
     this.crewSideStarts = new Float32Array(this.crew.length);
     this.crewSideProgress = new Float32Array(this.crew.length);
     this.beamSides = new Float32Array(this.beams.length);
@@ -17893,6 +18022,20 @@ varying vec3 vHullWorld;`)
     // hommes étaient pratiquement à leur poste maximal. Le déploiement lit
     // maintenant la gîte brute et progresse de 2° à 12°.
     const deploiement = crewDeploymentForRoll(this.rollSlow);
+    // ── DÉCROCHAGE AU CHAVIRAGE ──────────────────────────────────────────
+    //
+    // La plage de travail d'un rappel s'arrête vers 30-35° de gîte (0,52 rad
+    // est déjà une gîte de course franche). Au-delà, la perche se dresse et
+    // personne ne tient ASSIS dessus : l'équipage glisse le long du bwa vers
+    // la coque, se recroqueville et s'accroche — puis la chute (`fall`) prend
+    // le relais si le hors course se conclut. Captures de référence : à 49°
+    // et 63°, six hommes restaient posés en rang sur des perches dressées.
+    //
+    // Le levier est le déploiement VISUEL : en le rabattant vers la cote de
+    // repos, l'homme revient au plat-bord ET sa pose de station s'efface —
+    // une seule valeur pilote la glisse et la posture. Présentation seule :
+    // `dynamics.activeCrew` (checksum de replay) ne voit rien d'ici.
+    const decrochage = clamp((Math.abs(this.rollSlow) - 0.68) / 0.37, 0, 1);
     // Tant que la gîte lissée est proche de zéro on conserve le bord courant :
     // le clapot ne doit jamais faire traverser six hommes. Lors d'un vrai
     // changement de bord, les racines des équipiers et leurs bwa se déplacent
@@ -18012,7 +18155,11 @@ varying vec3 vHullWorld;`)
       // Chaque famille possède sa propre fenêtre : les ancrages prennent la
       // charge tôt, les leviers suivent, l'extension ne sort que sous vraie gîte.
       const staging = CREW_STAGING_PROFILES[index];
-      const profileDeployment = crewProfileDeployment(staging, deploiement);
+      // Décrochage légèrement échelonné : six glissades parfaitement synchrones
+      // liraient comme un ressort, pas comme des hommes qui perdent leur perche.
+      const decrochageHomme = clamp(decrochage - (index % 3) * 0.10, 0, 1);
+      const profileDeployment = crewProfileDeployment(staging, deploiement)
+        * (1 - decrochageHomme * 0.85);
       const sideProgress = this.crewSideProgress[index] ?? 1;
       // ── RESPIRATION DE SORTIE ────────────────────────────────────────────
       //
@@ -18074,6 +18221,34 @@ varying vec3 vHullWorld;`)
       // seuil d'assise, et ils restaient à mi-hauteur, ni debout ni assis.
       const x = this.crewSides[index] * restReach
         + normalized * spread + (index - 2.5) * 0.07 * profileDeployment;
+      // La glisse de décrochage rabat AUSSI le déport de simulation : à 60° de
+      // gîte, personne ne tient à deux mètres du bord quelle que soit la
+      // contre-gîte demandée. On vise la bande du plat-bord, pas l'axe —
+      // retomber au milieu de la coque relirait comme le « tas » d'avant la
+      // cote de repos.
+      const xGlisse = Math.abs(x) > 1e-4 ? Math.sign(x) * 0.75 : 0;
+      const xDecroche = x + (xGlisse - x) * decrochageHomme * 0.8;
+      // ── LA FLÈCHE PERMANENTE DU BWA, ET L'HOMME QUI LA SUIT ────────────
+      //
+      // Un dresseur au bout d'une perche flexible la ploie EN CONTINU, pas
+      // seulement pendant le geste de contre-gîte : la flèche suit le bras de
+      // levier réel de l'homme, et l'homme suit la flèche — c'est l'accroche :
+      // le bassin porte le poids (il descend avec la perche), les mains et les
+      // pieds visent la perche AFFAISSÉE (IK, voir `beamDroop`). Quand l'homme
+      // rentre — ou décroche au chavirage — la perche se relève avec lui.
+      const beamIndex = CREW_BEAMS[index];
+      const levierHomme = clamp(Math.abs(xDecroche) / 2.2, 0, 1);
+      const sagCible = profileDeployment * levierHomme * CREW_BEAM_SAG;
+      this.beamSag[beamIndex] = damp(this.beamSag[beamIndex], sagCible, 3.2, dt);
+      // ⚠️ LA FLÈCHE SE MESURE DEPUIS LE PIVOT DE LA PERCHE, PAS DEPUIS L'AXE
+      // DU BATEAU. La première version calculait `sag × |x|` depuis l'axe :
+      // l'homme descendait ~19 cm là où sa perche ne plongeait que de ~11 cm
+      // — il finissait 8 cm SOUS le bois, drapé dessous (mesuré, bassin à
+      // −100 mm de l'axe de la perche). Le pivot est l'ancrage au plat-bord :
+      // `windwardOffset` depuis l'axe.
+      const pivotBwa = this.beams[beamIndex]?.windwardOffset ?? 0;
+      const beamDroop = this.beamSag[beamIndex]
+        * Math.max(0, Math.abs(xDecroche) - pivotBwa);
       const sideChanging = this.sideChangeElapsed >= CREW_SIDE_DELAYS[index] - 0.08
         && this.sideChangeElapsed < CREW_SIDE_DELAYS[index] + CREW_SIDE_TRAVEL;
       // ── GORGÉE DE RHUM, ÉCHELONNÉE ─────────────────────────────────────
@@ -18099,6 +18274,12 @@ varying vec3 vHullWorld;`)
       shiftMotion.delay = state.crewStartDelays?.[index] ?? 0;
       shiftMotion.sideTransfer = sideProgress;
       shiftMotion.sideChanging = sideChanging;
+      // Celui qui attend son tour guette le commandement : il lui faut l'horloge
+      // du virement et son propre délai, pas seulement sa fenêtre de traversée.
+      shiftMotion.bordElapsed = this.sideChangeElapsed;
+      shiftMotion.bordDelai = CREW_SIDE_DELAYS[index];
+      shiftMotion.decrochage = decrochageHomme;
+      shiftMotion.beamDroop = beamDroop;
       shiftMotion.anticipation = anticipation;
       shiftMotion.momentum = crewMomentum;
       shiftMotion.loadRecoil = counterHeelLoad * clamp(
@@ -18111,7 +18292,7 @@ varying vec3 vHullWorld;`)
       // toujours les contacts complets.
       shiftMotion.solveContacts = this.crewDetail >= 2
         || (this.crewDetail === 1 && index % 2 === 0);
-      crew.visual.update(time, dt, x, crew.z, velocity, state.roll, this.impact, index < active, state.crewStumble ?? 0, state.arcadeBoostForward ?? 0, (state.arcadeBoostLateral ?? 0) * (state.lateralBoostDirection ?? 0), cadence, index === bailer ? bailStrength : 0, gorgee, state.cohesion ?? 1, shiftMotion);
+      crew.visual.update(time, dt, xDecroche, crew.z, velocity, state.roll, this.impact, index < active, state.crewStumble ?? 0, state.arcadeBoostForward ?? 0, (state.arcadeBoostLateral ?? 0) * (state.lateralBoostDirection ?? 0), cadence, index === bailer ? bailStrength : 0, gorgee, state.cohesion ?? 1, shiftMotion);
     }
 
     if (!this.overboard) {
@@ -18133,6 +18314,12 @@ varying vec3 vHullWorld;`)
         roleMotion.anticipation = anticipation * 0.35;
         roleMotion.momentum = 0;
         roleMotion.loadRecoil = 0;
+        // L'ordre du patron se cale sur le virement RÉEL : il reçoit l'horloge
+        // du changement de bord, que seuls les dresseurs connaissaient jusqu'ici.
+        const finBord = CREW_SIDE_DELAYS[CREW_SIDE_DELAYS.length - 1] + CREW_SIDE_TRAVEL;
+        roleMotion.bordElapsed = isPatron && this.sideChangeElapsed <= finBord
+          ? this.sideChangeElapsed
+          : 99;
         roleMotion.solveContacts = this.crewDetail >= 2;
         specialist.visual.update(
           time,
@@ -18307,10 +18494,15 @@ varying vec3 vHullWorld;`)
           1
         )
         : 0;
+      // La flèche permanente est calculée dans la boucle d'équipage (la charge
+      // y est connue) ; par-dessus bord, plus personne ne pèse : la perche se
+      // détend, même si la boucle d'équipage ne tourne plus.
+      if (this.overboard) this.beamSag[index] = damp(this.beamSag[index], 0, 3.2, dt);
       entry.root.rotation.z = carriesCrew
         ? -beamSide * (
           loadFlex * 0.028
           + counterHeelLoad * actualCrewLoad * 0.030
+          + this.beamSag[index]
         )
         : (1 - integrity) * 0.16 * (index % 2 ? 1 : -1);
     });
