@@ -210,12 +210,12 @@ const CREW_BEAMS = [0, 1, 2, 3, 4, 5];
 // `deployStart/deployFull` échelonne leur sortie sans hasard et garde les
 // replays visuellement déterministes.
 export const CREW_STAGING_PROFILES = Object.freeze([
-  Object.freeze({ family: "ancrage", station: "court", reach: 1.10, deployStart: 0.00, deployFull: 0.62 }),
-  Object.freeze({ family: "levier", station: "intermediaire", reach: 1.72, deployStart: 0.12, deployFull: 0.86 }),
-  Object.freeze({ family: "extension", station: "extreme", reach: 2.75, deployStart: 0.52, deployFull: 1.00 }),
+  Object.freeze({ family: "ancrage", station: "court", reach: 2.10, deployStart: 0.00, deployFull: 0.62 }),
+  Object.freeze({ family: "levier", station: "intermediaire", reach: 2.90, deployStart: 0.12, deployFull: 0.86 }),
+  Object.freeze({ family: "extension", station: "extreme", reach: 3.55, deployStart: 0.52, deployFull: 1.00 }),
   Object.freeze({ family: "ancrage", station: "interieur", reach: 0.58, deployStart: 0.00, deployFull: 0.48 }),
-  Object.freeze({ family: "levier", station: "intermediaire", reach: 1.90, deployStart: 0.18, deployFull: 0.90 }),
-  Object.freeze({ family: "ancrage", station: "court", reach: 1.28, deployStart: 0.04, deployFull: 0.68 })
+  Object.freeze({ family: "levier", station: "intermediaire", reach: 3.10, deployStart: 0.18, deployFull: 0.90 }),
+  Object.freeze({ family: "ancrage", station: "court", reach: 2.30, deployStart: 0.04, deployFull: 0.68 })
 ]);
 
 export const CREW_STAGING_FAMILIES = Object.freeze(["ancrage", "levier", "extension"]);
