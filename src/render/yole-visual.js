@@ -1385,7 +1385,7 @@ export class CrewVisual {
     // Le « L » existe, mais il pointe vers l'intérieur du bateau, pas vers le bas.
     // 0,34 garde les deux appuis dans l'enveloppe anatomique du rig. La suite
     // `crew-animation-v2` refuse désormais une prise ferme au-delà de 10 cm.
-    const APPUI_PIEDS = 0.34;
+    const APPUI_PIEDS = 0.46;
     // Vers la coque = sens opposé au déport de l'équipier.
     const versCoque = -(Math.sign(this.root.position.x) || 1);
     const enRappel = rappelContact > deckContact;
@@ -1393,7 +1393,7 @@ export class CrewVisual {
     // symétrique lit comme une pose de mannequin.
     const appuiG = versCoque * (APPUI_PIEDS + 0.06);
     const appuiD = versCoque * (APPUI_PIEDS - 0.06);
-    const footY = enRappel ? beamY + 0.02 : (0.12 - this.root.position.y) / scale;
+    const footY = enRappel ? beamY + 0.18 : (0.12 - this.root.position.y) / scale;
     const legStrength = Math.max(rappelContact * 0.82, deckContact * 0.72);
     const leadLeft = this.contactLead % 2 === 0;
     const contactMode = crewContactMode(
