@@ -380,7 +380,7 @@ export const CREW_SPECIALIST_ROLES = Object.freeze(["ecoute", "patron"]);
 // (`this.mast.position.z = 0.5`). On borde une écoute derrière le mât, sinon la
 // corde traverse le gréement.
 const CREW_SPECIALISTS = Object.freeze([
-  Object.freeze({ role: "ecoute", x: -0.34, z: -0.28 }),
+  Object.freeze({ role: "ecoute", x: -0.12, z: -2.75 }),
   Object.freeze({ role: "patron", x: 0.42, z: -4.18 })
 ]);
 
@@ -1795,12 +1795,18 @@ export class CrewVisual {
       this.hips.rotation.z = -roll * 0.18;
       this.torso.rotation.x = -0.12 - load * 0.24;
       this.torso.rotation.z = -0.10;
-      this.leftArmPivot.rotation.x = -0.72 - pull * 0.28;
-      this.rightArmPivot.rotation.x = -1.08 + pull * 0.24;
+      // ⚠️ GESTE RÉÉCRIT POUR UN HOMME DEBOUT, LE 11 AOÛT 2026. L'ancien —
+      // bras à −0,72/−1,08, cuisses relevées à −0,42/−0,28 — datait de l'époque
+      // où l'écoute était ASSIS sous la voile. Depuis qu'il tient debout
+      // derrière la chute (poids d'assise 0,25, poste z −2,75), les cuisses
+      // levées le mettaient sur la pointe des pieds au-dessus du pont, et les
+      // bras hauts plantaient sa main dans la toile.
+      this.leftArmPivot.rotation.x = -0.52 - pull * 0.22;
+      this.rightArmPivot.rotation.x = -0.82 + pull * 0.20;
       this.leftArmPivot.rotation.z = -0.22 + this.bindSplay;
       this.rightArmPivot.rotation.z = 0.26 - this.bindSplay;
-      this.leftLegPivot.rotation.x = -0.42;
-      this.rightLegPivot.rotation.x = -0.28;
+      this.leftLegPivot.rotation.x = -0.08;
+      this.rightLegPivot.rotation.x = -0.14;
       if (this.leftForeArm) this.leftForeArm.rotation.x = -0.58 + pull * 0.22;
       if (this.rightForeArm) this.rightForeArm.rotation.x = -0.44 - pull * 0.22;
       if (this.neck) this.neck.rotation.y = -0.11;
@@ -3289,7 +3295,13 @@ varying vec3 vHullWorld;`)
       // l'homme bouge. Le tirage anime le point haut, côté voile, parce que
       // c'est la voile qui travaille — la main, elle, tient.
       const sheetPull = Math.sin(cadence * 0.72 + this.index * 0.33) * 0.08;
-      this.sheetAnchor.set(-0.07 + sheetPull, 2.67, 0.17);
+      // ⚠️ L'ANCRE EST LE POINT D'ÉCOUTE — LE COIN ARRIÈRE-BAS DE LA VOILE — PAS
+      // UN POINT EN PLEINE TOILE. Mesuré le 11 août 2026 (boîte de la voile dans
+      // le repère du bateau : y 0,39→6,03, z −2,09→+1,47) : l'ancienne ancre
+      // (2,67 m de haut, z 0,17) plantait la corde AU MILIEU du panneau, et le
+      // manœuvrier posté sous la voile vivait carrément dedans — une main à
+      // travers la toile, des pieds sous l'ourlet, invisible sur toute capture.
+      this.sheetAnchor.set(0.12 + sheetPull, 1.95, -1.92);
       const ecoute = this.specialists.find((entree) => entree.role === "ecoute");
       const poing = ecoute?.visual.boneWorldPosition("LeftHand", this.sheetGrip);
       if (poing) {
