@@ -15364,6 +15364,20 @@ function crewPoseForStation(station) {
 // elle, ce moment-là n'avait aucune pose du tout.
 const CREW_SEAT_POSE_WEIGHT = 0.74;
 
+// Poids d'assise des SPÉCIALISTES — patron et écoute — bien plus bas.
+//
+// ⚠️ IDENTIFIÉ PAR PROJECTION ÉCRAN LE 11 AOÛT 2026, après un mauvais
+// étiquetage : le « type bizarre » des captures était le PATRON, pas l'écoute.
+// Les deux subissaient l'assise `pont_interieur` à 0,74 — cuisses relevées,
+// tibias rentrés, la pose du dresseur au plat-bord — qui écrasait leurs gestes
+// dédiés (grande pagaie, bordage d'écoute), laminés à ~41 % d'autorité par
+// `syncRig`. Résultat : un patron assis dans le vide à la poupe, jambes
+// repliées sous lui, bras au ciel.
+//
+// À 0,25, la composition s'inverse : l'assise ne fournit plus qu'un fond de
+// posture et le geste procédural — écrit POUR eux — reprend ~82 % d'autorité.
+const CREW_SPECIALIST_SEAT_WEIGHT = 0.25;
+
 // Autorité de la station à pleine sortie. Elle recouvre l'assise plutôt que le
 // bind, donc elle peut monter plus haut qu'avant sans écraser la simulation :
 // ce qu'elle remplace est déjà une pose posée à la main, pas un repos neutre.
@@ -17105,7 +17119,10 @@ class CrewVisual {
       // L'assise est tenue en permanence : c'est elle qui donne une pose à
       // l'homme resté dans le bateau, là où il n'en avait aucune.
       const seatAction = selectCrewSeatAction(this.clipLibrary);
-      const seatWeight = seatAction ? CREW_SEAT_POSE_WEIGHT : 0;
+      const specialiste = this.role === "patron" || this.role === "ecoute";
+      const seatWeight = seatAction
+        ? (specialiste ? CREW_SPECIALIST_SEAT_WEIGHT : CREW_SEAT_POSE_WEIGHT)
+        : 0;
       // La station se superpose à l'assise, donc son poids n'a plus à ramener
       // le corps depuis le bind : il ne décrit plus que la SORTIE. Elle reste
       // muette pour ceux dont la station EST l'assise — spécialistes et poste
