@@ -1324,6 +1324,21 @@ export class CrewVisual {
     const rappelContact = clamp((hike - 0.16) / 0.58 + catchLoad * 0.55, 0, 1)
       * (1 - transferCrouch * 0.62);
     const deckContact = transferCrouch * (1 - seated * 0.7);
+    // ── LES PIEDS SE POSENT AUSSI AU REPOS ──────────────────────────────────
+    //
+    // ⚠️ VU AU GROS PLAN LE 11 AOÛT 2026 : un homme assis au plat-bord avait
+    // les pieds BALLANTS À 30-40 CM AU-DESSUS DES PLANCHERS, pointés vers le
+    // bas. Aucun contact ne s'appliquait à lui — `rappelContact` exige d'être
+    // sorti, `deckContact` une traversée. Entre les deux, rien : les jambes
+    // finissaient la pose dans le vide, en danseuse.
+    //
+    // Ce contact-là pose les pieds sur les planchers (la cote 0,12 où marchent
+    // les hommes debout), tirés vers l'INTÉRIEUR de la coque comme sur les
+    // photos de bordée assise. Il s'efface dès que le rappel ou la traversée
+    // prennent la main.
+    const reposContact = seated
+      * clamp(1 - rappelContact * 2, 0, 1)
+      * (1 - transferCrouch);
     let firmWorst = 0;
     let softWorst = 0;
 
@@ -1408,7 +1423,11 @@ export class CrewVisual {
     const appuiG = versCoque * (APPUI_PIEDS + 0.06);
     const appuiD = versCoque * (APPUI_PIEDS - 0.06);
     const footY = enRappel ? beamY + 0.18 : (0.12 - this.root.position.y) / scale;
-    const legStrength = Math.max(rappelContact * 0.82, deckContact * 0.72);
+    const legStrength = Math.max(
+      rappelContact * 0.82,
+      deckContact * 0.72,
+      reposContact * 0.62
+    );
     const leadLeft = this.contactLead % 2 === 0;
     const contactMode = crewContactMode(
       this.poseAction, this.overlayAction, this.overlayWeight, this.poseWeight
@@ -1420,18 +1439,18 @@ export class CrewVisual {
     if (contactMode === CREW_CONTACT_BOTH_FEET || leadLeft) {
       leftFootError = this.solveLimbContact(
         this.ikChains.leftLeg,
-        enRappel ? surLeBoisX(appuiG) : -0.15,
+        enRappel ? surLeBoisX(appuiG) : -0.15 + versCoque * reposContact * 0.30,
         footY,
-        enRappel ? surLeBoisZ(appuiG) : 0.02 - deckContact * 0.10,
+        enRappel ? surLeBoisZ(appuiG) : 0.02 - deckContact * 0.10 - reposContact * 0.06,
         legStrength, 6
       );
     }
     if (contactMode === CREW_CONTACT_BOTH_FEET || !leadLeft) {
       rightFootError = this.solveLimbContact(
         this.ikChains.rightLeg,
-        enRappel ? surLeBoisX(appuiD) : 0.15,
+        enRappel ? surLeBoisX(appuiD) : 0.15 + versCoque * reposContact * 0.30,
         footY,
-        enRappel ? surLeBoisZ(appuiD) : 0.02 + deckContact * 0.10,
+        enRappel ? surLeBoisZ(appuiD) : 0.02 + deckContact * 0.10 + reposContact * 0.06,
         legStrength, 6
       );
     }
