@@ -64,6 +64,7 @@ globalThis.performance = { now: () => 0 };
 
 const THREE = await import('./mock-three.module.js');
 const { Game } = await import('../src/game/game.js');
+const { crewSeatOffsetForHike } = await import('../src/render/yole-visual.js');
 
 const uiKeys = [
   'viewport','play','rematch','retry','pauseBtn','resume','restart','sound','quality',
@@ -246,7 +247,15 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
         // bassin — le « drapé » mesuré à −100 mm sous l'axe.
         const pivot = boat.visual.beams[CREW_BEAMS[i]]?.windwardOffset ?? 0;
         const fleche = (boat.visual.beamSag?.[CREW_BEAMS[i]] ?? 0) * Math.max(0, Math.abs(x) - pivot);
-        const ecartAssise = Math.abs(bassinY - (BEAM_Y + 0.105 - fleche));
+        // ⚠️ CONTRAT RETOURNÉ LE 11 AOÛT 2026 — LA TRACTION. Un yoleur au
+        // rappel plein ne s'assoit pas SUR sa perche, il s'y SUSPEND : bassin
+        // sous l'axe, mains sur le bois, bras qui tirent, talons crochetés
+        // par-dessus. La cible vient de la MÊME formule que le runtime
+        // (`crewSeatOffsetForHike`), pas d'une constante recopiée — deux
+        // vérités qui dérivent, le dépôt a déjà donné.
+        const ecartAssise = Math.abs(
+          bassinY - (BEAM_Y + crewSeatOffsetForHike(homme.hikeAmount ?? 1) - fleche)
+        );
         if (ecartAssise > pireAssise) pireAssise = ecartAssise;
       }
       samples++;

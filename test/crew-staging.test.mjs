@@ -32,21 +32,29 @@ assert.deepEqual(
 
 const atDegrees = (degrees) => crewDeploymentForRoll(degrees * Math.PI / 180);
 assert.equal(atDegrees(0), 0);
-assert.equal(atDegrees(1.5), 0, "flat-water noise deploys the crew");
+// ⚠️ COURBE RECALIBRÉE LE 11 AOÛT 2026 sur les photos libres de
+// `tmp/references/` : à gîte modérée un équipage réel est assis au plat-bord,
+// pas suspendu au bout des perches. L'ancien contrat (partiel à 6°, plein à
+// 12°) encodait la sortie précoce que les photos contredisent.
+assert.equal(atDegrees(4), 0, "flat-water noise deploys the crew");
 assert.ok(
-  atDegrees(6) > 0.20 && atDegrees(6) < 0.55,
-  `6 degrees should be a partial deployment, got ${atDegrees(6).toFixed(3)}`
+  atDegrees(12) > 0.15 && atDegrees(12) < 0.55,
+  `12 degrees should be a partial deployment, got ${atDegrees(12).toFixed(3)}`
 );
-assert.ok(atDegrees(12) > 0.999, "a strong heel never reaches full visual authority");
+assert.ok(
+  atDegrees(20) > 0.55 && atDegrees(20) < 0.95,
+  `20 degrees should be well engaged, got ${atDegrees(20).toFixed(3)}`
+);
+assert.ok(atDegrees(30) > 0.999, "a franc heel never reaches full deployment");
 
 let previous = 0;
-for (let degrees = 0; degrees <= 14; degrees += 0.25) {
+for (let degrees = 0; degrees <= 32; degrees += 0.25) {
   const deployment = atDegrees(degrees);
   assert.ok(deployment + 1e-9 >= previous, "crew deployment is not monotonic");
   previous = deployment;
 }
 
-const moderate = atDegrees(6);
+const moderate = atDegrees(14);
 assert.ok(
   crewProfileDeployment(CREW_STAGING_PROFILES[0], moderate)
     > crewProfileDeployment(CREW_STAGING_PROFILES[1], moderate),

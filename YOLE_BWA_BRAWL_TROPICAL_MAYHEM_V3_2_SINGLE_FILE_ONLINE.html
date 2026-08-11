@@ -15449,8 +15449,18 @@ const CREW_FAMILY_POSE = Object.freeze({
 
 function crewDeploymentForRoll(roll) {
   const heel = Math.abs(Number.isFinite(roll) ? roll : 0);
-  // 2° : encore à bord. 6° : sortie partielle. 12° : charge complète.
-  return smoothstep(0.035, 0.21, heel);
+  // ⚠️ RECALIBRÉE LE 11 AOÛT 2026 SUR LES PHOTOS LIBRES DE `tmp/references/`.
+  //
+  // L'ancienne courbe (2° → 12°) sortait toute la bordée dès la moindre gîte :
+  // à 18°, six hommes pendaient à l'horizontale au bout de leurs perches. Les
+  // photos du Tour disent l'inverse — à gîte modérée l'équipage est ASSIS AU
+  // PLAT-BORD, corps dans le bateau, perches à peine engagées (Zapetti/Miltis,
+  // GFA 4, Tour 2019). La grande suspension n'existe qu'aux gîtes franches.
+  //
+  // 6° : premiers ancrages au rail. 17° : bordée à mi-sortie. 29° : charge
+  // complète et traction — le spectaculaire redevient un événement, pas l'état
+  // permanent.
+  return smoothstep(0.10, 0.50, heel);
 }
 
 function crewProfileDeployment(profile, deployment) {
@@ -15486,6 +15496,34 @@ const CREW_GUNWALE_REST = 0.86;
 // l'axe, lecture « homme drapé sur une barre ». Assis DESSUS, le bassin repose
 // à rayon + tissu comprimé au-dessus de l'axe : 0,058 + ~0,05.
 const CREW_SEAT_LIFT = 0.105;
+
+// ── LA TRACTION ──────────────────────────────────────────────────────────────
+//
+// ⚠️ ON FAISAIT LE CONTRAIRE DES PHOTOS, ET C'EST L'UTILISATEUR QUI L'A NOMMÉ.
+//
+// Au rappel plein, un yoleur ne s'assoit pas SUR sa perche : il s'y SUSPEND,
+// comme une traction tenue — mains agrippées au bois devant la poitrine, bras
+// qui tirent, corps pendu SOUS la perche, dos vers l'eau, talons crochetés
+// par-dessus. C'est ce que montrent les images de rappel extrême : « presque
+// suspendus » + « dos à la mer » = pendu sous la barre, poitrine au ciel.
+//
+// Le balayage de bassin du 4 août ne pouvait pas le trouver : on cherchait une
+// ROTATION alors que c'est une TRANSLATION — le corps descend sous l'axe.
+//
+// À pleine suspension le bassin pend à cette distance SOUS l'axe du bois. Les
+// mains restent visées SUR la perche (IK inchangée) : les bras se tendent donc
+// d'eux-mêmes au-dessus de la poitrine, et le geste de traction émerge sans
+// une ligne de pose en plus. Les talons crochètent par-dessus (`footY` vise
+// déjà au-dessus de l'axe).
+const CREW_TRACTION_DROP = 0.20;
+
+// Décalage vertical du bassin par rapport à l'axe du bois, selon la sortie.
+// UNE SEULE VÉRITÉ : le runtime l'applique et `crew-seating.test.mjs` la lit —
+// le dépôt a déjà payé deux fois le prix de formules recopiées qui divergent.
+function crewSeatOffsetForHike(hike) {
+  const h = Math.min(Math.max(Number.isFinite(hike) ? hike : 0, 0), 1);
+  return CREW_SEAT_LIFT * (1 - h) - CREW_TRACTION_DROP * h;
+}
 
 const CREW_SIDE_DELAYS = [0, 0.07, 0.14, 0.22, 0.32, 0.50];
 const CREW_SIDE_TRAVEL = 0.46;
@@ -16544,9 +16582,24 @@ class CrewVisual {
     const enRappel = rappelContact > deckContact;
     // Deux pieds légèrement décalés LE LONG du bois : un appui parfaitement
     // symétrique lit comme une pose de mannequin.
-    const appuiG = versCoque * (APPUI_PIEDS + 0.06);
-    const appuiD = versCoque * (APPUI_PIEDS - 0.06);
-    const footY = enRappel ? beamY + 0.18 : (0.12 - this.root.position.y) / scale;
+    // En traction les talons crochètent PRÈS du bassin — suspendu, on
+    // n'écarte pas les appuis à un demi-mètre. C'est aussi ce qui garde la
+    // cible dans la portée d'une jambe : à pleine sortie, l'ancien écart
+    // laissait le gabarit du harnais à 0,45 m de son crochet, hors d'atteinte.
+    // Le gabarit sans clips plie moins bien que le rig seedé : ses cibles se
+    // resserrent davantage. Le rig livré garde les appuis pour lesquels ses
+    // seeds sont pliés — les serrer à 0,74 cassait ses jambes (0,44-0,74 m).
+    const sansClips = !this.clipLibrary?.size;
+    const appuiTraction = 1 - (sansClips ? 0.74 : 0.50) * clamp(hike, 0, 1);
+    const appuiG = versCoque * (APPUI_PIEDS + 0.06) * appuiTraction;
+    const appuiD = versCoque * (APPUI_PIEDS - 0.06) * appuiTraction;
+    // ⚠️ LA CIBLE DU TALON DESCEND AVEC LA TRACTION. Posé SUR la perche, le
+    // pied se calait haut (+0,18 au-dessus de l'axe). Suspendu DESSOUS, le
+    // talon enroule le DESSUS du bois (+0,07 ≈ rayon + cheville) : viser plus
+    // haut demandait à la jambe plus que sa longueur — 0,52 m de raté
+    // incompressible sur le gabarit du harnais.
+    const crochetY = 0.18 - (sansClips ? 0.15 : 0.11) * clamp(hike, 0, 1);
+    const footY = enRappel ? beamY + crochetY : (0.12 - this.root.position.y) / scale;
     const legStrength = Math.max(
       rappelContact * 0.82,
       deckContact * 0.72,
@@ -16780,8 +16833,11 @@ class CrewVisual {
     // détail des cuisses, et tripler `recline` ne le corrige pas non plus :
     // mesuré, `torseBwa` reste collé à 87-90° quelle que soit son amplitude.
     // Voir docs/CREW_ANIMATION_ENGINE.md — « Le corps en travers du bwa ».
-    this.leftLegPivot.rotation.x = stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook;
-    this.rightLegPivot.rotation.x = -stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook;
+    // Le repli de cuisse suit la traction : suspendu, les genoux remontent
+    // vers la perche pour que les talons crochètent par-dessus.
+    const tractionCuisses = 0.50 * hike;
+    this.leftLegPivot.rotation.x = stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook - tractionCuisses;
+    this.rightLegPivot.rotation.x = -stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook - tractionCuisses;
     this.leftLegPivot.rotation.z = CREW_STRADDLE * hike;
     this.rightLegPivot.rotation.z = -CREW_STRADDLE * hike;
     this.leftLegPivot.rotation.x -= brace * 0.24 + catchLoad * 0.16 + transferCrouch * 0.42;
@@ -16796,7 +16852,19 @@ class CrewVisual {
     // que les mains visent le bois, et pas le ciel.
     // Et il tient mal le bois : les mains lâchent du terrain quand ça se
     // désorganise, ce qui donne cette silhouette avachie qu'on reconnaît de loin.
-    const grip = hike * CREW_GRIP_REACH * familyPose.grip * (1 - desordre * 0.30) - recline;
+    // ⚠️ TENTATIVE D'INVERSION RETIRÉE LE 11 AOÛT 2026, MESURE À L'APPUI.
+    // L'idée : suspendu sous le bois, les bras montent, donc renverser `grip`
+    // vers le haut à pleine sortie. Sur le rig RÉEL, l'effet fut l'inverse —
+    // les seeds mènent la pose et l'inversion faisait partir l'IK à 140° de sa
+    // prise : mains mesurées à 0,44-0,76 m du bois, contre 0,06 sans elle. La
+    // traction des bras vit dans les SEEDS (bras vers la perche), pas ici.
+    let grip = hike * CREW_GRIP_REACH * familyPose.grip * (1 - desordre * 0.30) - recline;
+    // ⚠️ RIG SANS BIBLIOTHÈQUE DE POSES UNIQUEMENT — gabarits et repli d'urgence.
+    // Le rig livré tient sa traction par les seeds Blender ; celui-ci n'en a
+    // pas, et ses bras partaient à l'opposé de la perche suspendue (prise ratée
+    // de 0,53 m, budget d'oscillation dépassé). Balayé à l'instrument : la
+    // pré-orientation vers le haut règle la prise sans toucher au rig réel.
+    if (!this.clipLibrary?.size) grip = grip * (1 - hike) - 2.55 * hike;
     this.leftArmPivot.rotation.x = (-stride * 0.9 - 0.25) * settle + grip + pump * effort * 0.30;
     this.rightArmPivot.rotation.x = (stride * 0.9 - 0.25) * settle + grip + pump * effort * 0.30 - scoop * 1.15;
     // L'écart latéral se REFERME avec la sortie : les deux mains convergent
@@ -16856,8 +16924,12 @@ class CrewVisual {
     }
     if (this.leftHand) this.leftHand.rotation.z = -0.18 * hike - catchLoad * 0.10;
     if (this.rightHand) this.rightHand.rotation.z = 0.18 * hike + catchLoad * 0.10;
-    if (this.leftLowerLeg) this.leftLowerLeg.rotation.x = 0.42 * hike + transferCrouch * 0.34;
-    if (this.rightLowerLeg) this.rightLowerLeg.rotation.x = 0.42 * hike + transferCrouch * 0.34;
+    // La traction replie aussi les jambes : suspendu sous la perche, le talon
+    // crochète PAR-DESSUS, donc le genou remonte franchement. Sans ce repli le
+    // rig procédural partait jambes pendantes et le crochet demandait plus que
+    // le budget d'oscillation (2,0 rad) — pied directeur raté de 0,98 m.
+    if (this.leftLowerLeg) this.leftLowerLeg.rotation.x = 0.42 * hike + (this.clipLibrary?.size ? 1.05 : 1.30) * hike + transferCrouch * 0.34;
+    if (this.rightLowerLeg) this.rightLowerLeg.rotation.x = 0.42 * hike + (this.clipLibrary?.size ? 1.05 : 1.30) * hike + transferCrouch * 0.34;
     if (this.leftFoot) this.leftFoot.rotation.x = -0.20 * hike - transferStep * 0.15;
     if (this.rightFoot) this.rightFoot.rotation.x = -0.20 * hike + transferStep * 0.15;
 
@@ -17096,7 +17168,12 @@ class CrewVisual {
     // L'ancien `0.38` du corps procédural souffrait déjà du même défaut, en plus
     // discret (4,6 cm) ; la conversion le corrige aussi.
     const echelleCorps = Math.max(0.001, this.root.scale.y || 1);
-    const seat = CREW_BEAM_Y + CREW_SEAT_LIFT - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
+    // Posé sur le bois à faible sortie, PENDU dessous à pleine sortie : la
+    // traction. Voir `crewSeatOffsetForHike` — le contrat d'assise lit la même
+    // formule.
+    this.hikeAmount = hike;
+    const seat = CREW_BEAM_Y + crewSeatOffsetForHike(hike)
+      - (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * echelleCorps;
     // L'homme SUIT la flèche de sa perche : assis, il descend avec elle de
     // l'affaissement lu à sa station. C'est l'accroche physique — le bassin
     // porte le poids, donc il subit la flèche. `beamDroopOffset` sert aussi à

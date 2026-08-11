@@ -39,7 +39,7 @@ const module = (...bouts) => import(pathToFileURL(path.join(RACINE, ...bouts)).h
 
 const THREE = await module("vendor", "three.module.min.js");
 const { CrewClipLibrary } = await module("src", "render", "crew-clips.js");
-const { CrewVisual, CREW_STAGING_PROFILES, CREW_ROLES, CREW_BEAM_Y, CREW_SEAT_LIFT } = await module(
+const { CrewVisual, CREW_STAGING_PROFILES, CREW_ROLES, CREW_BEAM_Y, CREW_SEAT_LIFT, crewSeatOffsetForHike } = await module(
   "src", "render", "yole-visual.js"
 );
 
@@ -273,7 +273,14 @@ function mesure(visuel, yole) {
     // soit la surface de la perche plus le tissu comprimé). Nul par construction
     // quand l'assise est cohérente : toute dérive signe une hauteur de hanche
     // ou une échelle de rig mal mesurée — le bug du 2 août, verrouillé.
-    contactBois: hancheMonde ? hancheMonde.y - (CREW_BEAM_Y + CREW_SEAT_LIFT) : null,
+    // ⚠️ LA CIBLE SUIT LA TRACTION. Posé sur le bois à faible sortie, PENDU
+    // dessous à pleine sortie : la cote attendue vient de la même formule que
+    // le runtime et que le contrat d'assise (`crewSeatOffsetForHike`), pas
+    // d'une constante — la jauge a mordu à juste titre quand la suspension est
+    // arrivée sans elle.
+    contactBois: hancheMonde
+      ? hancheMonde.y - (CREW_BEAM_Y + crewSeatOffsetForHike(visuel.hikeAmount ?? 0))
+      : null,
     teteSousHanche: tete && hanche ? tete.y - hanche.y : null,
     inclinaisonBuste,
     flexionGenou,
