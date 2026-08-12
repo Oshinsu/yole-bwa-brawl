@@ -301,8 +301,7 @@ const SCENARIOS = [
   { nom: "rappel installe (12 deg)", roll: 0.21, deployment: 1, cadence: 2.6, station: null },
   { nom: "poste interieur, a plat", roll: 0, deployment: 0, cadence: 0, station: "interieur" },
   { nom: "extension extreme", roll: 0.30, deployment: 1, cadence: 3.1, station: "extreme" },
-  { nom: "patron", roll: 0.05, deployment: 0, cadence: 2.0, role: "patron" },
-  { nom: "ecoute", roll: 0.05, deployment: 0, cadence: 2.0, role: "ecoute" }
+  { nom: "patron", roll: 0.05, deployment: 0, cadence: 2.0, role: "patron" }
 ];
 
 // Instants échantillonnés dans le cycle de chaque clip. Les BORNES sont

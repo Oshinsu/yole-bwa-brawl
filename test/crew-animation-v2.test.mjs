@@ -75,8 +75,8 @@ assert.deepEqual(
 );
 assert.deepEqual(
   CREW_SPECIALIST_ROLES,
-  ["ecoute", "patron"],
-  "the sheet operator and patron disappeared from the one-sail crew"
+  ["patron"],
+  "the patron disappeared from the one-sail crew (the sheet operator was removed on purpose)"
 );
 
 const source = makeCrewRig();
@@ -185,9 +185,7 @@ assert.ok(
 visual.role = "patron";
 visual.update(2.4, 1 / 60, 0.42, 4.18, 0.1, 0.18, 0, true, 0, 0, 0, 3.4);
 assert.equal(visual.motionState, "barre");
-visual.role = "ecoute";
-visual.update(2.6, 1 / 60, -0.34, 0.72, 0, 0.12, 0, true, 0, 0, 0, 3.6);
-assert.equal(visual.motionState, "ecoute");
+
 
 const fallPool = new CrewFallPool(
   THREE,

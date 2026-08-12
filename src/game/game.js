@@ -1835,7 +1835,7 @@ export class Game {
     // pixels : la silhouette de la coque et de la voile suffit à situer
     // l'adversaire. Seul le palier bas y renonce — c'est précisément le levier
     // qui manquait à LQ.
-    // Huit silhouettes par yole (six dresseurs + écoute + patron) restent
+    // Sept silhouettes par yole (six dresseurs + patron) restent
     // abordables près de l'action, mais 32 squelettes complets n'apportent rien
     // sur un adversaire de quelques pixels. LQ coupe tôt, MQ garde les équipages
     // de combat proches, HQ conserve toute la flotte.

@@ -87,8 +87,8 @@ for (const boat of game.boats) {
   );
   assert.deepEqual(
     boat.visual.specialists.map((entry) => entry.role),
-    ["ecoute", "patron"],
-    "a full one-sail crew must include the sheet operator and patron"
+    ["patron"],
+    "a full one-sail crew must include the patron (the sheet operator was removed on purpose)"
   );
   assert.ok(boat.visual.patronPaddleRoot, "the patron lost the steering paddle");
 }

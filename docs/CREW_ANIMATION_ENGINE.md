@@ -523,3 +523,18 @@ Il ne simule pas les doigts, les collisions entre corps ou les ordres vocaux du
 patron. Le cordage d'écoute et la grande pagaie sont aujourd'hui des props
 procéduraux : leurs contacts main/objet restent à finir avec des bones ou
 marqueurs dédiés dans un futur rig de production.
+
+## Retrait du manœuvrier d'écoute — 12 août 2026
+
+L'écoute a été retiré de l'équipage : posté debout derrière la chute, bras
+tendus sur le brin, il se lisait en jeu comme « un chef d'orchestre qui
+gesticule », pas comme un manœuvrier (retour joueur du 12 août). L'équipage
+passe à SEPT silhouettes : six dresseurs + patron. Sont partis avec lui : le
+brin d'écoute (`sheetRoot`/`sheetLine`), son bloc de gestuelle, l'état
+`ecoute` et sa rangée dans la jauge de silhouette. L'action `ecoute` reste
+présente dans les GLB (inutilisée, inoffensive).
+
+Le patron, lui, BARRE ASSIS sur le rebord arrière (z −3,30, bassin posé à la
+cote de la lisse) : cuisses relevées, genoux pliés dans la coque, les deux
+mains au manche de l'aviron de gouverne. Références : photos du Tour où le
+patron est assis sur le quartier arrière, jamais debout au milieu de la poupe.
