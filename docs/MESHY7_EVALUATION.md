@@ -97,3 +97,38 @@ Artefacts de session (non versionnés, scratchpad) : `meshy7.glb` (brut),
 `comparaison_alignment.png`, `comparaison_decimation.png`. Tâches Meshy :
 `019ff68f-1905…` (génération), `019ff69f-9981…` (remesh), `019ff6a1-c34f…`
 (rig).
+
+
+---
+
+# Lot de variantes d'équipiers — 12 août 2026, même journée
+
+Chaîne planches → 3D appliquée en série : la planche de référence éditée en
+variantes 2D (nano-banana, pose/style/tenue préservés), puis chaque planche
+dans meshy-7 → remesh 2 600 → shrink 256 → rig. Rangées dans
+`art-source/variantes/` (hors dépôt, `art-source/` est ignoré).
+
+| variante | triangles | poids (GLB riggé) | squelette | jauges du binder |
+|---|---|---|---|---|
+| locks (peau ébène) | 2 685 | 4,7 Mo* | 24 os CONFORME | vertes (hors clip0) |
+| casquette rouge (peau médium) | 2 712 | 4,4 Mo* | 24 os CONFORME | vertes (hors clip0) |
+| bakoua (peau claire) | 2 714 | 5,4 Mo* | 24 os CONFORME | ⚠️ regard 0,11/0,08 |
+
+\* les GLB *riggés* gardent la texture 2K de Meshy ; la version 256 de chaque
+maillage fait 216-246 Ko. Le shrink se rejoue à l'intégration.
+
+Acquis notable : **locks et chapeaux survivent à la décimation en géométrie
+réelle** — ils se liront en silhouette et de dos, pas seulement en texture.
+
+Réserves du lot :
+
+- le **bakoua** passe sous le plancher de regard dorsal (0,11/0,08 pour 0,15) :
+  le chapeau a décalé le placement des os de tête à l'auto-rig. Correctif
+  attendu : compensation `Head`/`neck` dans les seeds à la passe pipeline, ou
+  régénération avec un prompt de bakoua plus fidèle (le rendu est sorti conique
+  type chapeau asiatique — le vrai bakoua a une calotte ronde et un bord
+  tombant) ;
+- les **tresses** manquent : solde d'édition d'images épuisé avant la planche ;
+- les **tailles** ne se génèrent pas : `CREW_BUILD` les gère déjà côté jeu ;
+- l'intégration multi-variantes est un chantier de code à part — le jeu charge
+  aujourd'hui UN rig d'équipage partagé par les huit hommes.
