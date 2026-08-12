@@ -16,6 +16,15 @@ export const YOLE_PARTS = Object.freeze({
 // pouvoir l'instancier par équipier et piloter ses joints depuis la simulation.
 export const YOLE_RIGS = Object.freeze({
   crew: "yole_crew.glb",
+  // ── VARIANTES D'ÉQUIPIERS — Meshy 7, 12 août 2026 ───────────────────────
+  // Trois identités de silhouette (locks, casquette, bakoua) générées depuis
+  // la planche du dépôt, passées par le MÊME pipeline que le rig de base
+  // (tools/build_crew_asset.py) : mêmes 24 os, mêmes cinq actions écrites sur
+  // LEUR bind — mesuré 19 à 30° d'écart de bind avec le rig de base, donc les
+  // clips ne se partagent pas entre variantes ; chaque GLB porte les siens.
+  crew_locks: "yole_crew_locks.glb",
+  crew_casquette: "yole_crew_casquette.glb",
+  crew_bakoua: "yole_crew_bakoua.glb",
   // Les props d'arme et de parcours. Passés par YOLE_RIGS et non YOLE_PARTS
   // parce qu'`extractGeometry` jette le matériau : on veut leur texture.
   barik: "barik.glb",

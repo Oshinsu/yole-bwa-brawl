@@ -13997,12 +13997,23 @@ class CrewFallPool {
       // Même GLB, même squelette, même texture et mêmes coiffes que les hommes
       // encore sur la yole. Le corps procédural ne reste qu'un repli si le GLB
       // est réellement indisponible.
-      const rig = assets?.hasRig?.("crew") ? assets.instantiate("crew") : null;
+      // Le pool porte les mêmes VARIANTES que les bancs, dans la même rotation
+      // déterministe : la mer montre le même casting que les yoles. Le tirage
+      // rond du pool ne garantit pas l'identité exacte de l'homme tombé — à
+      // cette distance et pour 5 s de barbotage, la cohérence du casting
+      // suffit.
+      const souhaite = crewVariantForMember(0, index);
+      const part = assets?.hasRig?.(souhaite)
+        ? souhaite
+        : assets?.hasRig?.("crew") ? "crew" : null;
+      const rig = part ? assets.instantiate(part) : null;
       const visual = createCrewDummy(
         THREE,
         colors[index % colors.length],
         index,
-        kits,
+        // Les variantes à cheveux ou chapeau intégrés ne reçoivent pas de
+        // coiffe procédurale par-dessus — même garde qu'à bord.
+        rig && crewVariantCarriesHeadgear(part) ? null : kits,
         rig
       );
       const root = visual.root;
@@ -15593,6 +15604,36 @@ const CREW_LAG = 0.17;
 // à une taille enfantine.
 // Teintes de peau de l'équipage — partagées avec les noyés, pour que l'homme
 // qui tombe soit le même que celui qui était à bord.
+// ── VARIANTES D'ÉQUIPIERS ────────────────────────────────────────────────────
+//
+// Quatre identités de silhouette : le rig historique (bandeau) et les trois
+// variantes Meshy 7 (locks, casquette rouge, bakoua), chacune portant SES cinq
+// actions — mesuré 19 à 30° d'écart de bind entre rigs, jusqu'à 152° sur
+// Spine02 : les clips ne se partagent pas, chaque GLB embarque les siens et la
+// yole tient une bibliothèque PAR variante.
+//
+// L'assignation est DÉTERMINISTE (crewIndex + index de bateau) : un équipage
+// est identique d'une relecture à l'autre, et le décalage par bateau évite que
+// les quatre yoles alignent la même séquence.
+const CREW_VARIANT_PARTS = Object.freeze([
+  "crew", "crew_locks", "crew_casquette", "crew_bakoua"
+]);
+// Les variantes portent cheveux ou chapeau DANS le maillage : leur poser une
+// coiffe procédurale par-dessus ferait une casquette sur le bakoua.
+const CREW_VARIANT_HAS_HEADGEAR = Object.freeze({
+  crew: false, crew_locks: true, crew_casquette: true, crew_bakoua: true
+});
+
+function crewVariantForMember(boatIndex, crewIndex) {
+  return CREW_VARIANT_PARTS[(crewIndex + boatIndex) % CREW_VARIANT_PARTS.length];
+}
+
+// Le pool d'hommes à l'eau (debris.js) applique la même garde anti
+// double-coiffe que les bancs, sans dupliquer la table.
+function crewVariantCarriesHeadgear(part) {
+  return !!CREW_VARIANT_HAS_HEADGEAR[part];
+}
+
 const CREW_SKINS = [0x5d3328, 0x78442f, 0x955b3e, 0xb87852, 0x6c3a2c, 0x8b4e36];
 const CREW_BUILD = [1.0, 0.96, 1.04, 0.98, 1.02, 0.95];
 
@@ -17539,6 +17580,11 @@ varying vec3 vHullWorld;`)
 
     this.crew = [];
     this.crewMaterial = null;
+    // Matériaux et bibliothèques d'actions PAR VARIANTE. Chaque variante porte
+    // sa texture et ses clips (binds incompatibles entre rigs) ; à l'intérieur
+    // d'une variante, tout se partage comme avant.
+    this.crewMaterials = new Map();
+    this.crewClipsByPart = new Map();
     this.overboard = false;
     this.crewCulled = false;
     this.crewDetail = 2;
@@ -17547,29 +17593,28 @@ varying vec3 vHullWorld;`)
     for (let crewIndex = 0; crewIndex < 6; crewIndex++) {
       // Un squelette par équipier : instantiate() clone la hiérarchie ET sa
       // liaison d'os, sinon les 24 équipiers partageraient la même pose.
-      const crewRig = assets?.hasRig("crew") ? assets.instantiate("crew") : null;
-      if (crewRig && !this.crewMaterial) this.crewMaterial = makeCrewMaterial(THREE, crewRig, color);
-      // Une seule bibliothèque d'actions pour toute la yole : les clips sont
-      // identiques d'un équipier à l'autre, seule la PHASE diffère. En
-      // construire une par corps indexerait trente-deux fois les mêmes pistes.
-      if (!this.crewClips) {
-        // La respiration de repli est TOUJOURS fusionnée. Un GLB qui fournit
-        // les cinq poses macro mais pas `rappel_idle` ne doit pas rendre le
-        // repos muet. Placée en premier, elle est remplacée naturellement si
-        // l'asset livre plus tard sa propre action du même nom.
-        const idle = makeDefaultIdleClip();
-        const glbClips = assets?.animations?.("crew") ?? [];
-        this.crewClips = new CrewClipLibrary(idle ? [idle, ...glbClips] : glbClips);
-      }
-      const visual = new CrewVisual(THREE, skins[(crewIndex + index) % skins.length], color, 0x0d2531, crewIndex * CREW_LAG, crewRig, this.crewMaterial, this.crewClips ?? null);
+      // La VARIANTE est choisie par équipier ; si son GLB n'est pas chargé, on
+      // retombe sur le rig de base, puis sur le corps procédural — jamais un
+      // homme à moitié.
+      const variantPart = this.crewVariantPart(assets, index, crewIndex);
+      const crewRig = variantPart ? assets.instantiate(variantPart) : null;
+      const crewMaterial = crewRig ? this.crewMaterialFor(THREE, variantPart, crewRig, color) : null;
+      // Une bibliothèque d'actions par VARIANTE, partagée par ses porteurs :
+      // les clips sont identiques d'un équipier à l'autre de la même variante,
+      // seule la PHASE diffère.
+      const crewClips = this.crewClipsFor(assets, variantPart);
+      const visual = new CrewVisual(THREE, skins[(crewIndex + index) % skins.length], color, 0x0d2531, crewIndex * CREW_LAG, crewRig, crewMaterial, crewClips);
       // Géométries et matériaux de coiffe créés UNE FOIS par yole et partagés
       // par ses six équipiers : trois variantes, aucun coût de draw call
       // supplémentaire par rapport à la casquette unique.
       if (!this.headKits) this.headKits = makeHeadKits(THREE);
       // Répartition déterministe : le décalage par `index` évite que les quatre
-      // yoles portent la même séquence de coiffes.
-      const kit = this.headKits[(crewIndex * 2 + index) % this.headKits.length];
-      visual.addHeadgear(THREE, visual.fromRig ? visual.headBone : visual.head, kit);
+      // yoles portent la même séquence de coiffes. Les variantes qui portent
+      // cheveux ou chapeau DANS le maillage n'en reçoivent pas une seconde.
+      if (!visual.fromRig || !CREW_VARIANT_HAS_HEADGEAR[variantPart]) {
+        const kit = this.headKits[(crewIndex * 2 + index) % this.headKits.length];
+        visual.addHeadgear(THREE, visual.fromRig ? visual.headBone : visual.head, kit);
+      }
       // Tous les yoleurs n'ont pas le même gabarit. Motif déterministe, pas de
       // tirage : un équipage doit être identique d'une relecture à l'autre.
       visual.root.scale.setScalar(crewPresentationScale(
@@ -17603,8 +17648,9 @@ varying vec3 vHullWorld;`)
     for (let specialistIndex = 0; specialistIndex < CREW_SPECIALISTS.length; specialistIndex++) {
       const station = CREW_SPECIALISTS[specialistIndex];
       const crewIndex = this.crew.length + specialistIndex;
-      const crewRig = assets?.hasRig("crew") ? assets.instantiate("crew") : null;
-      if (crewRig && !this.crewMaterial) this.crewMaterial = makeCrewMaterial(THREE, crewRig, color);
+      const variantPart = this.crewVariantPart(assets, index, crewIndex);
+      const crewRig = variantPart ? assets.instantiate(variantPart) : null;
+      const crewMaterial = crewRig ? this.crewMaterialFor(THREE, variantPart, crewRig, color) : null;
       const visual = new CrewVisual(
         THREE,
         skins[(crewIndex + index) % skins.length],
@@ -17612,12 +17658,14 @@ varying vec3 vHullWorld;`)
         0x0d2531,
         crewIndex * CREW_LAG,
         crewRig,
-        this.crewMaterial,
-        this.crewClips ?? null
+        crewMaterial,
+        this.crewClipsFor(assets, variantPart)
       );
       if (!this.headKits) this.headKits = makeHeadKits(THREE);
-      const kit = this.headKits[(crewIndex * 2 + index) % this.headKits.length];
-      visual.addHeadgear(THREE, visual.fromRig ? visual.headBone : visual.head, kit);
+      if (!visual.fromRig || !CREW_VARIANT_HAS_HEADGEAR[variantPart]) {
+        const kit = this.headKits[(crewIndex * 2 + index) % this.headKits.length];
+        visual.addHeadgear(THREE, visual.fromRig ? visual.headBone : visual.head, kit);
+      }
       visual.root.scale.setScalar(crewPresentationScale(
         visual.fromRig,
         CREW_BUILD[(crewIndex + index * 3) % CREW_BUILD.length]
@@ -17766,6 +17814,48 @@ varying vec3 vHullWorld;`)
    * Sélectionne réellement un quadrant de l'atlas 2×2. L'index reste normalisé
    * même sans texture, pour qu'un chargement dégradé garde un état cohérent.
    */
+  // La variante d'un membre d'equipage, avec repli : variante absente -> rig
+  // de base -> null (corps procedural). Deterministe par (bateau, poste).
+  crewVariantPart(assets, boatIndex, crewIndex) {
+    if (!assets?.hasRig) return null;
+    const souhaite = crewVariantForMember(boatIndex, crewIndex);
+    if (assets.hasRig(souhaite)) return souhaite;
+    return assets.hasRig("crew") ? "crew" : null;
+  }
+
+  // Un materiau par variante et par yole : la texture appartient a la
+  // variante, la teinte de maillot a l'equipe.
+  crewMaterialFor(THREE, part, rig, color) {
+    let material = this.crewMaterials.get(part);
+    if (!material) {
+      material = makeCrewMaterial(THREE, rig, color);
+      this.crewMaterials.set(part, material);
+      // Compatibilite : le premier materiau garde l'ancien alias, que le
+      // garage et les tests historiques lisent encore.
+      if (!this.crewMaterial) this.crewMaterial = material;
+    }
+    return material;
+  }
+
+  // Une bibliotheque d'actions par variante : les clips sont ecrits sur le
+  // bind de LEUR rig et ne s'appliquent pas aux autres.
+  crewClipsFor(assets, part) {
+    if (!part) return this.crewClips ?? null;
+    let bibliotheque = this.crewClipsByPart.get(part);
+    if (!bibliotheque) {
+      // La respiration de repli est TOUJOURS fusionnee. Un GLB qui fournit
+      // les cinq poses macro mais pas `rappel_idle` ne doit pas rendre le
+      // repos muet. Placee en premier, elle est remplacee naturellement si
+      // l'asset livre plus tard sa propre action du meme nom.
+      const idle = makeDefaultIdleClip();
+      const glbClips = assets?.animations?.(part) ?? [];
+      bibliotheque = new CrewClipLibrary(idle ? [idle, ...glbClips] : glbClips);
+      this.crewClipsByPart.set(part, bibliotheque);
+      if (!this.crewClips) this.crewClips = bibliotheque;
+    }
+    return bibliotheque;
+  }
+
   setSailLivery(index) {
     const normalized = normalizeCustomization({ sailLivery: index }).sailLivery;
     this.sailLiveryIndex = normalized;
@@ -18854,6 +18944,15 @@ const YOLE_PARTS = Object.freeze({
 // pouvoir l'instancier par équipier et piloter ses joints depuis la simulation.
 const YOLE_RIGS = Object.freeze({
   crew: "yole_crew.glb",
+  // ── VARIANTES D'ÉQUIPIERS — Meshy 7, 12 août 2026 ───────────────────────
+  // Trois identités de silhouette (locks, casquette, bakoua) générées depuis
+  // la planche du dépôt, passées par le MÊME pipeline que le rig de base
+  // (tools/build_crew_asset.py) : mêmes 24 os, mêmes cinq actions écrites sur
+  // LEUR bind — mesuré 19 à 30° d'écart de bind avec le rig de base, donc les
+  // clips ne se partagent pas entre variantes ; chaque GLB porte les siens.
+  crew_locks: "yole_crew_locks.glb",
+  crew_casquette: "yole_crew_casquette.glb",
+  crew_bakoua: "yole_crew_bakoua.glb",
   // Les props d'arme et de parcours. Passés par YOLE_RIGS et non YOLE_PARTS
   // parce qu'`extractGeometry` jette le matériau : on veut leur texture.
   barik: "barik.glb",

@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-09651cdc2615";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-514d520f8e8d";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 // Stable entre deux versions du shell : une mise à jour de code ne force pas
 // le retéléchargement des pistes déjà écoutées. Incrémenter si les MP3 changent.
@@ -28,7 +28,7 @@ const CORE = [
   "./src/render/yole-visual.js",
   "./src/render/impact.js", "./src/render/handling-motion.js?v=swell-v2", "./src/render/assets.js?v=crew-v2",
   "./src/render/crew-clips.js",
-  "./assets/models/yole_hull.glb", "./assets/models/yole_crew.glb", "./assets/models/barik.glb", "./assets/models/chadron.glb", "./assets/models/lanbi.glb", "./assets/models/pwason.glb", "./assets/models/bouee.glb",
+  "./assets/models/yole_hull.glb", "./assets/models/yole_crew.glb", "./assets/models/yole_crew_locks.glb", "./assets/models/yole_crew_casquette.glb", "./assets/models/yole_crew_bakoua.glb", "./assets/models/barik.glb", "./assets/models/chadron.glb", "./assets/models/lanbi.glb", "./assets/models/pwason.glb", "./assets/models/bouee.glb",
   "./assets/audio/bedStorm.mp3", "./assets/audio/bedWater.mp3", "./assets/audio/buoy.mp3", "./assets/audio/bwaShift.mp3", "./assets/audio/cocoBoom.mp3", "./assets/audio/cocoFire.mp3", "./assets/audio/dash.mp3", "./assets/audio/harpoonFire.mp3", "./assets/audio/hullSlam.mp3", "./assets/audio/mineBlast.mp3", "./assets/audio/slamHeavy.mp3", "./assets/audio/splash.mp3", "./assets/audio/takedown.mp3", "./assets/audio/turbo.mp3", "./assets/audio/victory.mp3",
   "./assets/textures/sail_djab.webp", "./assets/textures/sky_clouds.webp", "./assets/textures/spray_flipbook.webp", "./assets/textures/sargasse.webp", "./assets/textures/hull_paint.webp", "./assets/textures/wood_bwa.webp", "./assets/textures/crate_wood.webp", "./assets/textures/sail_atlas.webp", "./assets/textures/morne_rock.webp", "./assets/textures/backdrop_far.webp", "./assets/textures/backdrop_near.webp", "./assets/textures/ui_icons.webp", "./assets/textures/explosion_flipbook.webp",
   "./src/game/balance.js", "./src/game/customization.js", "./src/game/tour-progress.js", "./src/game/tour-hub.js", "./src/game/replay-library.js", "./src/game/info-hub.js", "./src/game/growth.js", "./src/game/weapons.js", "./src/game/match.js", "./src/game/pickups.js", "./src/game/obstacles.js",

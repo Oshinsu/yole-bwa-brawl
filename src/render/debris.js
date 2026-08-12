@@ -3,6 +3,8 @@ import {
   CREW_SKINS,
   CrewVisual,
   crewPresentationScale,
+  crewVariantCarriesHeadgear,
+  crewVariantForMember,
   makeCrewMaterial,
   makeHeadKits
 } from "./yole-visual.js";
@@ -199,12 +201,23 @@ export class CrewFallPool {
       // Même GLB, même squelette, même texture et mêmes coiffes que les hommes
       // encore sur la yole. Le corps procédural ne reste qu'un repli si le GLB
       // est réellement indisponible.
-      const rig = assets?.hasRig?.("crew") ? assets.instantiate("crew") : null;
+      // Le pool porte les mêmes VARIANTES que les bancs, dans la même rotation
+      // déterministe : la mer montre le même casting que les yoles. Le tirage
+      // rond du pool ne garantit pas l'identité exacte de l'homme tombé — à
+      // cette distance et pour 5 s de barbotage, la cohérence du casting
+      // suffit.
+      const souhaite = crewVariantForMember(0, index);
+      const part = assets?.hasRig?.(souhaite)
+        ? souhaite
+        : assets?.hasRig?.("crew") ? "crew" : null;
+      const rig = part ? assets.instantiate(part) : null;
       const visual = createCrewDummy(
         THREE,
         colors[index % colors.length],
         index,
-        kits,
+        // Les variantes à cheveux ou chapeau intégrés ne reçoivent pas de
+        // coiffe procédurale par-dessus — même garde qu'à bord.
+        rig && crewVariantCarriesHeadgear(part) ? null : kits,
         rig
       );
       const root = visual.root;

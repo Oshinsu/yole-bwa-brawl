@@ -129,6 +129,26 @@ Réserves du lot :
   type chapeau asiatique — le vrai bakoua a une calotte ronde et un bord
   tombant) ;
 - les **tresses** manquent : solde d'édition d'images épuisé avant la planche ;
-- les **tailles** ne se génèrent pas : `CREW_BUILD` les gère déjà côté jeu ;
-- l'intégration multi-variantes est un chantier de code à part — le jeu charge
-  aujourd'hui UN rig d'équipage partagé par les huit hommes.
+- les **tailles** ne se génèrent pas : `CREW_BUILD` les gère déjà côté jeu.
+
+## Intégration en jeu — même journée, plus tard
+
+Fait. Les trois variantes sont passées par le pipeline complet
+(`build_crew_asset.py` sur LEUR bind — 19 à 30° d'écart avec le rig de base,
+jusqu'à 152° sur Spine02, donc aucun partage de clips possible), shrink 256,
+jauges de silhouette toutes vertes, puis câblées dans le jeu :
+
+- `YOLE_RIGS` expose `crew_locks`, `crew_casquette`, `crew_bakoua` ;
+- assignation déterministe `(crewIndex + index de bateau) % 4`, spécialistes
+  compris — un équipage est identique d'une relecture à l'autre et les quatre
+  yoles décalent leur séquence ;
+- une bibliothèque de clips et un matériau PAR variante et par yole
+  (`crewClipsByPart`, `crewMaterials`), teinte d'équipe conservée ;
+- les variantes qui portent cheveux ou chapeau dans le maillage ne reçoivent
+  pas de coiffe procédurale par-dessus ;
+- les trois GLB sont précachés par le service worker (+972 Ko installés).
+
+Vérifié en jeu sur captures (repos assis, gîte 20°, traction 35°) : les quatre
+identités se lisent dans la même rangée, chacune anime ses propres clips,
+`replayChecksum` inchangé. Le bakoua reste conique (réserve maintenue), les
+tresses restent à générer.
