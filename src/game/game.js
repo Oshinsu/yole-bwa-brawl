@@ -425,7 +425,7 @@ export class Game {
 
 
   initWorld() {
-    this.world = new WorldStreamer(this.THREE, this.scene, this.seed ^ 0x77ad, this.assets?.texture("morne") ?? null);
+    this.world = new WorldStreamer(this.THREE, this.scene, this.seed ^ 0x77ad, this.assets?.texture("morne") ?? null, this.assets ?? null);
     this.world.setQuality(this.quality.tier);
     this.ocean.setIslands(this.world.nearestIslands(0));
     this.boats = CONFIG.names.map((name, index) => new Boat(this, index, {

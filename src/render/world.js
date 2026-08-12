@@ -137,6 +137,89 @@ export function distanceToIslandCollider(island, x, z, out = {}) {
 // silhouette irreguliere : aretes, epaulement, sommet decale. On construit une
 // grille radiale bruitee et on peint l'altitude au sommet (sable -> vegetation
 // -> roche volcanique), ce qui garde UN seul draw call par ile.
+// Tronc de cocotier : sweep conique doucement incurvé (courbe en S légère),
+// centré sur Y comme l'ancien cylindre (base -1,6, sommet +1,6), avec une
+// grappe de trois cocos fusionnée sous la couronne — zéro instance de plus.
+function makePalmTrunkGeometry(THREE) {
+  const anneaux = 6, segments = 6, demi = 1.6;
+  const positions = [], indices = [], uvs = [];
+  for (let a = 0; a <= anneaux; a++) {
+    const t = a / anneaux;
+    const y = -demi + t * 2 * demi;
+    const rayon = 0.22 - 0.12 * t;
+    // Courbure : lean progressif vers +X, petit retour en S au sommet.
+    const bend = 0.38 * t * t + 0.06 * Math.sin(t * Math.PI);
+    for (let sg = 0; sg <= segments; sg++) {
+      const ang = (sg / segments) * Math.PI * 2;
+      positions.push(Math.cos(ang) * rayon + bend, y, Math.sin(ang) * rayon);
+      uvs.push(sg / segments, t);
+    }
+  }
+  const stride = segments + 1;
+  for (let a = 0; a < anneaux; a++) {
+    for (let sg = 0; sg < segments; sg++) {
+      const i0 = a * stride + sg, i1 = i0 + stride;
+      indices.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
+    }
+  }
+  // Grappe de cocos : trois octaèdres écrits À LA MAIN. Pas de
+  // THREE.SphereGeometry ici — les tests headless tournent sur mock-three,
+  // dont les primitives n'exposent pas attributes.position (mesuré : test:ai
+  // rouge sur `reading 'array'`).
+  const cocos = [[0.42, 1.28, 0.10], [0.30, 1.22, -0.16], [0.52, 1.18, -0.04]];
+  const r = 0.11;
+  const octaSommets = [[r, 0, 0], [-r, 0, 0], [0, r, 0], [0, -r, 0], [0, 0, r], [0, 0, -r]];
+  const octaFaces = [
+    [2, 0, 4], [2, 4, 1], [2, 1, 5], [2, 5, 0],
+    [3, 4, 0], [3, 1, 4], [3, 5, 1], [3, 0, 5]
+  ];
+  for (const [cx, cy, cz] of cocos) {
+    const decal = positions.length / 3;
+    for (const [ox, oy, oz] of octaSommets) {
+      positions.push(ox + cx, oy + cy, oz + cz);
+      uvs.push(0.5, 0.05);
+    }
+    for (const [a, b, c] of octaFaces) indices.push(decal + a, decal + b, decal + c);
+  }
+  const geometrie = new THREE.BufferGeometry();
+  geometrie.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometrie.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometrie.setIndex(indices);
+  geometrie.computeVertexNormals();
+  return geometrie;
+}
+
+// Palme : lame nervurée en V qui part de l'origine le long de +Y et RETOMBE
+// vers -X en s'amincissant. Après le rotation.z = π/2 du placement, +Y devient
+// l'horizontale de la couronne et -X le bas : la palme s'arque vers le sol,
+// comme sur les silhouettes de la photo de référence.
+function makePalmFrondGeometry(THREE) {
+  const segments = 6, longueur = 2.1;
+  const positions = [], indices = [], uvs = [];
+  for (let sg = 0; sg <= segments; sg++) {
+    const t = sg / segments;
+    const y = t * longueur;
+    const droop = -0.88 * t * t;            // chute quadratique vers -X
+    const largeur = 0.42 * (1 - t * 0.80) + 0.05;
+    const pli = 0.10 * (1 - t * 0.5);       // le V de la nervure centrale
+    positions.push(droop + pli, y, -largeur); // bord gauche
+    positions.push(droop, y, 0);              // nervure (relevée par le pli)
+    positions.push(droop + pli, y, largeur);  // bord droit
+    uvs.push(0, t, 0.5, t, 1, t);
+  }
+  for (let sg = 0; sg < segments; sg++) {
+    const a = sg * 3, b = a + 3;
+    indices.push(a, b, a + 1, a + 1, b, b + 1);
+    indices.push(a + 1, b + 1, a + 2, a + 2, b + 1, b + 2);
+  }
+  const geometrie = new THREE.BufferGeometry();
+  geometrie.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometrie.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometrie.setIndex(indices);
+  geometrie.computeVertexNormals();
+  return geometrie;
+}
+
 function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {}) {
   const positions = [];
   const colors = [];
@@ -166,6 +249,9 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
   const jungle = new THREE.Color(0x1a7d46);
   const deepJungle = new THREE.Color(0x07492e);
   const rock = new THREE.Color(0x2f3a30);
+  // Les deux pôles du moutonnement : bouquet éclairé, creux d'ombre.
+  const canopyLight = new THREE.Color(0x3fae57);
+  const canopyShade = new THREE.Color(0x0b3d24);
   const scratch = new THREE.Color();
 
   for (let ring = 0; ring <= rings; ring++) {
@@ -201,6 +287,21 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
       if (t < 0.16) scratch.copy(sand).lerp(jungle, t / 0.16);
       else if (t < 0.88) scratch.copy(jungle).lerp(deepJungle, (t - 0.16) / 0.72);
       else scratch.copy(deepJungle).lerp(rock, Math.pow((t - 0.88) / 0.12, 1.5));
+      // Moutonnement de canopée : le dégradé lisse lisait « cône peint », pas
+      // « morne boisé » (photo de référence : couronne broccoli, taches
+      // claires/sombres par bouquet d'arbres). Bruit accroché à la POSITION du
+      // sommet, jamais au flux RNG partagé — le nombre d'appels rng.next()
+      // est contractuel pour le déterminisme des silhouettes.
+      if (t >= 0.16 && t < 0.92) {
+        // Fréquences À L'ÉCHELLE DES FACETTES (26×9 sommets) : plus fin, le
+        // bruit se replie en bandes diagonales sur les grands triangles du
+        // pied — mesuré sur capture, pas une hypothèse.
+        const bosquet = Math.sin(px * 2.9 + pz * 2.1) * Math.sin(px * 1.7 - pz * 3.3)
+          + Math.sin(px * 6.1 + pz * 4.7) * 0.35;
+        const feuillu = Math.sin(t * Math.PI);
+        if (bosquet > 0) scratch.lerp(canopyLight, Math.min(1, bosquet) * 0.34 * feuillu);
+        else scratch.lerp(canopyShade, Math.min(1, -bosquet) * 0.42 * feuillu);
+      }
       colors.push(scratch.r, scratch.g, scratch.b);
       // UV cylindriques : l'angle donne u, la hauteur donne v. Le facteur 3 sur
       // u répète la texture autour du morne — sans lui, une planche de 512²
@@ -268,7 +369,7 @@ let sortFocusZ = 0;
 const byDistanceToFocusZ = (a, b) => Math.abs(a.z - sortFocusZ) - Math.abs(b.z - sortFocusZ);
 
 export class WorldStreamer {
-  constructor(THREE, scene, seed = 0x7a11e, rockTexture = null) {
+  constructor(THREE, scene, seed = 0x7a11e, rockTexture = null, assets = null) {
     // ⚠️ Sans RepeatWrapping, les UV posées sur les mornes (u jusqu'à 3, v
     // jusqu'à 2,2) sont ÉCRÊTÉES : 82 % de la surface émergée n'affiche qu'un
     // étirement 1D des texels de bord. La carte coûtait 82 Ko et ne montrait
@@ -280,6 +381,13 @@ export class WorldStreamer {
     }
     this.THREE = THREE;
     this.scene = scene;
+    // La flottille suiveuse. Sur toutes les photos du Tour, la course est
+    // ENTOURÉE : catamarans de spectateurs, vedettes, bateau presse. Une mer
+    // vide autour des concurrentes est le plus gros écart d'authenticité du
+    // décor — les modèles sont des GLB statiques clonés par chunk.
+    this.assets = assets;
+    this.flottilleTemplates = null;
+    this.flottilleBudget = 2;
     this.seed = seed;
     this.chunkLength = 145;
     this.chunkCount = 10;
@@ -307,7 +415,8 @@ export class WorldStreamer {
       green: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.green, roughness: 0.90 }),
       darkGreen: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.darkGreen, roughness: 0.93 }),
       trunk: new THREE.MeshStandardMaterial({ color: 0xa76a32, roughness: 0.86 }),
-      leaf: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.leaf, roughness: 0.82, emissive: 0x083c1d, emissiveIntensity: 0.12 }),
+      // DoubleSide : la palme est une LAME, vue de dessous quand elle retombe.
+      leaf: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.leaf, roughness: 0.82, emissive: 0x083c1d, emissiveIntensity: 0.12, side: THREE.DoubleSide }),
       basalt: new THREE.MeshStandardMaterial({ color: 0x263631, roughness: 0.96, flatShading: true }),
       landmarkIvory: new THREE.MeshStandardMaterial({ color: 0xf1ead6, roughness: 0.92 }),
       landmarkRoof: new THREE.MeshStandardMaterial({ color: 0xd75f48, roughness: 0.84 }),
@@ -338,8 +447,13 @@ export class WorldStreamer {
     this.landmarkTowerGeometry = new THREE.CylinderGeometry(0.72, 1, 1, 10);
     this.landmarkBoxGeometry = new THREE.BoxGeometry(1, 1, 1);
     this.landmarkFlagGeometry = new THREE.PlaneGeometry(1, 1);
-    this.palmTrunkGeometry = new THREE.CylinderGeometry(0.12, 0.22, 3.2, 7);
-    this.palmLeafGeometry = new THREE.ConeGeometry(0.58, 2.1, 5);
+    // Photo de référence : tronc élancé et COURBÉ, couronne de palmes qui
+    // RETOMBENT, grappe de cocos sous la couronne. Le cylindre droit + cônes
+    // horizontaux lisaient « sucette ». Mêmes conventions d'instanciation
+    // (tronc centré ±1,6, palme partant de l'origine le long de +Y puis
+    // couchée par rotation.z), donc le code de placement ne change pas.
+    this.palmTrunkGeometry = makePalmTrunkGeometry(THREE);
+    this.palmLeafGeometry = makePalmFrondGeometry(THREE);
     this.maxPalms = 168;
     this.maxRocks = 96;
     // Budgets courants — remplacés dès le premier `setQuality`, appelé par le
@@ -447,6 +561,68 @@ export class WorldStreamer {
     return chunk;
   }
 
+  // Gabarits de flottille, mesurés et mis à l'échelle UNE fois : Meshy sort
+  // des modèles normalisés (~1 à 2 unités), on les ramène à des longueurs de
+  // bateau réelles (catamaran ~11 m, vedette ~6 m).
+  flottilleGabarits() {
+    if (this.flottilleTemplates !== null) return this.flottilleTemplates;
+    this.flottilleTemplates = [];
+    if (!this.assets?.hasRig) return this.flottilleTemplates;
+    const THREE = this.THREE;
+    const cibles = [
+      { part: "flottille_catamaran", longueur: 11.0 },
+      { part: "flottille_vedette", longueur: 6.2 }
+    ];
+    for (const { part, longueur } of cibles) {
+      if (!this.assets.hasRig(part)) continue;
+      const modele = this.assets.instantiate(part);
+      if (!modele) continue;
+      const boite = new THREE.Box3().setFromObject(modele);
+      const dims = boite.getSize(new THREE.Vector3());
+      const horizontale = Math.max(dims.x, dims.z, 1e-3);
+      const echelle = longueur / horizontale;
+      // Pied posé à la flottaison : l'origine Meshy est au bas de la coque.
+      const assiette = -boite.min.y * echelle - 0.18;
+      this.flottilleTemplates.push({ modele, echelle, assiette });
+    }
+    return this.flottilleTemplates;
+  }
+
+  // Sème la flottille d'un chunk. Appelé EN DERNIER dans configureChunk :
+  // les tirages supplémentaires ne décalent aucun élément de décor existant,
+  // et les îlots du chunk sont déjà posés pour la garde de distance.
+  scatterFlottille(chunk, rng) {
+    const gabarits = this.flottilleGabarits();
+    if (!gabarits.length || this.flottilleBudget <= 0) return;
+    const THREE = this.THREE;
+    const nombre = rng.chance(0.3) ? this.flottilleBudget : this.flottilleBudget - 1;
+    for (let index = 0; index < nombre; index++) {
+      const gabarit = gabarits[Math.floor(rng.next() * gabarits.length) % gabarits.length];
+      const side = rng.chance(0.5) ? -1 : 1;
+      const localZ = (rng.next() - 0.5) * this.chunkLength * 0.86;
+      const worldZ = chunk.z + localZ;
+      // Entre le bord du couloir de course (±58 max) et la bande d'îlots.
+      const lateral = 60 + rng.next() * 14;
+      const worldX = routeCenter(worldZ) + side * lateral;
+      // Garde de distance aux îlots du chunk : un catamaran DANS la plage se
+      // verrait tout de suite.
+      let bloque = false;
+      for (const island of chunk.islands) {
+        const marge = Math.max(island.rx ?? 0, island.rz ?? 0) + 9;
+        if (Math.hypot(worldX - island.x, worldZ - island.z) < marge) { bloque = true; break; }
+      }
+      if (bloque) continue;
+      const clone = gabarit.modele.clone(true);
+      clone.scale.setScalar(gabarit.echelle);
+      // Ancrés face à la course, avec l'assiette et la gîte d'un bateau au
+      // mouillage — pas quatre clones au garde-à-vous.
+      clone.position.set(worldX, gabarit.assiette + (rng.next() - 0.5) * 0.06, localZ);
+      clone.rotation.y = side > 0 ? Math.PI / 2 + (rng.next() - 0.5) * 0.7 : -Math.PI / 2 + (rng.next() - 0.5) * 0.7;
+      clone.rotation.z = (rng.next() - 0.5) * 0.05;
+      chunk.group.add(clone);
+    }
+  }
+
   configureChunk(chunk, logicalIndex) {
     while (chunk.group.children.length) chunk.group.remove(chunk.group.children[0]);
     chunk.logicalIndex = logicalIndex;
@@ -457,6 +633,7 @@ export class WorldStreamer {
     chunk.rocks.length = 0;
     this.islandIndexDirty = true;
     const rng = new RNG((this.seed ^ Math.imul(logicalIndex + 1, 0x9e3779b1)) >>> 0);
+    const flottilleRng = new RNG((this.seed ^ Math.imul(logicalIndex + 7, 0x85ebca6b)) >>> 0);
     const profile = this.stageProfile;
 
     for (let sideIndex = 0; sideIndex < 2; sideIndex++) {
@@ -507,6 +684,9 @@ export class WorldStreamer {
         });
       }
     }
+    // EN DERNIER, sur son RNG dédié : n'importe quel ajout futur au décor
+    // peut s'insérer avant sans déplacer un seul bateau de spectateurs.
+    this.scatterFlottille(chunk, flottilleRng);
   }
 
   rebuildInstances() {
@@ -744,6 +924,11 @@ export class WorldStreamer {
     const part = WORLD_QUALITY[palier];
     this.palmBudget = Math.round(this.maxPalms * part.palmiers);
     this.rockBudget = Math.round(this.maxRocks * part.rochers);
+    // Deux bateaux de flottille par chunk en HQ, un en MQ, zéro en LQ : les
+    // clones coûtent des draw calls, pas des instances. Appliqué au prochain
+    // recyclage de chunk — la flottille est loin du couloir, personne ne voit
+    // la transition.
+    this.flottilleBudget = palier >= 2 ? 2 : palier === 1 ? 1 : 0;
     this.palmTrunks.visible = true;
     this.palmLeaves.visible = true;
     this.rocks.visible = true;

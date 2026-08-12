@@ -419,7 +419,10 @@ export const CREW_SPECIALIST_ROLES = Object.freeze(["ecoute", "patron"]);
 // corde traverse le gréement.
 const CREW_SPECIALISTS = Object.freeze([
   Object.freeze({ role: "ecoute", x: -0.12, z: -2.75 }),
-  Object.freeze({ role: "patron", x: 0.42, z: -4.18 })
+  // −4,18 posait ses pieds AU-DELÀ du pont (le plancher s'arrête à ±2,95) :
+  // vu de poupe il flottait sur la pointe arrière. −3,66 le garde barreur à
+  // l'extrême poupe, mais debout DANS la coque.
+  Object.freeze({ role: "patron", x: 0.42, z: -3.66 })
 ]);
 
 const motionPulse = (value, enterStart, enterEnd, leaveStart, leaveEnd) =>
@@ -2269,6 +2272,15 @@ varying vec3 vHullWorld;`)
       roughness: this.graphicStyle ? 0.94 : 0.74,
       flatShading: this.graphicStyle
     });
+    // Les bwa dressés sont PEINTS aux couleurs de l'équipe sur les vraies
+    // yoles (bwa rouges de ROSETTE sur la planche de référence). Mât, vergue
+    // et pagaie restent en bois naturel. La teinte est adoucie vers le blanc
+    // pour laisser respirer le grain de la texture — et elle double la lecture
+    // d'équipe que porte déjà la coque.
+    this.bwaMaterial = this.woodMaterial.clone();
+    // Blanc gardé sous la main : applyCustomization n'a pas THREE en portée.
+    this.bwaTintWhite = new THREE.Color(0xffffff);
+    this.bwaMaterial.color = new THREE.Color(color).lerp(this.bwaTintWhite, 0.28);
 
     // La coque peut venir d'un GLB partage ; le materiau reste celui de l'equipage,
     // sinon les quatre yoles perdraient leur couleur. Aucun asset => procedural.
@@ -2303,7 +2315,23 @@ varying vec3 vHullWorld;`)
     gunwaleRight.position.set(0.88 * HULL_VISUAL_WIDTH_SCALE, 0.16, 0);
     this.tiltRoot.add(gunwaleLeft, gunwaleRight);
 
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.48 * HULL_VISUAL_WIDTH_SCALE, 0.11, 5.9), this.darkMaterial);
+    // Photo de référence (ROSETTE, tour_yoles) : l'intérieur d'une yole est
+    // du BOIS CLAIR planchéié, jamais un caisson noir. Clone de la texture des
+    // perches avec sa propre répétition : lattes dans le sens de la longueur.
+    const plankTexture = woodTexture ? woodTexture.clone() : null;
+    if (plankTexture) {
+      plankTexture.wrapS = THREE.RepeatWrapping;
+      plankTexture.wrapT = THREE.RepeatWrapping;
+      plankTexture.repeat.set(2.5, 5);
+      plankTexture.needsUpdate = true;
+    }
+    this.plankMaterial = new THREE.MeshStandardMaterial({
+      map: plankTexture,
+      color: plankTexture ? 0xe8cfa0 : 0xc9a25e,
+      roughness: this.graphicStyle ? 0.95 : 0.82,
+      flatShading: this.graphicStyle
+    });
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.48 * HULL_VISUAL_WIDTH_SCALE, 0.11, 5.9), this.plankMaterial);
     deck.position.y = 0.10;
     this.tiltRoot.add(deck);
 
@@ -2395,7 +2423,7 @@ varying vec3 vHullWorld;`)
       THREE.InstancedMesh && THREE.Object3D && THREE.Matrix4
     );
     this.beamInstances = canInstanceBeams
-      ? new THREE.InstancedMesh(beamGeometry, this.woodMaterial, BEAM_LAYOUT.length)
+      ? new THREE.InstancedMesh(beamGeometry, this.bwaMaterial, BEAM_LAYOUT.length)
       : null;
     if (this.beamInstances) {
       this.beamInstances.castShadow = true;
@@ -2415,7 +2443,7 @@ varying vec3 vHullWorld;`)
       // Mesh historique.
       const beam = this.beamInstances
         ? new THREE.Object3D()
-        : new THREE.Mesh(beamGeometry, this.woodMaterial);
+        : new THREE.Mesh(beamGeometry, this.bwaMaterial);
       beam.rotation.z = Math.PI / 2;
       beam.scale.y = length;
       beam.castShadow = true;
@@ -2794,6 +2822,12 @@ varying vec3 vHullWorld;`)
     this.accentMaterial?.color?.setHex?.(accent.color);
     this.woodMaterial?.color?.setHex?.(wood.color);
     if (this.woodMaterial) this.woodMaterial.roughness = wood.roughness;
+    // Les bwa gardent la peinture d'équipe par-dessus le choix de bois : la
+    // teinte suit la couleur de coque active, adoucie comme à la construction.
+    if (this.bwaMaterial) {
+      this.bwaMaterial.color.setHex(hull.color).lerp(this.bwaTintWhite, 0.28);
+      this.bwaMaterial.roughness = wood.roughness;
+    }
     this.setCrewKit(normalized.crewKit);
     this.setSailLivery(normalized.sailLivery);
     this.setRigProfile(normalized.rig);

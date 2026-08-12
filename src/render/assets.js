@@ -27,6 +27,11 @@ export const YOLE_RIGS = Object.freeze({
   crew_bakoua: "yole_crew_bakoua.glb",
   // Les props d'arme et de parcours. Passés par YOLE_RIGS et non YOLE_PARTS
   // parce qu'`extractGeometry` jette le matériau : on veut leur texture.
+  // La flottille suiveuse du Tour : catamarans de spectateurs et vedettes.
+  // Passés par YOLE_RIGS pour garder leurs textures (extractGeometry jette le
+  // matériau). Statique, aucun squelette.
+  flottille_catamaran: "flottille_catamaran.glb",
+  flottille_vedette: "flottille_vedette.glb",
   barik: "barik.glb",
   chadron: "chadron.glb",
   lanbi: "lanbi.glb",
