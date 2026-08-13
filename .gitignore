@@ -3,7 +3,15 @@
 # art-source/ : les PNG SOURCES (jusqu'à 7 Mo pièce) d'où sont tirés les atlas
 #   de assets/textures/. Le jeu ne les charge jamais.
 # previews/   : les captures produites par les harnais de mesure.
-art-source/
+# `art-source/*` et non `art-source/` : un répertoire ignoré n'est jamais
+# parcouru, donc aucune exception ne peut en sortir. Le prompt du HUD Turbo est
+# la SEULE pièce versionnée : test/hud-instruments.test.mjs le lit pour tracer
+# l'atlas, et un test ne peut pas dépendre d'un fichier hors dépôt (la CI
+# échouait dessus depuis le 4 août).
+art-source/*
+!art-source/ui/
+art-source/ui/*
+!art-source/ui/TURBO_ELAN_PROMPT.json
 previews/
 
 node_modules/

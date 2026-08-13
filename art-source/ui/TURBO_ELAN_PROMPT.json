@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "asset": "hud_turbo_elan_atlas",
+  "generationMode": "built-in-imagegen",
+  "useCase": "stylized-concept",
+  "generatedOn": "2026-08-04",
+  "layout": {
+    "grid": "4x3",
+    "cellOrder": [
+      "painted_meter_frame",
+      "turquoise_energy_fill",
+      "cooldown_shutter",
+      "active_sail_overlay",
+      "sun_wave_sail_emblem",
+      "rope_cooldown_ring",
+      "ready_burst",
+      "low_energy_sail",
+      "forward_wake",
+      "lateral_dash_wake",
+      "confirmed_burst",
+      "rejected_cross"
+    ],
+    "background": "#ff00ff chroma key",
+    "runtimeOutput": "assets/textures/v9/hud/turbo_elan_atlas.webp"
+  },
+  "generatePrompt": "Create a production-ready WebGL arcade racing UI sprite atlas in an exact 4 columns by 3 rows grid, with twelve isolated square assets of equal size and generous internal padding. Art direction: festive Martinique yole ronde racing, sunny Caribbean energy, hand-painted graphic shapes, dark marine ink, salt-softened aged brass, ivory sailcloth, luminous turquoise sea foam, sun yellow and restrained coral accents. Premium game HUD readability at tiny sizes, bold silhouette, clean edges, controlled texture, no generic sci-fi, no pirate or tiki imagery, no heavy wooden dashboard. Row 1 left to right: an elegant compact meter frame; a horizontal turquoise energy fill with foam and sun sparks; a dark rope-and-sailcloth cooldown shutter; a dynamic ivory yole sail overlay pushed by wind. Row 2: a circular sun-wave-sail emblem; a braided rope cooldown ring; a radiant ready burst; a low-energy slumped sail emblem. Row 3: a forward turquoise wake; a lateral dash wake; a confirmed activation burst; a rejected action cross made from rope and coral paint. No letters, numbers, words, logos, sponsors, watermark, people, boats or scenery. Use a perfectly flat uniform #ff00ff background throughout, including every gutter. Keep each sprite centered and fully inside its cell.",
+  "editPrompt": "Precise object edit. Preserve all twelve sprites, their dimensions, colors, texture, positions and the exact 4x3 cell order. Replace only the thin white divider lines and any pale grid residue between cells with the same perfectly flat #ff00ff chroma background. Do not alter, redraw, move, crop, add or remove any sprite. No text, logo or watermark."
+}

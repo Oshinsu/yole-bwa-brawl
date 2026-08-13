@@ -49,6 +49,12 @@ jobs:
 
       - name: Installer les dépendances de validation
         run: |
+          # Le dépôt apt Google Chrome préinstallé sur l'image du runner sert
+          # régulièrement des métadonnées incohérentes (« Hash Sum mismatch »
+          # sur dl.google.com — vu du 11 au 12 août 2026, chaque publication
+          # échouait à l'apt-get update lancé par --with-deps). Playwright
+          # télécharge SON chromium : ce dépôt ne nous sert à rien, on l'écarte.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
           npm install --ignore-scripts --no-audit --no-fund
           python -m pip install --disable-pip-version-check playwright
           python -m playwright install --with-deps chromium
