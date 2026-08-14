@@ -298,9 +298,15 @@ if (
     //
     // On calcule donc la portée à partir de l'URL du worker lui-même : elle
     // vaut le dossier qui le contient, à la racine comme en sous-répertoire.
+    // `updateViaCache: "none"` : sans lui, le script du worker est relu à
+    // travers le cache HTTP du navigateur. GitHub Pages sert le dépôt en
+    // `cache-control: max-age=600` — la vérification de mise à jour tombait
+    // donc dans le vide pendant dix minutes après chaque publication, et le
+    // joueur restait sur son ancien shell d'autant plus longtemps. Le worker
+    // est le seul fichier qu'on veut toujours relire depuis le réseau.
     const worker = new URL("../service-worker.js", import.meta.url);
     navigator.serviceWorker
-      .register(worker, { scope: new URL("./", worker).href })
+      .register(worker, { scope: new URL("./", worker).href, updateViaCache: "none" })
       .then((registration) => {
         if (registration.waiting && navigator.serviceWorker.controller) {
           showUpdateReady(registration);

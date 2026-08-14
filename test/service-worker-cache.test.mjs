@@ -411,3 +411,194 @@ test("une réponse réseau 206 ne remplace jamais la piste complète dans le cac
   assert.equal(response.status, 206);
   assert.equal(misesEnCache, 0);
 });
+
+// ---------------------------------------------------------------------------
+// Fraîcheur du shell.
+//
+// Le 14 août 2026, la publication GitHub Pages servait exactement le dernier
+// commit (59 fichiers identiques octet pour octet) pendant que le navigateur
+// affichait une version vieille de plusieurs jours : le worker répondait au
+// shell depuis son cache avant même de regarder le réseau. Ces tests fixent la
+// règle qui a corrigé le défaut — code au réseau, médias au cache.
+// ---------------------------------------------------------------------------
+
+// `new Request(url, { mode: "navigate" })` est interdit par la spécification
+// hors contexte navigateur (undici lève « Cannot construct a Request with mode
+// navigate »). Le harnais du worker simule déjà `self` ; on simule ici la
+// requête de document, avec la seule surface que le worker consulte.
+function requeteNavigation(url) {
+  return {
+    url,
+    method: "GET",
+    mode: "navigate",
+    credentials: "include",
+    headers: new Headers()
+  };
+}
+
+function fetchShell({ caches, networkFetch, url, navigation = false }) {
+  const handlers = chargerWorker(caches, networkFetch);
+  let resultat;
+  let maintenance = Promise.resolve();
+  handlers.fetch({
+    request: navigation ? requeteNavigation(url) : new Request(url),
+    respondWith(promise) { resultat = promise; },
+    waitUntil(promise) { maintenance = promise; }
+  });
+  return { resultat: () => resultat, maintenance: () => maintenance };
+}
+
+test("le shell repart du réseau même quand le cache en garde une version", async () => {
+  const misesEnCache = [];
+  const caches = {
+    open: async () => ({
+      match: async () => new Response("ANCIEN", { status: 200 }),
+      put: async (requete, reponse) => {
+        misesEnCache.push({
+          url: typeof requete === "string" ? requete : requete.url,
+          corps: await reponse.text()
+        });
+      }
+    })
+  };
+  let appelsReseau = 0;
+  const appel = fetchShell({
+    caches,
+    networkFetch: async () => {
+      appelsReseau++;
+      return new Response("NOUVEAU", { status: 200 });
+    },
+    url: "https://yole.example/src/main.js"
+  });
+  const response = await appel.resultat();
+  await appel.maintenance();
+
+  assert.equal(appelsReseau, 1, "le shell doit interroger le réseau");
+  assert.equal(await response.text(), "NOUVEAU", "le cache ne doit jamais gagner en ligne");
+  assert.deepEqual(misesEnCache, [{
+    url: "https://yole.example/src/main.js",
+    corps: "NOUVEAU"
+  }]);
+});
+
+test("une navigation sans extension est traitée comme du shell", async () => {
+  let appelsReseau = 0;
+  const caches = {
+    open: async () => ({
+      match: async () => new Response("ANCIEN DOCUMENT", { status: 200 }),
+      put: async () => {}
+    })
+  };
+  const appel = fetchShell({
+    caches,
+    networkFetch: async () => {
+      appelsReseau++;
+      return new Response("NOUVEAU DOCUMENT", { status: 200 });
+    },
+    url: "https://yole.example/yole-bwa-brawl/",
+    navigation: true
+  });
+  const response = await appel.resultat();
+  await appel.maintenance();
+
+  assert.equal(appelsReseau, 1);
+  assert.equal(await response.text(), "NOUVEAU DOCUMENT");
+});
+
+test("hors ligne, le shell retombe sur la version déjà installée", async () => {
+  const caches = {
+    open: async () => ({
+      match: async () => new Response("VERSION INSTALLÉE", { status: 200 }),
+      put: async () => assert.fail("un échec réseau ne doit rien écrire en cache")
+    })
+  };
+  const appel = fetchShell({
+    caches,
+    networkFetch: async () => { throw new Error("réseau coupé"); },
+    url: "https://yole.example/style.css?v=hud-v17-turbo"
+  });
+  const response = await appel.resultat();
+  await appel.maintenance();
+
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "VERSION INSTALLÉE");
+});
+
+test("un module absent du réseau ne casse pas le jeu déjà installé", async () => {
+  const caches = {
+    open: async () => ({
+      match: async () => new Response("MODULE INSTALLÉ", { status: 200 }),
+      put: async () => assert.fail("une 404 ne doit jamais écraser le cache")
+    })
+  };
+  const appel = fetchShell({
+    caches,
+    networkFetch: async () => new Response("", { status: 404 }),
+    url: "https://yole.example/src/game/game.js"
+  });
+  const response = await appel.resultat();
+  await appel.maintenance();
+
+  assert.equal(response.status, 200, "un déploiement à moitié en ligne reste jouable");
+  assert.equal(await response.text(), "MODULE INSTALLÉ");
+});
+
+test("hors ligne et hors cache, une navigation sert l'index précaché", async () => {
+  const caches = {
+    open: async () => ({
+      match: async (cle) => {
+        const url = typeof cle === "string" ? cle : cle.url;
+        return url.endsWith("index.html")
+          ? new Response("INDEX PRÉCACHÉ", { status: 200 })
+          : undefined;
+      },
+      put: async () => {}
+    })
+  };
+  const appel = fetchShell({
+    caches,
+    networkFetch: async () => { throw new Error("réseau coupé"); },
+    url: "https://yole.example/yole-bwa-brawl/",
+    navigation: true
+  });
+  const response = await appel.resultat();
+  await appel.maintenance();
+
+  assert.equal(await response.text(), "INDEX PRÉCACHÉ");
+});
+
+test("les médias lourds restent servis depuis le cache sans toucher au réseau", async () => {
+  let appelsReseau = 0;
+  const caches = {
+    open: async () => ({
+      match: async () => new Response("GLB EN CACHE", { status: 200 }),
+      put: async () => {}
+    })
+  };
+  for (const media of [
+    "https://yole.example/assets/models/yole_hull.glb",
+    "https://yole.example/assets/textures/sail_atlas.webp",
+    "https://yole.example/assets/fonts/inter-var.woff2",
+    "https://yole.example/icons/icon-512.png"
+  ]) {
+    const appel = fetchShell({
+      caches,
+      networkFetch: async () => {
+        appelsReseau++;
+        return new Response("RÉSEAU", { status: 200 });
+      },
+      url: media
+    });
+    const response = await appel.resultat();
+    await appel.maintenance();
+    assert.equal(await response.text(), "GLB EN CACHE", `${media} doit rester cache-first`);
+  }
+  assert.equal(appelsReseau, 0, "aucun média déjà installé ne doit repasser par le réseau");
+});
+
+test("le worker est relu hors du cache HTTP du navigateur", () => {
+  // GitHub Pages sert le dépôt en `cache-control: max-age=600` : sans
+  // `updateViaCache: "none"`, la détection de mise à jour tombait dans le vide
+  // pendant dix minutes après chaque publication.
+  assert.match(mainSource, /updateViaCache:\s*"none"/);
+});
