@@ -7087,10 +7087,13 @@ body.input-gamepad #hud:not(.hidden)~.menu-input-legend{display:none}
   .turbo-subline{font-size:8px;letter-spacing:.012em}
 }
 @media(max-width:900px) and (max-height:520px) and (orientation:landscape){
-  /* Le poste de contre-gîte reste central, mais sur une vraie seconde ligne :
-     il ne masque plus l’instrument Élan entre 568 et 900 px. */
+  /* ⚠️ `#bwaBtn{bottom:clamp(132px,43vh,154px)}` VIVAIT ICI ET A ÉTÉ RETIRÉ.
+     Il écartait le contre-gîte de l'instrument Élan en le remontant — mais
+     sur un écran de 390 px de haut, 154 px du bas est le MILIEU de l'écran :
+     mesuré à 53 % de hauteur, la tuile se posait sur la yole elle-même. Le
+     poste est désormais rendu dans la grappe basse droite (bloc V18), donc
+     il ne croise plus l'instrument sans avoir à calculer de `bottom`. */
   .bottom-ui>.status{width:196px}
-  #bwaBtn{bottom:clamp(132px,43vh,154px)}
 }
 @media(max-width:420px) and (orientation:portrait){
   .status{width:204px}
@@ -7124,6 +7127,90 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
   filter:none;
 }
 /* === END V17 · INSTRUMENT ÉLAN / TURBO ================================= */
+
+/* === V18 · POSTE DE PILOTAGE TACTILE (12 août 2026) =====================
+   Audit mesuré en paysage mobile (Playwright, viewports réels) :
+
+   - la tuile CONTRE-GÎTE tombait au CENTRE DE L'ÉCRAN (50 % x, 53 % y sur
+     844×390), pile sur la yole. Cause : `#bwaBtn{bottom:clamp(132px,43vh,
+     154px)}` posé pour l'écarter de l'instrument Élan — sur un écran de
+     390 px de haut, 154 px du bas EST le milieu. Un correctif de
+     recouvrement qui en crée un pire : le joueur ne voit plus son bateau ;
+   - le pad tombait à 89×89 (pommeau 39×39) sous 760 px — sous le contrat
+     de 44 px pour le pommeau, sur le geste le plus utilisé du jeu ;
+   - les quatre boutons utilitaires mesuraient 46×46, sous les 48 dp
+     Material (ils tenaient les 44 pt Apple, de justesse).
+
+   Réponse : les deux actions du pouce droit — contre-gîte et arme —
+   reviennent dans la grappe BASSE DROITE, côte à côte, agrandies ; le pad
+   remonte à 116 px ; toute cible passe à 48 px minimum. Rien ne bouge sur
+   grand écran : ce bloc est borné au paysage court. */
+@media (orientation:landscape) and (max-height:560px){
+  /* La grappe d'actions redevient une rangée : le nombre de tuiles varie
+     (soute vide, caisse ramassée), une grille à colonnes fixes laissait des
+     trous. Alignée à droite, au pouce. */
+  .actions{
+    display:flex;
+    flex-direction:row;
+    align-items:flex-end;
+    justify-content:flex-end;
+    gap:10px;
+    grid-template-columns:none;
+  }
+  /* Le contre-gîte REVIENT DANS LE FLUX : il est déjà enfant de `.actions`
+     dans le DOM, `position:static` suffit à le remettre à sa place, sans
+     calcul de `bottom` à maintenir. */
+  #bwaBtn{
+    position:static;
+    left:auto;
+    bottom:auto;
+    transform:none;
+    width:124px;
+    height:66px;
+    grid-template-columns:40px minmax(0,1fr);
+    column-gap:8px;
+    padding:8px 11px;
+  }
+  #bwaBtn b{font-size:8px}
+  #bwaBtn small{font-size:5.6px}
+  /* La tuile d'arme : 52 → 66 px de côté. C'est le geste d'attaque, il se
+     joue en une fraction de seconde et sous secousse. */
+  .action.slot{width:66px;height:66px}
+  .action.slot>span.ico{width:30px;height:30px}
+  /* Le pad : le pouce gauche barre en continu, c'est la cible la plus
+     sollicitée du jeu. 116 px de couronne, pommeau 52 px. */
+  .joystick{width:116px;height:116px}
+  .joy-knob{width:52px;height:52px;left:32px;top:32px}
+  /* Boutons utilitaires au contrat Material. */
+  .top-actions .icon-btn{width:48px;height:48px}
+}
+
+/* Cibles tactiles : la zone d'appui déborde le dessin de 6 px sur chaque
+   bord. Le HUD garde sa taille visuelle, le doigt gagne 12 px dans chaque
+   direction — c'est la façon la moins coûteuse d'être confortable sans
+   manger la mer. `touch-action:none` est répété ici par défense : `#hud` le
+   pose déjà, mais une future refonte de conteneur ne doit pas rouvrir le
+   pan/zoom sous les commandes. */
+.action,
+.top-actions .icon-btn,
+.joystick{
+  touch-action:none;
+}
+.action:before,
+.top-actions .icon-btn:before{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius:inherit;
+  /* Purement une surface d'appui : jamais de peinture, jamais de capture
+     au-dessus du contenu. */
+  background:none;
+  pointer-events:auto;
+}
+.action{overflow:visible}
+/* Le liseré de recharge reste borné au dessin, pas à la zone d'appui. */
+.action:after{border-radius:0 0 inherit inherit}
+/* === END V18 · POSTE DE PILOTAGE TACTILE ================================ */
 
 </style>
 

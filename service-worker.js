@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-b1d09ca12afc";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-473c1d4c83bd";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 // Stable entre deux versions du shell : une mise à jour de code ne force pas
 // le retéléchargement des pistes déjà écoutées. Incrémenter si les MP3 changent.
