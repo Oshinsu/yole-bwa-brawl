@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-473c1d4c83bd";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-3095897a5f61";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 // Stable entre deux versions du shell : une mise à jour de code ne force pas
 // le retéléchargement des pistes déjà écoutées. Incrémenter si les MP3 changent.
@@ -141,6 +141,20 @@ function cheminDecode(url) {
   }
 }
 
+// Le « shell » : le document et tout ce qui porte du CODE (styles, modules,
+// manifeste). Le test porte sur le chemin seul, jamais sur l'URL complète :
+// les entrées de CORE sont versionnées par requête (`./src/main.js`, mais
+// aussi `./style.css?v=hud-v17-turbo`), et une extension cherchée dans la
+// query attraperait n'importe quoi.
+const SHELL_EXTENSIONS = /\.(?:html|css|m?js|webmanifest)$/;
+
+function estShell(requete, url) {
+  // Une navigation n'a pas toujours d'extension : « /yole-bwa-brawl/ » doit
+  // être reconnu comme le document qu'il sert.
+  if (requete.mode === "navigate") return true;
+  return SHELL_EXTENSIONS.test(cheminDecode(url));
+}
+
 function requeteComplete(requete) {
   const entetes = new Headers(requete.headers);
   entetes.delete("range");
@@ -278,6 +292,50 @@ self.addEventListener("fetch", (event) => {
     // Cache API ne doit pas chercher avec l'en-tête Range : la clé persistée
     // représente toujours la réponse 200 complète.
     const cleCache = plageDemandee ? requeteComplete(event.request) : event.request;
+
+    // ⚠️ LE SHELL REPART DU RÉSEAU, JAMAIS DU CACHE EN PREMIER.
+    //
+    // Jusqu'ici TOUTE requête same-origin était servie depuis le cache dès
+    // qu'elle s'y trouvait. Un joueur déjà venu recevait donc son ancien
+    // index.html ET ses anciens modules indéfiniment. La seule sortie était le
+    // toast « MISE À JOUR PRÊTE »… rendu par src/main.js, c'est-à-dire par le
+    // code périmé lui-même : qui avait en cache un main.js antérieur au toast
+    // ne voyait jamais la mise à jour. Le mécanisme de sortie était enfermé
+    // dans ce dont il devait faire sortir.
+    //
+    // Mesuré le 14 août 2026 sur la publication GitHub Pages : les 59 fichiers
+    // servis étaient identiques octet pour octet au dernier commit, et le
+    // navigateur affichait quand même une version vieille de plusieurs jours.
+    // Le défaut n'était pas la publication, il était ici.
+    //
+    // Le shell repart donc du réseau et ne retombe sur le cache que si
+    // celui-ci est injoignable : en ligne on joue toujours le dernier code,
+    // hors ligne le jeu complet reste disponible. Les médias (modèles,
+    // textures, sons, polices) gardent le cache-first : ils sont lourds,
+    // immuables, et le nom du cache porte déjà l'empreinte du contenu.
+    if (estShell(event.request, requestUrl)) {
+      let reseau = null;
+      try {
+        reseau = await fetch(event.request);
+      } catch {
+        reseau = null;
+      }
+      if (reseau?.ok && reseau.status === 200) {
+        travailCache = cache.put(cleCache, reseau.clone()).catch(() => {});
+        return reseau;
+      }
+      // Coupure réseau, mais aussi 404 sur un module ou déploiement à moitié
+      // en ligne : la version déjà installée reste jouable plutôt que de
+      // rendre une page cassée.
+      const enCache = await cache.match(cleCache);
+      if (enCache) return enCache;
+      if (event.request.mode === "navigate") {
+        const documentEnCache = await cache.match("./index.html");
+        if (documentEnCache) return documentEnCache;
+      }
+      return reseau || new Response("Offline", { status: 503, statusText: "Offline" });
+    }
+
     const cached = await cache.match(cleCache);
     if (cached) return plageDemandee ? reponseParPlage(event.request, cached) : cached;
     try {
