@@ -7212,6 +7212,103 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
 .action:after{border-radius:0 0 inherit inherit}
 /* === END V18 · POSTE DE PILOTAGE TACTILE ================================ */
 
+/* === V19 · PLANCHER DE LISIBILITÉ DU POSTE DE PILOTAGE (16 août 2026) ====
+   Audit au navigateur, paysage mobile réel (844×390, Playwright, viewport
+   et device-pixel-ratio d'un téléphone) : le HUD n'occupe que 23,7 % de
+   l'écran — il n'est pas surchargé en SURFACE. Il l'est en texte
+   ILLISIBLE. Mesures de `getComputedStyle` en pleine manche :
+
+     nom des yoles au classement ......  6,5 px
+     score au classement ..............  9   px
+     légende du joystick ..............  6   px
+     libellés de vitesse et de jauges ..  6   px
+     sous-titre des boutons d'arme ....  5   px
+     relevé de la minimap .............  4   px
+
+   4 px. Sur un écran tenu à trente centimètres. Ces valeurs venaient de
+   blocs mobiles empilés qui rapetissaient à chaque passe sans jamais
+   reposer la question du plancher.
+
+   ⚠️ CE BLOC NE TOUCHE QUE LE POSTE DE PILOTAGE, ET SEULEMENT EN PETIT
+   ÉCRAN. La feuille compte 245 déclarations sous 10 px ; les relever
+   toutes casserait les menus, les pages légales et le bureau. On borne
+   ici les seules surfaces qu'on lit EN PILOTANT, une main sur la barre.
+
+   Les conteneurs à largeur fixe sont élargis du même geste : relever la
+   police sans ouvrir la boîte ne fait que déplacer le défaut en
+   débordement. */
+@media (max-width:900px), (orientation:landscape) and (max-height:460px){
+  /* ⚠️ SPÉCIFICITÉ : ces sélecteurs sont préfixés `#hud` À DESSEIN.
+     Une première version posait des règles de classe nues. Rendu mesuré :
+     le classement montait bien à 11 px, mais les jauges restaient à 5,5 px
+     et le sous-titre d'arme à 5,6 px — écrasés par `.status .meter-label`,
+     `#bwaBtn small` et `.bottom-ui>.status`, tous plus spécifiques. Un
+     plancher de lisibilité qui perd la cascade ne plancherait rien. */
+
+  /* Classement — lire un nom et un score d'un coup d'œil, sans quitter la
+     barre des yeux. La grille s'ouvre pour absorber les deux. */
+  #hud .leaderboard{width:min(268px,37vw)}
+  #hud .leaderboard:before{font-size:8px}
+  #hud .leader-row{grid-template-columns:16px 1fr 30px;min-height:22px;font-size:11px}
+  #hud .leader-score{font-size:13px}
+
+  /* Instruments de barre. La boîte s'élargit avec le texte : relever la
+     police sans ouvrir le cadre ne fait que déplacer le défaut en
+     débordement. */
+  /* ⚠️ LE REMBOURRAGE EST PLUS FIN QUE LE CADRE EN BOIS DESSINÉ.
+     L'instrument porte son liseré dans une TEXTURE de fond, dont
+     l'épaisseur suit la largeur de la boîte. À 232 px, ce liseré mesure
+     plus que les 15 px de `padding` : le contenu commençait donc SOUS le
+     bois. On ouvre la gouttière pour que le texte reparte de l'intérieur
+     du cadre. */
+  #hud .bottom-ui>.status{width:min(232px,29vw);padding-inline:23px}
+  /* `.meter.balance` porte `margin:-3px -3px 0` — il déborde volontairement
+     pour que le rail aille toucher le cadre. Mais `.balance-side` est en
+     `position:absolute` DANS ce rail : BÂBORD et TRIBORD héritaient du
+     débordement et passaient par-dessus le bois. Le rail garde son
+     débordement vertical, plus l'horizontal. */
+  #hud .status .meter.balance{margin-inline:0}
+  #hud .status .speed span{font-size:10px}
+  #hud .status .crew-mini{font-size:10px}
+  /* ⚠️ CES DEUX-LÀ SONT ANCRÉS AUX BORDS DU CADRE, PAS DANS LE FLUX.
+     `ÉQUILIBRE`/`CHAVIRAGE` et `BÂBORD`/`TRIBORD` sont posés en
+     `space-between` contre le liseré en bois de l'instrument. Poussés à
+     10 px comme le reste, ils débordaient : mesuré 321 px de contenu pour
+     214 px utiles — `ÉQUILIBRE` rogné à gauche, `CHAVIRAGE` et `TRIBORD`
+     par-dessus le cadre. Élargir encore la boîte l'aurait amenée contre le
+     bouton CONTRE-GÎTE. On les monte donc au plus haut qui TIENT, en
+     resserrant l'interlettrage — 9 px et 8 px, contre 5,5 et 3,8 avant. */
+  #hud .status .meter-label{font-size:9px;letter-spacing:.04em}
+  #hud .balance-side{font-size:8px;letter-spacing:.03em}
+
+  /* Commandes : le sous-titre d'un bouton dit ce que le bouton fait — à
+     5 px il ne disait rien. */
+  #hud .joystick>span{font-size:10px}
+  #hud .action b,#hud #bwaBtn b{font-size:10px}
+  #hud .action small,#hud #bwaBtn small{font-size:9px}
+
+  /* Lecture de course. */
+  #hud .minimap-heading,#hud .minimap-heading b{font-size:8px}
+  #hud .minimap-readout>span{font-size:9px}
+  #hud .minimap-readout>small{font-size:8px}
+  #hud .round-card>span{font-size:10px}
+  #hud .round-card>small{font-size:9px}
+  #hud .storm-warning span{font-size:10px}
+  #hud .kill{font-size:10px}
+  #hud .reticle b{font-size:10px}
+
+  /* ⚠️ LE BANDEAU DE MANCHE SE POSAIT SUR LA CARTE DE MANCHE.
+     `.message` est ancré à 20 % de la hauteur : sur 390 px de haut, son
+     centre tombe à 78 px, pile sur la carte qui occupe 6 → 86 px. Résultat
+     mesuré : « MANCHE 2 » écrit DEUX FOIS l'un sur l'autre, le bandeau
+     masquant la ligne de règles « KO +1 · DERNIER DEBOUT +2 · 1ER À 5 » de
+     la carte qu'il recouvrait. On le descend dans l'eau libre, entre la
+     carte et la grappe basse — il garde son effet d'annonce sans rien
+     cacher. */
+  #hud .message{top:42%}
+}
+/* === END V19 · PLANCHER DE LISIBILITÉ DU POSTE DE PILOTAGE ============== */
+
 </style>
 
 <script type="importmap">
@@ -26483,7 +26580,19 @@ const HudSystems = {
             ? (shiftCue.rollOffset < 0 ? "PRESQUE — LAISSE GÎTER" : "VITE, TU PARS TROP LOIN")
             : shiftCue.state === "recovery"
               ? "RATTRAPE LA DÉRIVE"
-              : "BWA SHIFT · ATTENDS LA GÎTE";
+              // ⚠️ « BWA SHIFT » NOMME UNE TOUCHE QUI N'EXISTE PAS AU DOIGT.
+              //
+              // Les autres indices du HUD se déclinent déjà par appareil
+              // (`controlHint`, les pas d'initiation). Celui-ci était resté en
+              // dur : sur un téléphone, le bouton CONTRE-GÎTE annonçait un
+              // raccourci clavier — et le libellé, trop long pour la tuile,
+              // était rendu tronqué en « BWA SHIFT · A… ». Au doigt, la tuile
+              // EST la commande : elle n'a pas à nommer de touche.
+              : this.inputDevice === "touch"
+                ? "ATTENDS LA GÎTE"
+                : this.inputDevice === "gamepad"
+                  ? "GÂCHETTE · ATTENDS LA GÎTE"
+                  : "BWA SHIFT · ATTENDS LA GÎTE";
         if (small.textContent !== texte) small.textContent = texte;
       }
       if (feedback.shiftPerfect === false && parfait) restartUiCue(bwa, "ready-cue");

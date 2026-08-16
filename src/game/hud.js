@@ -1044,7 +1044,19 @@ export const HudSystems = {
             ? (shiftCue.rollOffset < 0 ? "PRESQUE — LAISSE GÎTER" : "VITE, TU PARS TROP LOIN")
             : shiftCue.state === "recovery"
               ? "RATTRAPE LA DÉRIVE"
-              : "BWA SHIFT · ATTENDS LA GÎTE";
+              // ⚠️ « BWA SHIFT » NOMME UNE TOUCHE QUI N'EXISTE PAS AU DOIGT.
+              //
+              // Les autres indices du HUD se déclinent déjà par appareil
+              // (`controlHint`, les pas d'initiation). Celui-ci était resté en
+              // dur : sur un téléphone, le bouton CONTRE-GÎTE annonçait un
+              // raccourci clavier — et le libellé, trop long pour la tuile,
+              // était rendu tronqué en « BWA SHIFT · A… ». Au doigt, la tuile
+              // EST la commande : elle n'a pas à nommer de touche.
+              : this.inputDevice === "touch"
+                ? "ATTENDS LA GÎTE"
+                : this.inputDevice === "gamepad"
+                  ? "GÂCHETTE · ATTENDS LA GÎTE"
+                  : "BWA SHIFT · ATTENDS LA GÎTE";
         if (small.textContent !== texte) small.textContent = texte;
       }
       if (feedback.shiftPerfect === false && parfait) restartUiCue(bwa, "ready-cue");
