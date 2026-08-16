@@ -124,7 +124,7 @@ def main():
             if x["dProg"]: cause.append(f"+{x['dProg']} SHADER")
             if x["dTex"]: cause.append(f"+{x['dTex']} texture")
             if x["dGeo"]: cause.append(f"+{x['dGeo']} geometrie")
-            print(f"   image {x['n']:4}  dt={x['dt']:8.1f} ms  rendu={x["travail"]:7.1f}  "
+            print(f"   image {x['n']:4}  dt={x['dt']:8.1f} ms  rendu={x['travail']:7.1f}  "
                   f"{', '.join(cause) or 'aucun compteur — JS pur'}")
     print(f"\nProgrammes compiles au total : {im[-1]['prog']}")
     prem = [x for x in im if x["dProg"]]
