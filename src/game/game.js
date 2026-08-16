@@ -34,7 +34,7 @@ import {
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, RIGS, AI_LEVELS,
   CONFIG, BALANCE, ZOOM_MIN, ZOOM_MAX, CREW_DOTS, TOUR_STAGES, TOUR_STAGE_POINTS,
   FIRST_RUN_TRAINING, advanceFirstRunTraining, createFirstRunTrainingState,
-  vibrate, createBuoyVisual, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS } from "./balance.js";
+  vibrate, createBuoyVisual, resolveLoadout, STORM_RANGE, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS } from "./balance.js";
 
 
 // Assombrissement de la couleur de brouillard par rapport à la couleur
@@ -1887,7 +1887,7 @@ export class Game {
     const spray = clamp(player.dynamics.spray ?? 0, 0, 1);
     const waterMix = handlingWaterMix(player.dynamics, speed, spray);
     this.audio.setBed("water", waterMix.gain * 0.88, waterMix.rate, 0.45 + speed * 0.75);
-    const stormGap = clamp(1 - (player.z - this.stormZ) / 120, 0, 1);
+    const stormGap = clamp(1 - (player.z - this.stormZ) / STORM_RANGE.secousse, 0, 1);
     this.audio.setBed(
       "storm",
       stormGap * (0.08 + weather.stormAmount * 0.31),

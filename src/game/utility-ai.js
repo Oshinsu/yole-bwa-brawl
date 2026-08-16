@@ -1,5 +1,5 @@
 import { clamp } from "../core/math.js";
-import { resolveAiLevel } from "./balance.js";
+import { resolveAiLevel, STORM_RANGE } from "./balance.js";
 
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -125,7 +125,7 @@ export class UtilityBrain {
 
   chooseAction(owner, game, stormGap) {
     const { target, score } = this.chooseTarget(owner, game);
-    const desperation = clamp(1 - stormGap / 110, 0, 1);
+    const desperation = clamp(1 - stormGap / STORM_RANGE.iaDesespoir, 0, 1);
     const rollDanger = clamp(Math.abs(owner.roll) / 0.9, 0, 1);
     // Contre-gîte : la fenêtre optimale est à 0,64 rad, soit rollDanger ≈ 0,71.
     // Une IA faible shift TÔT — c'est sûr, mais ça ne rapporte presque pas de
@@ -167,7 +167,7 @@ export class UtilityBrain {
     // et le joueur les semait toujours. A 0,44 elles courent vraiment, tout en
     // s'abstenant quand elles sont deja proches du chavirage.
     const stable = Math.abs(owner.roll) < 0.44 - (1 - this.level.shiftSkill) * 0.12;
-    if (boostReady && stormGap < 62) return { type: "boost_forward" };
+    if (boostReady && stormGap < STORM_RANGE.iaTurboSurvie) return { type: "boost_forward" };
     if (boostReady && stable && this.level.boostRace > 0) {
       let ahead = null;
       let aheadGap = Infinity;

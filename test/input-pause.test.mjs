@@ -221,12 +221,37 @@ function makeContext() {
   });
   press("Digit2");
   assert.equal(game.boats[0].activeWeapon, "harpoon", "Digit2 selects the physical harpoon slot");
+  // ⚠️ LA 3 EST LA TUILE CAISSE. Cette yole porte du rhum (2 charges) et pas de
+  // mine. L'ancienne règle adressait l'arme par son identité : la 3 valait
+  // « mine », répondait « ARME 3 · INDISPONIBLE » alors qu'on était armé, et il
+  // fallait deviner que le rhum ramassé se jouait sur la 4. Une caisse pouvant
+  // contenir six armes, c'était six touches à deviner pour un seul emplacement.
   press("Digit3");
-  assert.equal(game.boats[0].activeWeapon, "harpoon", "an empty physical slot must not replace the active weapon");
-  assert.match(messages.at(-1), /ARME 3.+INDISPONIBLE/);
+  assert.equal(game.boats[0].activeWeapon, "rhum", "Digit3 fires whatever the crate holds");
+  assert.match(messages.at(-1), /^3 · /, "la tuile garde son rang 3, pas le rang de l'arme");
   press("Digit4");
-  assert.equal(game.boats[0].activeWeapon, "rhum", "Digit4 selects the physical rhum slot");
+  assert.equal(game.boats[0].activeWeapon, "rhum", "Digit4 still addresses the rhum by identity");
   assert.equal(prevented, 3);
+}
+
+{
+  // Sans caisse portée, la 3 retombe sur son ancien sens : la mine.
+  const game = makeContext();
+  game.paused = false;
+  const messages = [];
+  game.showMessage = (message) => messages.push(message);
+  game.boats[0].ammo = { wave: 1, harpoon: 1, mine: 3, rhum: 0 };
+  game.handleKeyboardInput(true, { code: "Digit3", target: null, repeat: false, preventDefault() {} });
+  assert.equal(game.boats[0].activeWeapon, "mine", "aucune caisse portée : la 3 garde son ancien sens");
+
+  // Caisse vide ET mine vide : la touche refuse, sans changer l'arme active.
+  const vide = makeContext();
+  vide.paused = false;
+  vide.showMessage = () => {};
+  vide.boats[0].ammo = { wave: 1, harpoon: 1, mine: 0, rhum: 0 };
+  vide.boats[0].activeWeapon = "wave";
+  vide.handleKeyboardInput(true, { code: "Digit3", target: null, repeat: false, preventDefault() {} });
+  assert.equal(vide.boats[0].activeWeapon, "wave", "une tuile vide ne remplace jamais l'arme active");
 }
 
 {

@@ -389,11 +389,44 @@ export const BALANCE = {
   // au-delà de 95 m `stormAmount` tombe à zéro — plus de pluie, plus
   // d'éclairs, plus de houle.
   storm: {
-    startZ: -150, gapStart: 118, gapEnd: 82, gapShrinkPerSecond: 0.20,
+    startZ: -150, gapStart: 148, gapEnd: 103, gapShrinkPerSecond: 0.14,
     baseAdvance: 8.7, advancePerSecond: 0.075,
     cohesionGap: 13, soakGap: 5, eliminateBehind: -3, soakTimeLimit: 2.15
   }
 };
+
+// ⚠️ LES SEUILS DE BRUME SE DÉRIVENT, ILS NE SE RECOPIENT PLUS.
+//
+// Le commentaire ci-dessus racontait qu'un recul du grain avait obligé à
+// réaligner « six autres seuils en mètres, codés en dur ailleurs ». Il y en
+// avait onze, répartis dans cinq fichiers — et rien ne signalait leur lien.
+// Reculer la brume sans les suivre rend le grain invisible au HUD, empêche
+// l'IA de paniquer, et au-delà de la fenêtre de sky.js fait tomber
+// `stormAmount` à zéro : plus de pluie, plus d'éclairs, plus de houle.
+//
+// Ils sont désormais dérivés de `storm.gapStart`. Régler la distance de la
+// brume ne demande plus qu'UN nombre — tout le reste suit, dans le même
+// rapport que celui contre lequel ces valeurs ont été équilibrées.
+export const STORM_RANGE = (() => {
+  // L'écart de départ contre lequel les onze seuils ont été réglés à l'origine.
+  const REFERENCE = 118;
+  const echelle = BALANCE.storm.gapStart / REFERENCE;
+  const m = (metres) => Math.round(metres * echelle);
+  return Object.freeze({
+    echelle,
+    fenetreProche: m(24),    // sky.js — bord bas du smoothstep du grain
+    fenetreLoin: m(128),     // sky.js — au-delà, plus aucun grain
+    hudProche: m(92),        // hud.js — minimap « storm-near » et panneau brume
+    hudDanger: m(52),        // hud.js — bandeau d'urgence
+    musiqueEntree: m(70),    // hud.js — hystérésis musicale, entrée dans le grain
+    musiqueSortie: m(105),   // hud.js — ... et sortie
+    iaDesespoir: m(110),     // utility-ai.js — montée de la panique
+    iaTurboSurvie: m(62),    // utility-ai.js — turbo de survie
+    secousse: m(120),        // game.js — intensité de la secousse caméra
+    iaRecentrage: m(40),     // boat.js — l'IA se recentre sur la route
+    iaAgression: m(24)       // boat.js — en-deçà, l'IA cesse d'attaquer
+  });
+})();
 
 // Points d'équipage pré-rendus pour le HUD (évite un Array.from à chaque rafraîchissement).
 // Plage de zoom. 0,72 laissait la caméra à 16,7 m d'une yole de 11 m :

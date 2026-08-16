@@ -7,7 +7,7 @@ import { clamp, formatTime } from "../core/math.js";
 import { routeCenter } from "../render/world.js";
 import { checksumBoats } from "../sim/replay.js";
 import { YOLE_HANDLING } from "../sim/yole-physics.js";
-import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, resolveAiLevel, COUNTDOWN_GO_SECONDS } from "./balance.js";
+import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, STORM_RANGE, resolveAiLevel, COUNTDOWN_GO_SECONDS } from "./balance.js";
 import { AIM_MAX_RADIANS } from "./input.js";
 import { handlingCue } from "./handling-feedback.js";
 
@@ -843,7 +843,7 @@ export const HudSystems = {
         ? `${primary} · CAISSE ${pickupDistance} M`
         : primary;
     }
-    this.ui.minimap?.classList.toggle("storm-near", stormDistance < 92);
+    this.ui.minimap?.classList.toggle("storm-near", stormDistance < STORM_RANGE.hudProche);
   },
 
   applyTrainingHud(presentation) {
@@ -1222,7 +1222,7 @@ export const HudSystems = {
         bwa: bwaWeakest,
         crew: player.activeCrew,
         water: player.water,
-        danger: !player.eliminated && (danger > 0.55 || stormDistance < 52)
+        danger: !player.eliminated && (danger > 0.55 || stormDistance < STORM_RANGE.hudDanger)
       },
       this.time ?? this.roundTime ?? 0
     );
@@ -1245,15 +1245,15 @@ export const HudSystems = {
       this.ui.weatherChip.style.background = liveWeather.stormAmount > 0.5 ? "rgba(73,25,96,.82)" : "rgba(2,44,59,.72)";
     }
     this.ui.stormDistance.textContent = `${Math.round(stormDistance)} m`;
-    this.ui.storm.classList.toggle("hidden", stormDistance > 92 || player.eliminated);
+    this.ui.storm.classList.toggle("hidden", stormDistance > STORM_RANGE.hudProche || player.eliminated);
     // La musique suit le Grain. `Carnival Apocalypse` est la piste la plus dense
     // du lot à la mesure (RMS 0,205, 154 BPM) : elle n'a de sens que là.
     // Hystérésis 52/78 m — sans elle, un joueur qui oscille autour du seuil
     // déclencherait un fondu enchaîné toutes les deux secondes.
     if (this.mode === "playing" && !this.versusLocal) {
       const sousLeGrain = this.music?.scene === "grain";
-      if (!sousLeGrain && stormDistance < 70 && !player.eliminated) this.music?.setScene?.("grain");
-      else if (sousLeGrain && (stormDistance > 105 || player.eliminated)) {
+      if (!sousLeGrain && stormDistance < STORM_RANGE.musiqueEntree && !player.eliminated) this.music?.setScene?.("grain");
+      else if (sousLeGrain && (stormDistance > STORM_RANGE.musiqueSortie || player.eliminated)) {
         this.music?.setScene?.(this.tour ? "tour" : "course");
       }
     }

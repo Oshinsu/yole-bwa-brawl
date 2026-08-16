@@ -1172,7 +1172,23 @@ export const InputSystems = {
     const weaponDigit = /^Digit([1-8])$/.exec(code);
     if (weaponDigit) {
       event.preventDefault?.();
-      if (!event.repeat) this.fireWeaponShortcut(Number(weaponDigit[1]) - 1);
+      // ⚠️ LA 3 EST LA TUILE CAISSE, PAS UNE ARME NOMMÉE.
+      //
+      // La yole n'emporte que DEUX armes de soute (LOADOUT_SIZE) et UN seul
+      // emplacement de caisse. Mais les chiffres adressaient l'arme par son
+      // IDENTITÉ : la caisse pouvant contenir six armes différentes, il fallait
+      // deviner laquelle on venait de ramasser — mine=3, rhum=4, barik=5,
+      // chadron=6, lanbi=7, pwason=8. On ramassait du rhum, on appuyait sur 3,
+      // et le jeu répondait « ARME 3 · INDISPONIBLE » alors qu'on était armé.
+      //
+      // La 3 désigne donc la TUILE, comme au tactile et à la manette où la
+      // caisse a déjà son bouton unique. Repli sur la mine quand aucune caisse
+      // n'est portée : la touche ne perd jamais son ancien sens.
+      if (!event.repeat) {
+        const rang = Number(weaponDigit[1]);
+        if (rang === 3) this.fireCrateTile();
+        else this.fireWeaponShortcut(rang - 1);
+      }
       return;
     }
     if (code === "Space") this.useActiveWeapon();
@@ -1386,6 +1402,24 @@ export const InputSystems = {
    * On pose quand même `activeWeapon` au passage : la barre d'espace et le
    * réticule continuent de suivre ce qu'on vient d'utiliser.
    */
+  /**
+   * La touche 3 : tire ce que la caisse contient, quoi qu'elle contienne.
+   *
+   * C'est le pendant clavier du bouton manette (`pressed(3)`) et de la tuile
+   * tactile, qui visaient déjà `crateWeapon()` sans jamais nommer l'arme. Sans
+   * caisse portée, on retombe sur la mine — l'ancien sens de la touche — pour
+   * qu'aucun réflexe existant ne soit cassé.
+   */
+  fireCrateTile() {
+    const caisse = this.crateWeapon();
+    if (!caisse) return this.fireWeaponShortcut(2);
+    const index = WEAPONS.findIndex((entry) => entry.key === caisse.key);
+    if (index < 0) return false;
+    // Le rang affiché reste 3 : c'est la tuile qu'on a sous les yeux, pas le
+    // rang de l'arme dans l'arsenal complet.
+    return this.fireWeaponShortcut(index, 3);
+  },
+
   fireWeaponKey(key) {
     if (!key) return false;
     if (this.trainingBasicsLocked() && key !== "wave") return false;
@@ -1400,8 +1434,8 @@ export const InputSystems = {
    * Appuyer sur « & » envoie un coco sans seconde confirmation. Si l'arme
    * correspondante n'est pas disponible, le raccourci est refusé.
    */
-  fireWeaponShortcut(slotIndex) {
-    if (!this.selectWeaponShortcut(slotIndex)) return false;
+  fireWeaponShortcut(slotIndex, rang = slotIndex + 1) {
+    if (!this.selectWeaponShortcut(slotIndex, rang)) return false;
     // ⚠️ `useActiveWeapon` ne RENVOIE rien : elle se contente d'empiler le bit
     // d'action, qui sera rejoué par `applyActionMask` dans le pas fixe. Faire
     // `return this.useActiveWeapon()` propageait donc `undefined` — le tir
@@ -1410,7 +1444,7 @@ export const InputSystems = {
     return true;
   },
 
-  selectWeaponShortcut(slotIndex) {
+  selectWeaponShortcut(slotIndex, rang = slotIndex + 1) {
     if (this.playerInputLocked()) return false;
     const player = this.boats[0];
     const weapon = WEAPONS[slotIndex];
@@ -1422,14 +1456,14 @@ export const InputSystems = {
     const shortcut = this.ui?.weaponShortcuts?.querySelectorAll?.("[data-weapon]")?.[slotIndex];
     if (ammo <= 0) {
       this.restartInputCue(shortcut, "input-rejected");
-      this.showMessage?.(`ARME ${slotIndex + 1} · INDISPONIBLE`, 0.48);
+      this.showMessage?.(`ARME ${rang} · INDISPONIBLE`, 0.48);
       return false;
     }
     player.activeWeapon = weapon.key;
     this.restartInputCue(shortcut);
     this.restartInputCue(this.ui?.weaponSlot);
-    this.showMessage?.(`${slotIndex + 1} · ${weapon.label}`, 0.5);
-    this.telemetry?.track?.("weapon_select", { slot: slotIndex + 1, weapon: weapon.key }, this.time);
+    this.showMessage?.(`${rang} · ${weapon.label}`, 0.5);
+    this.telemetry?.track?.("weapon_select", { slot: rang, weapon: weapon.key }, this.time);
     return true;
   },
 
