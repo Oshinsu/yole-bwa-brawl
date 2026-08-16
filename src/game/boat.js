@@ -4,7 +4,7 @@ import { YoleVisual } from "../render/yole-visual.js";
 import { routeCenter } from "../render/world.js";
 import { RNG } from "../core/rng.js";
 import { UtilityBrain } from "./utility-ai.js";
-import { BALANCE, RIGS, resolveAiLevel, aiLoadout, resolveLoadout } from "./balance.js";
+import { BALANCE, RIGS, STORM_RANGE, resolveAiLevel, aiLoadout, resolveLoadout } from "./balance.js";
 
 export class Boat {
   constructor(game, id, definition) {
@@ -237,7 +237,7 @@ export class Boat {
     let targetX = routeX + this.aiLane;
 
     // Survival always wins over aggression.
-    if (stormGap < 40) targetX = routeX + clamp(this.aiLane * 0.35, -4, 4);
+    if (stormGap < STORM_RANGE.iaRecentrage) targetX = routeX + clamp(this.aiLane * 0.35, -4, 4);
     if (this.water > 115 || stability < 0.38) targetX = routeX;
 
     const targetChoice = this.brain?.chooseTarget(this, this.game);
@@ -248,7 +248,7 @@ export class Boat {
       const distance = Math.hypot(dx, dz);
       if (dz > -2 && dz < 13 && Math.abs(dx) < 3.8) targetX -= Math.sign(dx || 1) * (5.2 + this.aiRisk * 2.8);
       const vulnerability = clamp(Math.abs(nearestAhead.roll) / 0.9 + nearestAhead.water / 220, 0, 1.4);
-      if (distance < 16 && stability > 0.62 && stormGap > 24 && this.aiAggression > 0.62 && vulnerability > 0.55) {
+      if (distance < 16 && stability > 0.62 && stormGap > STORM_RANGE.iaAgression && this.aiAggression > 0.62 && vulnerability > 0.55) {
         targetX = nearestAhead.x + Math.sign(this.x - nearestAhead.x || 1) * 0.9;
       }
     }

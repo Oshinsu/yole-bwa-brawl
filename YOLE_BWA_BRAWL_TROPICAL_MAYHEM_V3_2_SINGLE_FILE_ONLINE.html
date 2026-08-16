@@ -12180,7 +12180,7 @@ class WeatherDirector {
     // se réduisait au seul `drama` plafonné à 0,18, et il n'y avait plus ni
     // pluie (seuil 0,28) ni éclairs (0,35) ni houle de tempête. La tempête
     // disparaissait purement et simplement.
-    const proximity = 1 - smoothstep(24, 128, stormGap);
+    const proximity = 1 - smoothstep(STORM_RANGE.fenetreProche, STORM_RANGE.fenetreLoin, stormGap);
     const drama = clamp(roundProgress * 0.18, 0, 0.18);
     this.targetStorm = clamp(proximity + drama, 0, 1);
     this.stormAmount = damp(this.stormAmount, this.targetStorm, 1.35, dt);
@@ -20307,11 +20307,44 @@ const BALANCE = {
   // au-delà de 95 m `stormAmount` tombe à zéro — plus de pluie, plus
   // d'éclairs, plus de houle.
   storm: {
-    startZ: -150, gapStart: 118, gapEnd: 82, gapShrinkPerSecond: 0.20,
+    startZ: -150, gapStart: 148, gapEnd: 103, gapShrinkPerSecond: 0.14,
     baseAdvance: 8.7, advancePerSecond: 0.075,
     cohesionGap: 13, soakGap: 5, eliminateBehind: -3, soakTimeLimit: 2.15
   }
 };
+
+// ⚠️ LES SEUILS DE BRUME SE DÉRIVENT, ILS NE SE RECOPIENT PLUS.
+//
+// Le commentaire ci-dessus racontait qu'un recul du grain avait obligé à
+// réaligner « six autres seuils en mètres, codés en dur ailleurs ». Il y en
+// avait onze, répartis dans cinq fichiers — et rien ne signalait leur lien.
+// Reculer la brume sans les suivre rend le grain invisible au HUD, empêche
+// l'IA de paniquer, et au-delà de la fenêtre de sky.js fait tomber
+// `stormAmount` à zéro : plus de pluie, plus d'éclairs, plus de houle.
+//
+// Ils sont désormais dérivés de `storm.gapStart`. Régler la distance de la
+// brume ne demande plus qu'UN nombre — tout le reste suit, dans le même
+// rapport que celui contre lequel ces valeurs ont été équilibrées.
+const STORM_RANGE = (() => {
+  // L'écart de départ contre lequel les onze seuils ont été réglés à l'origine.
+  const REFERENCE = 118;
+  const echelle = BALANCE.storm.gapStart / REFERENCE;
+  const m = (metres) => Math.round(metres * echelle);
+  return Object.freeze({
+    echelle,
+    fenetreProche: m(24),    // sky.js — bord bas du smoothstep du grain
+    fenetreLoin: m(128),     // sky.js — au-delà, plus aucun grain
+    hudProche: m(92),        // hud.js — minimap « storm-near » et panneau brume
+    hudDanger: m(52),        // hud.js — bandeau d'urgence
+    musiqueEntree: m(70),    // hud.js — hystérésis musicale, entrée dans le grain
+    musiqueSortie: m(105),   // hud.js — ... et sortie
+    iaDesespoir: m(110),     // utility-ai.js — montée de la panique
+    iaTurboSurvie: m(62),    // utility-ai.js — turbo de survie
+    secousse: m(120),        // game.js — intensité de la secousse caméra
+    iaRecentrage: m(40),     // boat.js — l'IA se recentre sur la route
+    iaAgression: m(24)       // boat.js — en-deçà, l'IA cesse d'attaquer
+  });
+})();
 
 // Points d'équipage pré-rendus pour le HUD (évite un Array.from à chaque rafraîchissement).
 // Plage de zoom. 0,72 laissait la caméra à 16,7 m d'une yole de 11 m :
@@ -26249,7 +26282,7 @@ const HudSystems = {
         ? `${primary} · CAISSE ${pickupDistance} M`
         : primary;
     }
-    this.ui.minimap?.classList.toggle("storm-near", stormDistance < 92);
+    this.ui.minimap?.classList.toggle("storm-near", stormDistance < STORM_RANGE.hudProche);
   },
 
   applyTrainingHud(presentation) {
@@ -26628,7 +26661,7 @@ const HudSystems = {
         bwa: bwaWeakest,
         crew: player.activeCrew,
         water: player.water,
-        danger: !player.eliminated && (danger > 0.55 || stormDistance < 52)
+        danger: !player.eliminated && (danger > 0.55 || stormDistance < STORM_RANGE.hudDanger)
       },
       this.time ?? this.roundTime ?? 0
     );
@@ -26651,15 +26684,15 @@ const HudSystems = {
       this.ui.weatherChip.style.background = liveWeather.stormAmount > 0.5 ? "rgba(73,25,96,.82)" : "rgba(2,44,59,.72)";
     }
     this.ui.stormDistance.textContent = `${Math.round(stormDistance)} m`;
-    this.ui.storm.classList.toggle("hidden", stormDistance > 92 || player.eliminated);
+    this.ui.storm.classList.toggle("hidden", stormDistance > STORM_RANGE.hudProche || player.eliminated);
     // La musique suit le Grain. `Carnival Apocalypse` est la piste la plus dense
     // du lot à la mesure (RMS 0,205, 154 BPM) : elle n'a de sens que là.
     // Hystérésis 52/78 m — sans elle, un joueur qui oscille autour du seuil
     // déclencherait un fondu enchaîné toutes les deux secondes.
     if (this.mode === "playing" && !this.versusLocal) {
       const sousLeGrain = this.music?.scene === "grain";
-      if (!sousLeGrain && stormDistance < 70 && !player.eliminated) this.music?.setScene?.("grain");
-      else if (sousLeGrain && (stormDistance > 105 || player.eliminated)) {
+      if (!sousLeGrain && stormDistance < STORM_RANGE.musiqueEntree && !player.eliminated) this.music?.setScene?.("grain");
+      else if (sousLeGrain && (stormDistance > STORM_RANGE.musiqueSortie || player.eliminated)) {
         this.music?.setScene?.(this.tour ? "tour" : "course");
       }
     }
@@ -28094,7 +28127,23 @@ const InputSystems = {
     const weaponDigit = /^Digit([1-8])$/.exec(code);
     if (weaponDigit) {
       event.preventDefault?.();
-      if (!event.repeat) this.fireWeaponShortcut(Number(weaponDigit[1]) - 1);
+      // ⚠️ LA 3 EST LA TUILE CAISSE, PAS UNE ARME NOMMÉE.
+      //
+      // La yole n'emporte que DEUX armes de soute (LOADOUT_SIZE) et UN seul
+      // emplacement de caisse. Mais les chiffres adressaient l'arme par son
+      // IDENTITÉ : la caisse pouvant contenir six armes différentes, il fallait
+      // deviner laquelle on venait de ramasser — mine=3, rhum=4, barik=5,
+      // chadron=6, lanbi=7, pwason=8. On ramassait du rhum, on appuyait sur 3,
+      // et le jeu répondait « ARME 3 · INDISPONIBLE » alors qu'on était armé.
+      //
+      // La 3 désigne donc la TUILE, comme au tactile et à la manette où la
+      // caisse a déjà son bouton unique. Repli sur la mine quand aucune caisse
+      // n'est portée : la touche ne perd jamais son ancien sens.
+      if (!event.repeat) {
+        const rang = Number(weaponDigit[1]);
+        if (rang === 3) this.fireCrateTile();
+        else this.fireWeaponShortcut(rang - 1);
+      }
       return;
     }
     if (code === "Space") this.useActiveWeapon();
@@ -28308,6 +28357,24 @@ const InputSystems = {
    * On pose quand même `activeWeapon` au passage : la barre d'espace et le
    * réticule continuent de suivre ce qu'on vient d'utiliser.
    */
+  /**
+   * La touche 3 : tire ce que la caisse contient, quoi qu'elle contienne.
+   *
+   * C'est le pendant clavier du bouton manette (`pressed(3)`) et de la tuile
+   * tactile, qui visaient déjà `crateWeapon()` sans jamais nommer l'arme. Sans
+   * caisse portée, on retombe sur la mine — l'ancien sens de la touche — pour
+   * qu'aucun réflexe existant ne soit cassé.
+   */
+  fireCrateTile() {
+    const caisse = this.crateWeapon();
+    if (!caisse) return this.fireWeaponShortcut(2);
+    const index = WEAPONS.findIndex((entry) => entry.key === caisse.key);
+    if (index < 0) return false;
+    // Le rang affiché reste 3 : c'est la tuile qu'on a sous les yeux, pas le
+    // rang de l'arme dans l'arsenal complet.
+    return this.fireWeaponShortcut(index, 3);
+  },
+
   fireWeaponKey(key) {
     if (!key) return false;
     if (this.trainingBasicsLocked() && key !== "wave") return false;
@@ -28322,8 +28389,8 @@ const InputSystems = {
    * Appuyer sur « & » envoie un coco sans seconde confirmation. Si l'arme
    * correspondante n'est pas disponible, le raccourci est refusé.
    */
-  fireWeaponShortcut(slotIndex) {
-    if (!this.selectWeaponShortcut(slotIndex)) return false;
+  fireWeaponShortcut(slotIndex, rang = slotIndex + 1) {
+    if (!this.selectWeaponShortcut(slotIndex, rang)) return false;
     // ⚠️ `useActiveWeapon` ne RENVOIE rien : elle se contente d'empiler le bit
     // d'action, qui sera rejoué par `applyActionMask` dans le pas fixe. Faire
     // `return this.useActiveWeapon()` propageait donc `undefined` — le tir
@@ -28332,7 +28399,7 @@ const InputSystems = {
     return true;
   },
 
-  selectWeaponShortcut(slotIndex) {
+  selectWeaponShortcut(slotIndex, rang = slotIndex + 1) {
     if (this.playerInputLocked()) return false;
     const player = this.boats[0];
     const weapon = WEAPONS[slotIndex];
@@ -28344,14 +28411,14 @@ const InputSystems = {
     const shortcut = this.ui?.weaponShortcuts?.querySelectorAll?.("[data-weapon]")?.[slotIndex];
     if (ammo <= 0) {
       this.restartInputCue(shortcut, "input-rejected");
-      this.showMessage?.(`ARME ${slotIndex + 1} · INDISPONIBLE`, 0.48);
+      this.showMessage?.(`ARME ${rang} · INDISPONIBLE`, 0.48);
       return false;
     }
     player.activeWeapon = weapon.key;
     this.restartInputCue(shortcut);
     this.restartInputCue(this.ui?.weaponSlot);
-    this.showMessage?.(`${slotIndex + 1} · ${weapon.label}`, 0.5);
-    this.telemetry?.track?.("weapon_select", { slot: slotIndex + 1, weapon: weapon.key }, this.time);
+    this.showMessage?.(`${rang} · ${weapon.label}`, 0.5);
+    this.telemetry?.track?.("weapon_select", { slot: rang, weapon: weapon.key }, this.time);
     return true;
   },
 
@@ -30216,7 +30283,7 @@ class UtilityBrain {
 
   chooseAction(owner, game, stormGap) {
     const { target, score } = this.chooseTarget(owner, game);
-    const desperation = clamp(1 - stormGap / 110, 0, 1);
+    const desperation = clamp(1 - stormGap / STORM_RANGE.iaDesespoir, 0, 1);
     const rollDanger = clamp(Math.abs(owner.roll) / 0.9, 0, 1);
     // Contre-gîte : la fenêtre optimale est à 0,64 rad, soit rollDanger ≈ 0,71.
     // Une IA faible shift TÔT — c'est sûr, mais ça ne rapporte presque pas de
@@ -30258,7 +30325,7 @@ class UtilityBrain {
     // et le joueur les semait toujours. A 0,44 elles courent vraiment, tout en
     // s'abstenant quand elles sont deja proches du chavirage.
     const stable = Math.abs(owner.roll) < 0.44 - (1 - this.level.shiftSkill) * 0.12;
-    if (boostReady && stormGap < 62) return { type: "boost_forward" };
+    if (boostReady && stormGap < STORM_RANGE.iaTurboSurvie) return { type: "boost_forward" };
     if (boostReady && stable && this.level.boostRace > 0) {
       let ahead = null;
       let aheadGap = Infinity;
@@ -30566,7 +30633,7 @@ class Boat {
     let targetX = routeX + this.aiLane;
 
     // Survival always wins over aggression.
-    if (stormGap < 40) targetX = routeX + clamp(this.aiLane * 0.35, -4, 4);
+    if (stormGap < STORM_RANGE.iaRecentrage) targetX = routeX + clamp(this.aiLane * 0.35, -4, 4);
     if (this.water > 115 || stability < 0.38) targetX = routeX;
 
     const targetChoice = this.brain?.chooseTarget(this, this.game);
@@ -30577,7 +30644,7 @@ class Boat {
       const distance = Math.hypot(dx, dz);
       if (dz > -2 && dz < 13 && Math.abs(dx) < 3.8) targetX -= Math.sign(dx || 1) * (5.2 + this.aiRisk * 2.8);
       const vulnerability = clamp(Math.abs(nearestAhead.roll) / 0.9 + nearestAhead.water / 220, 0, 1.4);
-      if (distance < 16 && stability > 0.62 && stormGap > 24 && this.aiAggression > 0.62 && vulnerability > 0.55) {
+      if (distance < 16 && stability > 0.62 && stormGap > STORM_RANGE.iaAgression && this.aiAggression > 0.62 && vulnerability > 0.55) {
         targetX = nearestAhead.x + Math.sign(this.x - nearestAhead.x || 1) * 0.9;
       }
     }
@@ -32544,7 +32611,7 @@ class Game {
     const spray = clamp(player.dynamics.spray ?? 0, 0, 1);
     const waterMix = handlingWaterMix(player.dynamics, speed, spray);
     this.audio.setBed("water", waterMix.gain * 0.88, waterMix.rate, 0.45 + speed * 0.75);
-    const stormGap = clamp(1 - (player.z - this.stormZ) / 120, 0, 1);
+    const stormGap = clamp(1 - (player.z - this.stormZ) / STORM_RANGE.secousse, 0, 1);
     this.audio.setBed(
       "storm",
       stormGap * (0.08 + weather.stormAmount * 0.31),

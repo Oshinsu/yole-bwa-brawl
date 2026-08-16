@@ -1,4 +1,5 @@
 import { clamp, damp, smoothstep, TAU } from "../core/math.js";
+import { STORM_RANGE } from "../game/balance.js";
 
 export class WeatherDirector {
   constructor(rng) {
@@ -28,7 +29,7 @@ export class WeatherDirector {
     // se réduisait au seul `drama` plafonné à 0,18, et il n'y avait plus ni
     // pluie (seuil 0,28) ni éclairs (0,35) ni houle de tempête. La tempête
     // disparaissait purement et simplement.
-    const proximity = 1 - smoothstep(24, 128, stormGap);
+    const proximity = 1 - smoothstep(STORM_RANGE.fenetreProche, STORM_RANGE.fenetreLoin, stormGap);
     const drama = clamp(roundProgress * 0.18, 0, 0.18);
     this.targetStorm = clamp(proximity + drama, 0, 1);
     this.stormAmount = damp(this.stormAmount, this.targetStorm, 1.35, dt);
