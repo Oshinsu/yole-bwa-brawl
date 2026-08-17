@@ -591,20 +591,39 @@ export class OceanSystem {
           vec4 coarse = vec4(0.5, 0.5, 1.0, 0.0);
           vec4 fine = vec4(0.5, 0.5, 1.0, 0.0);
           float crestMask = 0.0;
+          // ⚠️ uDetail EST UN PALIER, PLUS UN INTERRUPTEUR.
+          //
+          // Il valait 0 au palier LQ — celui que le mobile choisit tout seul —
+          // et 1 ailleurs. À 0, TOUT ce bloc sautait : plus de rides, plus de
+          // houle fine, et crestMask restant nul rabattait le masque de
+          // scintillement à 0,24. L'eau devenait un plan lisse sans reflet,
+          // rendu par-dessus le marché à 0,68x de la resolution. C'est ce que
+          // voit la majorite des joueurs.
+          //
+          // Le palier bas prend maintenant l'octave GROSSIERE seule : une
+          // lecture de texture au lieu de trois, mais la surface retrouve son
+          // relief et le soleil accroche les cretes. Les paliers superieurs
+          // gardent les trois prises, inchangees.
           if (uDetail > 0.5 && detailFade > 0.002) {
             coarse = texture2D(uSeaDetail, windSpace * vec2(0.026, 0.082) + vec2(0.0, uTime * 0.0065));
-            fine = texture2D(uSeaDetail, windSpace * vec2(0.070, 0.205) + vec2(0.19, -uTime * 0.011));
-            vec2 rippleWind = ((coarse.xy - 0.5) * 0.52 + (fine.xy - 0.5) * 0.26) * vec2(0.58, 1.10);
+            vec2 rippleWind = (coarse.xy - 0.5) * 0.52;
+            if (uDetail > 1.5) {
+              fine = texture2D(uSeaDetail, windSpace * vec2(0.070, 0.205) + vec2(0.19, -uTime * 0.011));
+              rippleWind += (fine.xy - 0.5) * 0.26;
+            }
+            rippleWind *= vec2(0.58, 1.10);
             vec2 rippleWorld = crossWind * rippleWind.x + wind * rippleWind.y;
             normal.xz += rippleWorld * detailFade;
             normal = normalize(normal);
+            // fine garde sa valeur neutre (alpha 0) au palier bas : le max
+            // vaut alors simplement l'alpha de l'octave grossiere.
             crestMask = max(coarse.a, fine.a);
           }
 
           // One very low-frequency sample carries readable swell after the
           // coarse clipmap geometry has deliberately flattened near the horizon.
           float swellFade = 1.0 - smoothstep(110.0, 920.0, viewDist);
-          if (uDetail > 0.5 && swellFade > 0.002) {
+          if (uDetail > 1.5 && swellFade > 0.002) {
             vec4 swell = texture2D(uSeaDetail, windSpace * vec2(0.010, 0.024) + vec2(0.07, uTime * 0.0028));
             vec2 swellWind = (swell.xy - 0.5) * vec2(0.34, 0.72);
             normal.xz += (crossWind * swellWind.x + wind * swellWind.y) * swellFade;
@@ -654,7 +673,7 @@ export class OceanSystem {
           color += vec3(1.0, 0.58, 0.25) * glitterPath
             * ${OCEAN_GLINT.pathGain.toFixed(2)} * (1.0 - uStorm * 0.62);
 
-          if (uDetail > 0.5) {
+          if (uDetail > 1.5) {
             float sss = pow(max(dot(viewDir, -uSunDir), 0.0), 3.0)
               * smoothstep(0.32, 0.96, vHeight);
             color += vec3(0.12, 0.58, 0.48) * sss * 0.46 * (1.0 - uStorm * 0.55);
@@ -779,7 +798,7 @@ export class OceanSystem {
   setQuality(tier) {
     this.quality = tier;
     this.wake.setQuality(tier);
-    this.uniforms.uDetail.value = tier === 0 ? 0 : 1;
+    this.uniforms.uDetail.value = tier === 0 ? 1 : 2;
     this.rings.forEach((ring, index) => {
       ring.mesh.visible = tier === 0 ? index < 3 : true;
     });

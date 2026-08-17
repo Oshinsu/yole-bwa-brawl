@@ -1716,7 +1716,7 @@ export class Game {
       ? (this.sharedRenderFocus || (this.sharedRenderFocus = new this.THREE.Vector3())).set(sharedFrame.x, sharedFrame.y, sharedFrame.z)
       : renderFocusBoat.visual.root.position;
     const weather = this.atmosphere.update(raw, this.time, focus, this.stormZ);
-    this.scene.fog.density = this.fogBase + weather.stormAmount * 0.0042;
+    this.scene.fog.density = this.fogBase + weather.stormAmount * BALANCE.storm.fogPerStorm;
     // Brouillard et brume océanique suivent la couleur d'horizon du ciel.
     //
     // ⚠️ Mais PAS à pleine valeur. C'est le brouillard, et rien d'autre, qui
