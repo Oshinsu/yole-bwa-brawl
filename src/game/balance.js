@@ -391,7 +391,26 @@ export const BALANCE = {
   storm: {
     startZ: -150, gapStart: 148, gapEnd: 103, gapShrinkPerSecond: 0.14,
     baseAdvance: 8.7, advancePerSecond: 0.075,
-    cohesionGap: 13, soakGap: 5, eliminateBehind: -3, soakTimeLimit: 2.15
+    cohesionGap: 13, soakGap: 5, eliminateBehind: -3, soakTimeLimit: 2.15,
+    // ⚠️ CE TERME EFFAÇAIT LA COURSE, PAS SEULEMENT LE LOINTAIN.
+    //
+    // Il s'ajoute à `FOG_DENSITY` (0,0015) pour donner la densité du FogExp2
+    // pendant le grain. À 0,0042 il portait la densité à 0,0057 — 3,8 fois le
+    // calme. Mesuré sur la fraction de pixel remplacée par le brouillard :
+    //
+    //              80 m   120 m   180 m   260 m
+    //   calme        1 %     3 %     7 %    14 %
+    //   grain       19 %    37 %    65 %    89 %
+    //
+    // À 180 m on passait de 7 % à 65 % : neuf fois plus d'occultation, sur la
+    // distance exacte où l'on lit les rivales et les bouées. Ajouté au soleil
+    // qui tombe à 37 % de son intensité, l'écran devenait illisible — on ne
+    // pilotait plus, on attendait que ça passe.
+    //
+    // À 0,0022 le grain reste un grain (2,5× le calme, 36 % du pixel à 180 m,
+    // cinq fois le calme) mais la course se lit encore. C'est le seul nombre
+    // à bouger pour doser : `game.js` le lit, il n'est plus écrit en dur.
+    fogPerStorm: 0.0022
   }
 };
 
