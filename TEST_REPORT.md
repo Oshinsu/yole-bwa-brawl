@@ -1,5 +1,61 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 77 — rapport de playtest, fantôme et rail tactile allégé
+
+Validation du 1er septembre 2026 :
+
+- `npm run verify` : **OK** en 145 s sur 111 modules JavaScript et 49 fichiers
+  Python ;
+- deux suites ajoutées à la chaîne : `test:playtest` (réducteur des portes
+  Go/No-Go, journal survivant à `telemetry.clear()`, histogramme d'images,
+  livraison fichier/texte/presse-papiers/téléchargement, agrégation d'une
+  campagne) et `test:ghost` (trace à 20 Hz, validation, interpolation, cap par
+  le plus court arc, alignement par manche, sélection sur graine et étape,
+  visuel avec le moteur simulé, import d'un replay) ;
+- simulation déterministe : `017e9fdc` sur 18 000 ticks, identique à
+  `BUILD_INFO.json` ;
+- replay de la première étape du Tour : `59947b1d` sur 5 821 ticks, identique
+  à `BUILD_INFO.json` ;
+- empreinte de cadence 30/60/144 Hz : `4976b6a4`, identique ;
+- cache PWA `76924fb2ba8f`, **182 fichiers précachés**, dont les trois nouveaux
+  modules (`playtest-report.js`, `ghost.js`, `ghost-visual.js`) ;
+- monofichier reconstruit avec les trois modules, ordre de concaténation
+  respecté (aucune collision de nom de haut niveau : préfixes `playtest*`,
+  `ghost*`) ;
+- smoke navigateur Chromium : **0 erreur console, 0 erreur de page** ;
+- préparation de release (`npm run test:release`) : 10 tests OK ;
+- benchmark : **145 204 pas bateau/s** pour 480 000 pas.
+
+### Ce qui est vérifié par les nouvelles suites
+
+- le journal de session compte bien deux parties quand la télémétrie de partie
+  a été remise à zéro entre les deux ;
+- une contre-gîte de J2 en Mêlée locale n'entre pas dans la porte du joueur ;
+- le rapport ne transporte ni la personnalisation ni aucune clé inconnue des
+  réglages, et tronque le user agent ;
+- la trace fantôme pèse moins de 4 Ko pour 120 ticks, ne modifie jamais la
+  pose lue, et n'est produite que sur un enregistreur actif avec une manche
+  marquée ;
+- une trace à longueur non multiple de six, à flottant, à manche dupliquée ou
+  à `firstTick` négatif est rejetée sans exception ;
+- le fantôme ne s'arme ni en relecture, ni en Mêlée locale, ni avec le réglage
+  coupé, ni sur une autre graine, et un coffre en panne ne fait pas tomber la
+  partie ;
+- contrôle manuel dans Chromium (`?debug=1`) : une partie accélérée par
+  `fixedUpdate` produit un replay de 41 Ko dont 37 Ko de trace pour
+  4 485 ticks et deux manches ; la revanche sur la même graine arme le
+  fantôme, l'ajoute à la scène et le confond avec la yole du joueur à
+  entrées identiques (même position au tick 45) ; le rapport se construit
+  avec la chaîne GPU, la fenêtre et les portes de la session.
+
+### Ce qui n'est pas vérifié ici
+
+- aucune mesure sur téléphone réel : c'est précisément l'objet du protocole
+  `docs/PLAYTEST_PROTOCOL.md` que cette passe outille ;
+- la feuille de partage avec fichier (`navigator.canShare({ files })`) n'est
+  couverte qu'en simulation ; son comportement réel dépend du navigateur.
+
+
 ## Passe 44 — élimination définitive et attente spectateur
 
 Validation finale du 30 juillet 2026 :

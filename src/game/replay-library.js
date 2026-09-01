@@ -1,7 +1,8 @@
 import {
   ReplayVault,
   downloadReplay,
-  isReplayCompatible
+  isReplayCompatible,
+  normalizeGhostTrace
 } from "../sim/replay.js";
 
 export const REPLAY_LIBRARY_LIMIT = 8;
@@ -112,6 +113,49 @@ export function listReplayEntries(vault, locale = "fr-FR") {
 export function removeReplayFromVault(vault, id) {
   if (!vault || (typeof id !== "string" && typeof id !== "number")) return false;
   try { return Boolean(vault.remove?.(id)); } catch { return false; }
+}
+
+// Import d'un replay reçu d'un ami : même graine, son fantôme court à côté du
+// joueur (voir game/ghost.js). Deux mégaoctets couvrent largement la plus
+// longue étape du Tour avec sa trace ; au-delà, ce n'est pas un replay.
+export const REPLAY_IMPORT_LIMIT_BYTES = 2 * 1024 * 1024;
+
+export const REPLAY_IMPORT_STATUS = Object.freeze({
+  imported: "Replay importé · s'il partage la graine d'une course, son fantôme apparaîtra.",
+  imported_no_ghost: "Replay importé · lisible, mais sans trace de fantôme (ancienne version).",
+  incompatible: "Fichier refusé · replay d'une autre version du jeu.",
+  invalid: "Fichier illisible · ce n'est pas un replay YOLE.",
+  too_large: "Fichier trop lourd pour la replayothèque.",
+  storage: "Import impossible : stockage local indisponible."
+});
+
+export function importReplayText(vault, text) {
+  let replay = null;
+  try {
+    replay = JSON.parse(String(text));
+  } catch {
+    return "invalid";
+  }
+  if (!replay || typeof replay !== "object" || Array.isArray(replay)) return "invalid";
+  let compatible = false;
+  try { compatible = isReplayCompatible(replay); } catch { compatible = false; }
+  if (!compatible) return "incompatible";
+  const metadata = safeObject(replay.metadata);
+  const saved = vault?.save?.(replay, { ...metadata, imported: true });
+  if (!saved) return "storage";
+  return normalizeGhostTrace(replay.ghost) ? "imported" : "imported_no_ghost";
+}
+
+export async function importReplayFile(vault, file) {
+  if (!file || typeof file.text !== "function") return "invalid";
+  if (Number.isFinite(file.size) && file.size > REPLAY_IMPORT_LIMIT_BYTES) return "too_large";
+  let text = "";
+  try {
+    text = await file.text();
+  } catch {
+    return "invalid";
+  }
+  return importReplayText(vault, text);
 }
 
 function createElement(tag, className, text) {
@@ -266,7 +310,7 @@ function buildLibrary() {
   const lead = createElement(
     "p",
     "",
-    "Relis exactement une course compatible ou garde son fichier JSON."
+    "Relis exactement une course compatible, garde son fichier JSON, ou importe celui d'un ami : même graine, son fantôme court à côté de toi."
   );
   lead.id = "replayLibraryLead";
   heading.append(eyebrow, title, lead);
@@ -307,10 +351,29 @@ function buildLibrary() {
     renderLibrary();
     setStatus("Tous les replays ont été effacés.");
   });
+  const importButton = createElement("button", "secondary replay-library__import", "IMPORTER UN FICHIER");
+  importButton.id = "replayLibraryImport";
+  importButton.type = "button";
+  const importInput = createElement("input", "replay-library__file");
+  importInput.type = "file";
+  importInput.accept = "application/json,.json";
+  importInput.hidden = true;
+  importInput.tabIndex = -1;
+  importInput.setAttribute("aria-hidden", "true");
+  importButton.addEventListener("click", () => importInput.click?.());
+  importInput.addEventListener("change", async () => {
+    const file = importInput.files?.[0];
+    importInput.value = "";
+    if (!file) return;
+    setStatus("Lecture du fichier…");
+    const outcome = await importReplayFile(resolveVault(), file);
+    renderLibrary();
+    setStatus(REPLAY_IMPORT_STATUS[outcome] ?? REPLAY_IMPORT_STATUS.invalid);
+  });
   const done = createElement("button", "primary", "FERMER");
   done.type = "button";
   done.addEventListener("click", closeReplayLibrary);
-  footerActions.append(clear, done);
+  footerActions.append(importButton, importInput, clear, done);
   footer.append(status, footerActions);
 
   shell.append(header, content, footer);

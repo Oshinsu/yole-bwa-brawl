@@ -13,6 +13,68 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 77 — mesurer avant de régler : rapport de playtest, fantôme, rail allégé
+
+Passe déclenchée par un constat de trajectoire, pas par un bug : sur les
+27 commits depuis le 4 août, 23 portaient sur la pose de l'équipage, pendant
+que le P0 de `NEXT_PRODUCTION_STEPS.md` — « appareils et joueurs réels » —
+n'avait aucun instrument. Les portes Go/No-Go du MASTER_PLAN (70 % de premières
+contre-gîtes réussies, 50 % de secondes manches, manche < 75 s, replay vu, défi
+partagé) n'étaient mesurables nulle part : `telemetry.clear()` à chaque partie,
+et rien ne sortait jamais de l'appareil.
+
+- **Rapport de playtest** (`src/game/playtest-report.js`). Un journal de
+  session s'abonne à la télémétrie (`LocalTelemetry.subscribe`) et réduit
+  chaque événement dans un état borné — il survit donc à la remise à zéro par
+  partie. Un histogramme d'images à mémoire constante mesure intervalle et
+  temps de travail (p50, p95, part d'images longues). Le bouton **ENVOYER MON
+  RAPPORT DE TEST** (écran de résultat, et pause) livre un JSON par feuille de
+  partage — fichier puis texte —, presse-papiers, puis téléchargement. Opt-in,
+  sans donnée personnelle, déclaré dans `privacy.html`. `npm run
+  playtest:aggregate` rend la table des portes d'une campagne ;
+  `docs/PLAYTEST_PROTOCOL.md` décrit la séance de vingt minutes et la décision
+  à prendre selon la table. Les seuils vivent dans `PLAYTEST_GATES`, une seule
+  table de vérité pour le rapport individuel et l'agrégat.
+- Télémétrie complétée pour rendre ces portes calculables : `round_start`,
+  `round_end` (durée, raison), `replay_started`, `quality_tier`, drapeaux de
+  mode sur `match_start`, durée sur `tour_stage_end`.
+- **Fantôme.** Le replay emporte désormais la pose du joueur à 20 Hz
+  (`replay.ghost` : un segment par manche, entiers en centimètres et
+  milliradians — mesuré ~3 Ko pour 2 s de course, soit ~120 Ko pour la plus
+  longue manche). `isReplayCompatible` l'ignore, un replay sans trace reste
+  lisible ; `normalizeGhostTrace` rejette toute trace qui ment. Au
+  `startMatch`, la trace la plus récente du coffre sur la même graine et la
+  même étape court en translucide à côté du joueur — `GhostVisual` : coque
+  partagée, voile en deux triangles, balise, aucun draw call tant qu'aucune
+  trace n'est armée — avec l'écart en mètres dans une pastille HUD. Jamais en
+  relecture (il recouvrirait la yole rejouée) ni en Mêlée locale ; réglage
+  FANTÔME · OUI/NON dans la pause. La replayothèque **importe** un fichier
+  replay : sur la même graine, la trace d'un ami devient son fantôme — le défi
+  partagé sans serveur.
+- ⚠️ **Alignement par manche, pas par tick absolu.** La manche N du fantôme
+  n'a aucune raison de commencer au même tick que la manche N en direct : une
+  manche finit quand quelqu'un chavire. Le lecteur aligne sur `roundStartTick`,
+  posé dans `resetRound`. Verrouillé par `test/ghost.test.mjs`.
+- **Rail tactile allégé.** Sur pointeur tactile, la course perd `QUALITÉ` et le
+  second bouton de réglages, doublon exact de PAUSE : huit boutons deviennent
+  six. Un réglage **PALIER** (AUTO · LQ · MQ · HQ) dans la pause reprend le
+  cycle manuel, pour ne rien perdre. Le clavier garde tout ; les cibles tactiles
+  V18 sont inchangées.
+- **Déterminisme intact, vérifié** : checksum de simulation `017e9fdc` sur
+  18 000 ticks, relecture de la première étape du Tour `59947b1d` sur
+  5 821 ticks, empreinte de cadence `4976b6a4` — tous identiques à
+  `BUILD_INFO.json`. La trace fantôme est une lecture seule après le dernier
+  système autoritaire du tick, et le journal de playtest n'a aucun accès à la
+  boucle fixe.
+- Deux documents de décision : `docs/DECISIONS_EN_ATTENTE.md` (portée
+  minimale des bwa, quille, densité d'équipage — avec une recommandation
+  chacun) et `../bwa dresse yole/ARCHIVE.md` (le plan KIMI V2 archivé, rien
+  supprimé).
+- `npm run verify` : OK en 145 s — 111 modules JavaScript et 49 fichiers
+  Python, 182 fichiers précachés, smoke navigateur sans erreur console ni page,
+  benchmark 145 204 pas bateau/s. Deux suites ajoutées à la chaîne :
+  `test:playtest` et `test:ghost`.
+
 ## Passe 70 — l'équipage respire, sans un seul asset
 
 La couche d'actions de la passe 68 était livrée mais **dormante** : sans clip,

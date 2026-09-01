@@ -2,7 +2,10 @@ import { clamp, damp, angleDelta, formatTime, TAU } from "../core/math.js";
 import { RNG } from "../core/rng.js";
 import { QualityManager, palierInitial } from "../core/quality.js";
 import { WaveField } from "../sim/waves.js";
-import { ReplayRecorder, ReplayPlayer, ReplayVault, downloadReplay, checksumBoats, isReplayCompatible } from "../sim/replay.js";
+import {
+  ReplayRecorder, ReplayPlayer, ReplayVault, downloadReplay, checksumBoats, isReplayCompatible,
+  SIMULATION_VERSION, GAMEPLAY_VERSION
+} from "../sim/replay.js";
 import { OceanSystem } from "../render/ocean.js";
 import { AtmosphereSystem } from "../render/sky.js";
 import { ParticlePool, ImpactRingPool, PostFX, ExplosionPool, EffectAtlasPool, JUICE_VFX } from "../render/vfx.js";
@@ -29,6 +32,11 @@ import { ObstacleSystems } from "./obstacles.js";
 import { handlingWaterMix } from "./handling-feedback.js";
 import { normalizeCustomization } from "./customization.js";
 import { GrowthSystems, seedFromUrl } from "./growth.js";
+import { GhostSystems } from "./ghost.js";
+import {
+  FrameSampler, PlaytestJournal, PLAYTEST_DELIVERY_STATUS,
+  buildPlaytestReport, deliverPlaytestReport, describeDevice
+} from "./playtest-report.js";
 import {
   ACTION_WAVE, ACTION_HARPOON, ACTION_MINE, ACTION_SHIFT,
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, RIGS, AI_LEVELS,
@@ -119,6 +127,12 @@ export class Game {
     this.settings = new SettingsStore();
     this.cameraZoom = clamp(this.settings.get("cameraZoom") ?? 1.18, ZOOM_MIN, ZOOM_MAX);
     this.telemetry = new LocalTelemetry();
+    // Journal de session : il survit à telemetry.clear(), appelé à chaque
+    // partie, et alimente le rapport de playtest. Hors simulation, hors checksum.
+    this.playtestJournal = new PlaytestJournal();
+    this.telemetry.subscribe((type, payload, time) => this.playtestJournal.observe(type, payload, time));
+    this.frameSampler = new FrameSampler();
+    this.initGhost();
     this.spatial = new SpatialHash2D(14);
     this.spatialScratch = [];
     this.collisionScratch = {};
@@ -205,6 +219,7 @@ export class Game {
         playLatestReplay: () => this.latestReplay && this.startReplay(this.latestReplay),
         telemetry: () => this.telemetry.snapshot(),
         downloadTelemetry: () => this.downloadTelemetry(),
+        playtestReport: () => this.buildPlaytestReport(),
         setQuality: (tier) => this.quality.setTier(tier, true),
         togglePerf: () => this.toggleSetting("showPerf"),
         THREE_REVISION: THREE.REVISION
@@ -369,6 +384,7 @@ export class Game {
       this.ocean.setQuality(tier);
       this.world?.setQuality(tier);
       if (this.ui.quality) this.ui.quality.textContent = profile.label;
+      this.telemetry?.track?.("quality_tier", { tier, label: profile.label, manual: Boolean(this.quality?.manual) }, this.time ?? 0);
       // ⚠️ ON MÉMORISE CE QUE L'ADAPTATION A DÉCOUVERT. `settings.set("quality")`
       // n'était appelé que depuis deux gestionnaires de clic : les descentes
       // automatiques n'écrivaient rien. Chaque lancement rejouait donc la même
@@ -661,7 +677,15 @@ export class Game {
     if (this.replay) this.replay.loadout = loadout;
     this.stats = { takedowns: 0, perfects: 0, maxSpeed: 0, boosts: 0, slingshots: 0 };
     this.telemetry.clear();
-    this.telemetry.track("match_start", { seed: this.seed, replay: Boolean(options.replay) }, 0);
+    this.telemetry.track("match_start", {
+      seed: this.seed,
+      replay: Boolean(options.replay),
+      tour: Boolean(options.tourStage),
+      versus: Boolean(this.versusLocal),
+      training: Boolean(this.trainingMode),
+      challenge: Boolean(options.challenge),
+      daily: Boolean(options.challenge && (this.activeChallenge?.daily || this.tour?.challengeDaily))
+    }, 0);
     this.spatial.clear();
     this.spatialScratch.length = 0;
     this.collisionPairs.clear();
@@ -730,6 +754,9 @@ export class Game {
     this.ui.hud.classList.remove("hidden");
     this.ui.versusScreen?.classList.add("hidden");
     this.ui.versusHud?.classList.toggle("hidden", !this.versusLocal);
+    // Le fantôme se décide ici : graine, mode et étape sont connus, la
+    // première manche pas encore lancée.
+    this.armGhost({ tourStage: options.tourStage ? (this.tour?.stage ?? null) : null });
     this.resetRound(false);
     if (this.trainingMode) {
       this.enforceTrainingBasics();
@@ -921,6 +948,10 @@ export class Game {
     } else {
       this.startMatch({ replay });
     }
+    this.telemetry.track("replay_started", {
+      seed: replay.seed >>> 0,
+      tourStage: Number.isInteger(tourStage) ? tourStage : -1
+    }, 0);
     this.latestReplay = replay;
     return true;
   }
@@ -1596,6 +1627,9 @@ export class Game {
     // donc ici, au même tick et avant tout streamer ou VFX.
     if (this.playback) this.validateReplayState();
     else this.replay.checkpoint(this.tick, this.dynamicsList());
+    // Trace fantôme : lecture seule de la pose du joueur, à 20 Hz. Rien n'est
+    // écrit dans la simulation, le checksum ne bouge pas.
+    if (!this.playback) this.replay.recordGhostSample(this.tick, player.dynamics);
     this.worldRefreshTimer -= dt;
     if (this.worldRefreshTimer <= 0) {
       this.worldRefreshTimer = 0.20;
@@ -1676,6 +1710,7 @@ export class Game {
     this.lastFrame = now;
     if (!outsideLiveRace) {
       this.quality.update(intervalleReel, this.frameWorkMs ?? intervalleReel);
+      this.frameSampler?.add(intervalleReel, this.frameWorkMs ?? intervalleReel);
     }
     this.pollGamepad();
     if (this.mode === "menu") this.time += raw * 0.65;
@@ -1746,6 +1781,7 @@ export class Game {
     );
     if (this.mode === "playing") {
       for (const boat of this.boats) boat.renderUpdate(this.time, raw, weather);
+      this.updateGhostRender();
     } else this.updateAttract(raw);
 
     this.updateCamera(raw);
@@ -2019,6 +2055,71 @@ export class Game {
     };
   }
 
+  /**
+   * Rapport de playtest : appareil, rendu, portes Go/No-Go de la session et
+   * queue d'événements. Aucune donnée personnelle — voir playtest-report.js.
+   */
+  buildPlaytestReport() {
+    const profile = this.qualityProfile ?? null;
+    let href = null;
+    try {
+      href = globalThis.location?.origin ? `${globalThis.location.origin}${globalThis.location.pathname ?? ""}` : null;
+    } catch { href = null; }
+    return buildPlaytestReport({
+      journal: this.playtestJournal,
+      frames: this.frameSampler,
+      device: describeDevice({ renderer: this.renderer }),
+      quality: {
+        tier: this.quality?.tier ?? null,
+        label: profile?.label ?? null,
+        manual: Boolean(this.quality?.manual),
+        autoCeiling: this.quality?.autoCeiling ?? null,
+        mobileProfile: Boolean(profile?.mobile),
+        pixelRatio: profile?.pixelRatio ?? null,
+        lastRender: this.lastRenderStats ?? null
+      },
+      build: {
+        simulationVersion: SIMULATION_VERSION,
+        gameplayVersion: GAMEPLAY_VERSION,
+        threeRevision: this.THREE?.REVISION ?? null,
+        href
+      },
+      settings: this.settings?.snapshot?.() ?? null
+    });
+  }
+
+  /** Livre le rapport par le meilleur canal disponible, sur geste explicite du joueur. */
+  async sharePlaytestReport() {
+    const report = this.buildPlaytestReport();
+    let outcome = "unavailable";
+    try {
+      outcome = await deliverPlaytestReport(report);
+    } catch {
+      outcome = "unavailable";
+    }
+    const status = PLAYTEST_DELIVERY_STATUS[outcome] ?? PLAYTEST_DELIVERY_STATUS.unavailable;
+    if (this.ui?.playtestReportStatus) this.ui.playtestReportStatus.textContent = status;
+    for (const button of [this.ui?.playtestReport, this.ui?.pausePlaytestReport]) {
+      if (button?.dataset) button.dataset.outcome = outcome;
+    }
+    const pauseButton = this.ui?.pausePlaytestReport;
+    if (pauseButton) {
+      const label = pauseButton.dataset?.label || pauseButton.textContent || "ENVOYER MON RAPPORT DE TEST";
+      if (pauseButton.dataset) pauseButton.dataset.label = label;
+      pauseButton.textContent = {
+        shared_file: "RAPPORT ENVOYÉ ✓",
+        shared_text: "RAPPORT ENVOYÉ ✓",
+        copied: "RAPPORT COPIÉ ✓",
+        downloaded: "RAPPORT TÉLÉCHARGÉ ✓",
+        cancelled: "PARTAGE ANNULÉ",
+        unavailable: "PARTAGE INDISPONIBLE"
+      }[outcome] ?? label;
+      setTimeout(() => { pauseButton.textContent = label; }, 3200);
+    }
+    this.telemetry?.track?.(`playtest_report_${outcome}`, {}, this.time ?? 0);
+    return outcome;
+  }
+
   downloadTelemetry() {
     if (typeof Blob === "undefined" || !globalThis.URL?.createObjectURL) return false;
     const blob = new Blob([JSON.stringify(this.telemetry.snapshot(), null, 2)], { type: "application/json" });
@@ -2044,5 +2145,6 @@ Object.assign(
   CameraSystems,
   VersusSystems,
   PickupSystems,
-  ObstacleSystems
+  ObstacleSystems,
+  GhostSystems
 );

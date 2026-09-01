@@ -68,7 +68,7 @@ export const CREW_CONTACT_LIMITS = Object.freeze({
 // demanderait de bouger une station, ce qui est AUTORITAIRE (SIMULATION_VERSION,
 // replays). Mesuré et borné par test/hull-contract.test.mjs, pas corrigé.
 // Voir docs/ASSET_CONTRACT.md.
-const HULL_VISUAL_WIDTH_SCALE = 0.84;
+export const HULL_VISUAL_WIDTH_SCALE = 0.84;
 
 // Déport latéral au-delà duquel un équipier est considéré totalement sorti sur
 // le bois.
@@ -520,7 +520,7 @@ export function makeHeadKits(THREE) {
 // Rake des mâts vers l'avant, en radians (~9°).
 const MAST_RAKE = 0.155;
 
-function makeHullGeometry(THREE) {
+export function makeHullGeometry(THREE) {
   const z = [-5.55, -4.7, -3.2, -1.5, 0, 1.7, 3.35, 4.72, 5.55];
   const width = [0.05, 0.48, 0.82, 1.0, 1.08, 1.0, 0.78, 0.42, 0.04];
   const positions = [];

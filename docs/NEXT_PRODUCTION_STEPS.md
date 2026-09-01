@@ -117,3 +117,18 @@ demande une décision de conception ; la voile est le plus gros morceau et gagne
 
 Toute dépendance doit battre la solution existante sur un benchmark
 reproductible avant adoption.
+
+## Mise à jour du 1er septembre 2026 — ce qui outille le P0
+
+- le P0 « appareils et joueurs réels » dispose désormais d'un instrument : le
+  rapport de playtest (`docs/PLAYTEST_PROTOCOL.md`, bouton **ENVOYER MON
+  RAPPORT DE TEST**, agrégateur `npm run playtest:aggregate`). Les portes
+  Go/No-Go du MASTER_PLAN sont calculées par session et agrégées par campagne ;
+- le fantôme (trace de replay, `docs/ARCHITECTURE.md` §19) et l'import de
+  replay dans la replayothèque donnent la version **sans serveur** de la
+  compétition asynchrone prévue en P3 : mesurer d'abord si elle fait revenir,
+  ajouter un classement ensuite ;
+- les trois arbitrages qui bloquent l'art sont posés dans
+  `docs/DECISIONS_EN_ATTENTE.md`, avec une recommandation chacun ;
+- le plan KIMI V2 est archivé (`../bwa dresse yole/ARCHIVE.md`), sans
+  suppression.

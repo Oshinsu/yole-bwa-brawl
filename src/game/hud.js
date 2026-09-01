@@ -392,6 +392,18 @@ export const HudSystems = {
     setToggle(this.ui.leftHandedToggle, this.settings.get("leftHanded"), this.settings.get("leftHanded") ? "OUI" : "NON");
     setToggle(this.ui.perfToggle, this.settings.get("showPerf"), this.settings.get("showPerf") ? "VISIBLE" : "MASQUÉ");
     setToggle(this.ui.autoQualityToggle, !this.quality?.manual, !this.quality?.manual ? "ACTIF" : "MANUEL");
+    const tierLabel = ["LQ", "MQ", "HQ"][this.quality?.tier ?? 2] ?? "HQ";
+    setToggle(this.ui.qualityTierToggle, Boolean(this.quality?.manual), this.quality?.manual ? tierLabel : `AUTO · ${tierLabel}`);
+    this.ui.qualityTierToggle?.setAttribute?.(
+      "aria-label",
+      `Palier graphique : ${this.quality?.manual ? tierLabel : `automatique, actuellement ${tierLabel}`}. Activer pour passer au palier suivant.`
+    );
+    const ghostOn = this.settings.get("ghost") !== false;
+    setToggle(this.ui.ghostToggle, ghostOn, ghostOn ? "OUI" : "NON");
+    this.ui.ghostToggle?.setAttribute?.(
+      "aria-label",
+      `Fantôme de ta dernière course sur la même mer : ${ghostOn ? "affiché" : "masqué"}. Prend effet à la prochaine partie.`
+    );
     document.body?.classList.toggle("left-handed", this.settings.get("leftHanded"));
     document.body?.classList.toggle("hide-perf", !this.settings.get("showPerf"));
     document.body?.classList.toggle("reduce-flash", Boolean(this.settings.get("reduceFlash")));
@@ -1256,6 +1268,7 @@ export const HudSystems = {
       this.ui.weatherChip.textContent = `${label} · ${Math.round(liveWeather.windSpeed)} m/s`;
       this.ui.weatherChip.style.background = liveWeather.stormAmount > 0.5 ? "rgba(73,25,96,.82)" : "rgba(2,44,59,.72)";
     }
+    this.updateGhostChip?.();
     this.ui.stormDistance.textContent = `${Math.round(stormDistance)} m`;
     this.ui.storm.classList.toggle("hidden", stormDistance > STORM_RANGE.hudProche || player.eliminated);
     // La musique suit le Grain. `Carnival Apocalypse` est la piste la plus dense

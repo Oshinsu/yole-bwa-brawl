@@ -7273,3 +7273,20 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
   #hud .message{top:42%}
 }
 /* === END V19 · PLANCHER DE LISIBILITÉ DU POSTE DE PILOTAGE ============== */
+/* === V20 · FANTÔME, RAPPORT DE TEST ET RAIL TACTILE ALLÉGÉ === */
+.ghost-chip{position:absolute;left:14px;top:158px;z-index:3;display:flex;gap:7px;align-items:center;padding:6px 10px;border-radius:999px;font-size:7px;font-weight:950;letter-spacing:.11em;color:#c8faff;border-color:rgba(157,246,255,.34)}
+.ghost-chip b{font-variant-numeric:tabular-nums;color:#fff}
+.ghost-chip.ghost-ahead b{color:#ffd166}
+.ghost-chip.ghost-behind b{color:#8dffc4}
+@media(max-width:760px){.ghost-chip{left:7px;top:100px;padding:4px 7px;font-size:5px}}
+.playtest-status{color:rgba(167,255,245,.72)}
+.settings-help.playtest-report{margin-top:6px}
+/* En course, le pouce n'a rien à faire de la qualité ni d'un second bouton de
+   réglages : les deux vivent dans la pause (PALIER et QUALITÉ AUTO). Le rail
+   passe de huit boutons à six sur tactile ; le clavier garde tout.
+   ⚠️ `pointer:coarse` SEUL, pas `any-pointer` : un portable à écran tactile
+   piloté à la souris déclare `any-pointer:coarse` et perdrait ses boutons. */
+@media(pointer:coarse){
+  #hud #qualityBtn,#hud #settingsBtn{display:none!important}
+}
+/* === END V20 === */

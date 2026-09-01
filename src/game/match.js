@@ -84,6 +84,13 @@ export const MatchDirector = {
       boat.finishTick = 0;
     });
     this.replay.markRound(this.tick, this.round, this.seed ^ this.round);
+    // Le fantôme s'aligne sur le début de manche, jamais sur le tick absolu.
+    this.roundStartTick = this.tick;
+    this.telemetry?.track?.("round_start", {
+      round: this.round,
+      tour: Boolean(this.tour),
+      versus: Boolean(this.versusLocal)
+    }, this.time);
     if (announce) {
       this.showMessage(`MANCHE ${this.round}`, 1.1);
       // Le premier départ était le seul à armer réellement le 3-2-1 malgré le
@@ -313,7 +320,11 @@ export const MatchDirector = {
       finishTicks,
       completedAt: new Date().toISOString()
     });
-    this.telemetry.track("tour_stage_end", { stage: tour.stage, places: places.map((boat) => boat.id) }, this.time);
+    this.telemetry.track("tour_stage_end", {
+      stage: tour.stage,
+      seconds: this.roundTime,
+      places: places.map((boat) => boat.id)
+    }, this.time);
     this.replay.finish(this.dynamicsList(), { tick: this.tick, tourStage: tour.stage, stage: stage.name });
     this.latestReplay = this.replay.export();
     const replayStored = Boolean(this.replayVault.save(this.latestReplay, this.latestReplay.metadata));
@@ -541,6 +552,12 @@ export const MatchDirector = {
           1.2
         );
       }
+      this.telemetry?.track?.("round_end", {
+        round: this.round,
+        seconds: this.roundTime,
+        reason: "last_standing",
+        playerAlive: Boolean(alive[0]?.isPlayer)
+      }, this.time);
       this.roundEnding = 2.7;
     }
 
@@ -568,6 +585,12 @@ export const MatchDirector = {
             : `${ordered[0].name} SURVIT AU CHRONO · +2`,
           1.2
         );
+        this.telemetry?.track?.("round_end", {
+          round: this.round,
+          seconds: this.roundTime,
+          reason: "timer",
+          playerAlive: Boolean(ordered[0]?.isPlayer)
+        }, this.time);
         this.roundEnding = 2.7;
       }
     }

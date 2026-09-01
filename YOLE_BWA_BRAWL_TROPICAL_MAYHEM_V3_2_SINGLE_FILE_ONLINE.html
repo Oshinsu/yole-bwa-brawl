@@ -7308,6 +7308,23 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
   #hud .message{top:42%}
 }
 /* === END V19 · PLANCHER DE LISIBILITÉ DU POSTE DE PILOTAGE ============== */
+/* === V20 · FANTÔME, RAPPORT DE TEST ET RAIL TACTILE ALLÉGÉ === */
+.ghost-chip{position:absolute;left:14px;top:158px;z-index:3;display:flex;gap:7px;align-items:center;padding:6px 10px;border-radius:999px;font-size:7px;font-weight:950;letter-spacing:.11em;color:#c8faff;border-color:rgba(157,246,255,.34)}
+.ghost-chip b{font-variant-numeric:tabular-nums;color:#fff}
+.ghost-chip.ghost-ahead b{color:#ffd166}
+.ghost-chip.ghost-behind b{color:#8dffc4}
+@media(max-width:760px){.ghost-chip{left:7px;top:100px;padding:4px 7px;font-size:5px}}
+.playtest-status{color:rgba(167,255,245,.72)}
+.settings-help.playtest-report{margin-top:6px}
+/* En course, le pouce n'a rien à faire de la qualité ni d'un second bouton de
+   réglages : les deux vivent dans la pause (PALIER et QUALITÉ AUTO). Le rail
+   passe de huit boutons à six sur tactile ; le clavier garde tout.
+   ⚠️ `pointer:coarse` SEUL, pas `any-pointer` : un portable à écran tactile
+   piloté à la souris déclare `any-pointer:coarse` et perdrait ses boutons. */
+@media(pointer:coarse){
+  #hud #qualityBtn,#hud #settingsBtn{display:none!important}
+}
+/* === END V20 === */
 
 </style>
 
@@ -7452,6 +7469,7 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
     </div>
 
     <div id="weatherChip" class="weather-chip glass">☀ ALIZÉS STABLES</div>
+    <div id="ghostChip" class="ghost-chip glass hidden" role="status" aria-live="off"><span>👻 FANTÔME</span><b id="ghostGap">AU DÉPART</b></div>
     <aside id="minimap" class="minimap glass" aria-label="Mini-carte tactique">
       <div class="minimap-heading"><span>CAP &amp; COURSE</span><b id="minimapMode">COMBAT</b></div>
       <div class="minimap-map">
@@ -7703,6 +7721,7 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
           <h3 id="courseLabel">COURSE</h3>
           <div>
              <button id="difficultyToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>ADVERSAIRES</b><small>TOUR</small></button>
+             <button id="ghostToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>FANTÔME</b><small>OUI</small></button>
           </div>
         </section>
         <section class="settings-group" aria-labelledby="visibiliteLabel">
@@ -7715,7 +7734,10 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
         </section>
         <section class="settings-group quality-group" aria-labelledby="renduLabel">
           <h3 id="renduLabel">RENDU</h3>
-           <div><button id="autoQualityToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>QUALITÉ AUTO</b><small>ACTIF</small></button></div>
+           <div>
+             <button id="autoQualityToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>QUALITÉ AUTO</b><small>ACTIF</small></button>
+             <button id="qualityTierToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>PALIER</b><small>AUTO · HQ</small></button>
+           </div>
         </section>
       </div>
       <!-- ⚠️ <details> NATIF, ET AUCUN `id`. Un panneau replié par défaut ne
@@ -7776,6 +7798,7 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
         <p class="raccourcis-note">Les huit chiffres <strong>tirent</strong> directement — pas besoin d&#39;appuyer sur Espace ensuite.</p>
       </details>
       <button id="pauseControlsBtn" class="settings-help secondary" type="button" aria-haspopup="dialog" aria-controls="controlsScreen">AIDE &amp; CONTRÔLES</button>
+      <button id="pausePlaytestReportBtn" class="settings-help secondary playtest-report" type="button" data-label="ENVOYER MON RAPPORT DE TEST">ENVOYER MON RAPPORT DE TEST</button>
       <button id="resetSettingsBtn" class="settings-reset secondary danger-soft" type="button">RÉINITIALISER LES RÉGLAGES</button>
       </div>
       <div class="modal-actions pause-action-rail"><button id="resumeBtn" class="primary" type="button">REPRENDRE</button><button id="restartBtn" class="secondary gameplay-only" type="button">RECOMMENCER</button><button id="pauseMenuBtn" class="secondary gameplay-only danger-soft" type="button">QUITTER · MENU PRINCIPAL</button></div>
@@ -7796,8 +7819,10 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
       <div class="result-growth-actions">
          <button id="shareChallengeBtn" class="secondary share-challenge hidden" type="button">DÉFIER UN AMI</button>
          <button id="endInstallBtn" class="secondary install-after-win hidden" type="button">INSTALLER LE JEU</button>
+         <button id="playtestReportBtn" class="secondary playtest-report" type="button">ENVOYER MON RAPPORT DE TEST</button>
       </div>
       <small id="shareStatus" class="share-status" role="status" aria-live="polite">Même mer, même seed · résultat prêt à partager.</small>
+      <small id="playtestReportStatus" class="share-status playtest-status" role="status" aria-live="polite">Rapport de test opt-in · appareil, mesures et événements de jeu, aucune donnée personnelle.</small>
       <div class="replay-actions">
          <button id="replayBtn" class="secondary" type="button">REVOIR LE MATCH</button>
          <button id="endMenuBtn" class="secondary" type="button">RETOUR AU PORT</button>
@@ -8311,6 +8336,10 @@ const DEFAULT_SETTINGS = Object.freeze({
   // la lecture (playerAiLevel) et voyage dans le replay, jamais relu depuis le
   // magasin au point d'usage.
   aiLevel: "tour",
+  // Fantôme : la trace de la dernière course sur la même graine, rendue en
+  // translucide à côté du joueur. Purement visuel, hors checksum ; désactivable
+  // depuis la pause pour qui le trouve distrayant.
+  ghost: true,
   // Les DEUX armes emportées en soute, choisies au garage. Voir LOADOUT_POOL
   // dans balance.js — un réglage corrompu est rattrapé par `resolveLoadout`,
   // qui garantit toujours deux armes valides.
@@ -8388,13 +8417,28 @@ class LocalTelemetry {
     this.events = [];
     this.counters = new Map();
     this.startedAt = Date.now();
+    // Observateurs hors simulation : le journal de playtest s'y abonne pour
+    // survivre à clear(), qui remet les compteurs à zéro à chaque partie.
+    this.listeners = new Set();
   }
 
   track(type, payload = {}, time = globalThis.performance?.now?.() ?? 0) {
     if (!type) return;
-    this.events.push({ type: String(type), payload: finitePayload(payload), time: Math.round(Number(time) * 1000) / 1000 });
+    const event = { type: String(type), payload: finitePayload(payload), time: Math.round(Number(time) * 1000) / 1000 };
+    this.events.push(event);
     if (this.events.length > this.limit) this.events.splice(0, this.events.length - this.limit);
     this.counters.set(type, (this.counters.get(type) || 0) + 1);
+    for (const listener of this.listeners) {
+      // Un observateur défaillant ne doit jamais interrompre le jeu.
+      try { listener(event.type, event.payload, event.time); } catch { /* observateur externe */ }
+    }
+  }
+
+  /** Abonne un observateur ; renvoie la fonction de désabonnement. */
+  subscribe(listener) {
+    if (typeof listener !== "function") return () => false;
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   count(type) { return this.counters.get(type) || 0; }
@@ -9435,6 +9479,136 @@ function isReplayCompatible(replay) {
   );
 }
 
+// ── TRACE FANTÔME ────────────────────────────────────────────────────────────
+//
+// À côté des entrées quantifiées, le replay emporte la POSE de la yole du joueur
+// échantillonnée à 20 Hz : x, y, z en centimètres, cap, gîte et tangage en
+// milliradians. Ce n'est pas une source d'autorité — la relecture exacte reste
+// celle des entrées — c'est ce qui permet de courir CONTRE la trace sans
+// re-simuler la partie : un fantôme se lit, il ne se calcule pas.
+//
+// Un segment par manche : les positions repartent de la grille à chaque manche,
+// et la manche N du fantôme n'a aucune raison de commencer au même tick que la
+// manche N de la course en direct. Le lecteur aligne donc les deux sur le tick
+// de DÉBUT DE MANCHE, jamais sur le tick absolu.
+const GHOST_TRACE_VERSION = 1;
+const GHOST_TRACE_STRIDE = 3;
+const GHOST_TRACE_FIELDS = 6;
+const GHOST_POSITION_SCALE = 100;
+const GHOST_ANGLE_SCALE = 1000;
+const GHOST_MAX_SEGMENTS = 64;
+const GHOST_MAX_VALUES = 120000 * GHOST_TRACE_FIELDS;
+const GHOST_INT_LIMIT = 2 ** 31 - 1;
+
+function ghostQuantize(value, scale) {
+  const scaled = Math.round((Number.isFinite(value) ? value : 0) * scale);
+  return Math.max(-GHOST_INT_LIMIT, Math.min(GHOST_INT_LIMIT, scaled));
+}
+
+function ghostLerpAngle(a, b, t) {
+  let delta = (b - a) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  else if (delta < -Math.PI) delta += Math.PI * 2;
+  return a + delta * t;
+}
+
+/**
+ * Valide une trace lue d'un replay (stockage local, fichier importé) et la
+ * renvoie normalisée, ou `null` dès qu'un champ ment. Une trace corrompue ne
+ * doit jamais faire tomber la course : elle fait simplement disparaître le
+ * fantôme.
+ */
+function normalizeGhostTrace(trace) {
+  if (!trace || typeof trace !== "object" || Array.isArray(trace)) return null;
+  if (trace.version !== GHOST_TRACE_VERSION) return null;
+  const stride = trace.stride;
+  if (!Number.isInteger(stride) || stride < 1 || stride > 10) return null;
+  const positionScale = trace.positionScale;
+  const angleScale = trace.angleScale;
+  if (!Number.isFinite(positionScale) || positionScale <= 0) return null;
+  if (!Number.isFinite(angleScale) || angleScale <= 0) return null;
+  if (!Array.isArray(trace.segments) || trace.segments.length === 0 || trace.segments.length > GHOST_MAX_SEGMENTS) return null;
+  const segments = [];
+  let previousRound = 0;
+  let totalValues = 0;
+  for (const segment of trace.segments) {
+    if (!segment || typeof segment !== "object") return null;
+    const { round, fromTick, firstTick, data } = segment;
+    if (!Number.isInteger(round) || round <= previousRound) return null;
+    if (!Number.isInteger(fromTick) || fromTick < 0) return null;
+    if (!Number.isInteger(firstTick) || firstTick < fromTick) return null;
+    if (!Array.isArray(data) || data.length % GHOST_TRACE_FIELDS !== 0) return null;
+    totalValues += data.length;
+    if (totalValues > GHOST_MAX_VALUES) return null;
+    for (const value of data) {
+      if (!Number.isInteger(value) || Math.abs(value) > GHOST_INT_LIMIT) return null;
+    }
+    segments.push({ round, fromTick, firstTick, data });
+    previousRound = round;
+  }
+  return { version: GHOST_TRACE_VERSION, stride, positionScale, angleScale, fields: GHOST_TRACE_FIELDS, segments };
+}
+
+/**
+ * Lecteur de trace : rend la pose du fantôme pour une manche et un nombre de
+ * ticks écoulés depuis le début de CETTE manche, interpolée entre deux
+ * échantillons. `null` quand le fantôme n'a plus rien à dire — sa manche s'est
+ * finie plus tôt que celle en direct, par chavirage ou par victoire.
+ */
+class GhostTrack {
+  constructor(trace) {
+    this.trace = normalizeGhostTrace(trace);
+    if (!this.trace) throw new TypeError("Invalid ghost trace");
+    this.segments = new Map(this.trace.segments.map((segment) => [segment.round, segment]));
+  }
+
+  get rounds() {
+    return [...this.segments.keys()];
+  }
+
+  segment(round) {
+    return this.segments.get(round) ?? null;
+  }
+
+  sampleCount(round) {
+    const segment = this.segment(round);
+    return segment ? segment.data.length / GHOST_TRACE_FIELDS : 0;
+  }
+
+  /** Durée couverte par la manche du fantôme, en ticks depuis son début de manche. */
+  roundTicks(round) {
+    const segment = this.segment(round);
+    if (!segment) return 0;
+    const count = segment.data.length / GHOST_TRACE_FIELDS;
+    return count ? segment.firstTick - segment.fromTick + (count - 1) * this.trace.stride : 0;
+  }
+
+  poseAt(round, ticksSinceRoundStart, out = {}) {
+    const segment = this.segment(round);
+    if (!segment) return null;
+    const count = segment.data.length / GHOST_TRACE_FIELDS;
+    if (count === 0) return null;
+    const { stride, positionScale, angleScale } = this.trace;
+    const offset = Number.isFinite(ticksSinceRoundStart) ? ticksSinceRoundStart : 0;
+    const t = (offset - (segment.firstTick - segment.fromTick)) / stride;
+    if (t > count - 1 + 1e-6) return null;
+    const clamped = Math.max(0, t);
+    const index = Math.min(count - 1, Math.floor(clamped));
+    const next = Math.min(count - 1, index + 1);
+    const fraction = next === index ? 0 : clamped - index;
+    const a = index * GHOST_TRACE_FIELDS;
+    const b = next * GHOST_TRACE_FIELDS;
+    const data = segment.data;
+    out.x = (data[a] + (data[b] - data[a]) * fraction) / positionScale;
+    out.y = (data[a + 1] + (data[b + 1] - data[a + 1]) * fraction) / positionScale;
+    out.z = (data[a + 2] + (data[b + 2] - data[a + 2]) * fraction) / positionScale;
+    out.heading = ghostLerpAngle(data[a + 3] / angleScale, data[b + 3] / angleScale, fraction);
+    out.roll = (data[a + 4] + (data[b + 4] - data[a + 4]) * fraction) / angleScale;
+    out.pitch = (data[a + 5] + (data[b + 5] - data[a + 5]) * fraction) / angleScale;
+    return out;
+  }
+}
+
 class ReplayRecorder {
   constructor(seed, fixedHz = 60) {
     this.seed = seed >>> 0;
@@ -9452,11 +9626,50 @@ class ReplayRecorder {
     this.lastInput = null;
     this.lastInputTick = -Infinity;
     this.metadata = {};
+    this.ghostSegments = [];
   }
 
   markRound(tick, round, seed = this.seed) {
     if (!this.enabled) return;
     this.rounds.push({ tick, round, seed: seed >>> 0 });
+    // Un segment de trace par manche : les yoles repartent de la grille.
+    this.ghostSegments.push({ round, fromTick: tick, firstTick: -1, data: [] });
+  }
+
+  /**
+   * Échantillonne la pose du joueur. Lecture seule sur `pose` : aucun état de
+   * simulation n'est touché, donc rien ne bouge dans le checksum.
+   */
+  recordGhostSample(tick, pose) {
+    if (!this.enabled || !pose) return false;
+    const segment = this.ghostSegments[this.ghostSegments.length - 1];
+    if (!segment) return false;
+    if ((tick - segment.fromTick) % GHOST_TRACE_STRIDE !== 0) return false;
+    if (segment.firstTick < 0) segment.firstTick = tick;
+    segment.data.push(
+      ghostQuantize(pose.x, GHOST_POSITION_SCALE),
+      ghostQuantize(pose.y, GHOST_POSITION_SCALE),
+      ghostQuantize(pose.z, GHOST_POSITION_SCALE),
+      ghostQuantize(pose.heading, GHOST_ANGLE_SCALE),
+      ghostQuantize(pose.roll, GHOST_ANGLE_SCALE),
+      ghostQuantize(pose.pitch, GHOST_ANGLE_SCALE)
+    );
+    return true;
+  }
+
+  ghostTrace() {
+    const segments = this.ghostSegments
+      .filter((segment) => segment.data.length > 0 && segment.firstTick >= 0)
+      .map(({ round, fromTick, firstTick, data }) => ({ round, fromTick, firstTick, data: data.slice() }));
+    if (!segments.length) return null;
+    return {
+      version: GHOST_TRACE_VERSION,
+      stride: GHOST_TRACE_STRIDE,
+      positionScale: GHOST_POSITION_SCALE,
+      angleScale: GHOST_ANGLE_SCALE,
+      fields: GHOST_TRACE_FIELDS,
+      segments
+    };
   }
 
   recordEvent(tick, type, payload = {}) {
@@ -9538,7 +9751,9 @@ class ReplayRecorder {
       rounds: this.rounds,
       inputs: this.inputs,
       checkpoints: this.checkpoints,
-      events: this.events
+      events: this.events,
+      // Trace fantôme : optionnelle, hors checksum, ignorée par isReplayCompatible.
+      ghost: this.ghostTrace()
     };
   }
 }
@@ -20012,6 +20227,122 @@ class CrewClipLibrary {
   }
 }
 
+// ---- src/render/ghost-visual.js ----
+// Fantôme : la silhouette translucide d'une yole, pilotée par une trace de
+// replay et non par la simulation.
+//
+// Volontairement PAUVRE : une coque, une voile en deux triangles, un mât et une
+// balise. À la distance de jeu, c'est la silhouette qui se lit, pas le détail —
+// et le fantôme ne doit jamais se confondre avec une rivale réelle. Il partage
+// la géométrie de coque livrée (GLB ou procédurale) pour rester une yole, et
+// rien d'autre : pas d'équipage, pas de sillage, pas d'écume, aucune lecture de
+// la mer. Aucun draw call n'est payé tant qu'aucune trace n'est armée.
+
+
+const GHOST_DEFAULT_COLOR = 0x9df6ff;
+const GHOST_HULL_OPACITY = 0.30;
+const GHOST_SAIL_OPACITY = 0.20;
+const GHOST_BEACON_HEIGHT = 7.1;
+
+function makeGhostSailGeometry(THREE) {
+  // Mât à z = 0,5 comme la yole réelle ; pied de 3,65 m vers l'arrière, têtière
+  // de 1,31 m — les proportions mesurées de la voile, sans son creux.
+  const positions = new Float32Array([
+    0, 0.9, 0.5,
+    0, 0.9, 0.5 - 3.65,
+    0, 6.1, 0.5 - 1.31,
+    0, 6.1, 0.5
+  ]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.computeVertexNormals?.();
+  return geometry;
+}
+
+class GhostVisual {
+  constructor(THREE, assets = null, color = GHOST_DEFAULT_COLOR) {
+    this.THREE = THREE;
+    this.root = new THREE.Group();
+    this.root.name = "ghost-yole";
+    this.root.visible = false;
+    this.tiltRoot = new THREE.Group();
+    this.root.add(this.tiltRoot);
+
+    this.hullFromAsset = Boolean(assets?.has?.("hull"));
+    const hullGeometry = (this.hullFromAsset ? assets.get("hull") : null) ?? makeHullGeometry(THREE);
+    this.material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: GHOST_HULL_OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.sailMaterial = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: GHOST_SAIL_OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.hull = new THREE.Mesh(hullGeometry, this.material);
+    this.hull.scale.x = HULL_VISUAL_WIDTH_SCALE;
+    this.hull.castShadow = false;
+    this.hull.receiveShadow = false;
+    this.sailGeometry = makeGhostSailGeometry(THREE);
+    this.sail = new THREE.Mesh(this.sailGeometry, this.sailMaterial);
+    this.mastGeometry = new THREE.CylinderGeometry(0.06, 0.08, 6.2, 6);
+    this.mast = new THREE.Mesh(this.mastGeometry, this.material);
+    this.mast.position.set(0, 3.05, 0.5);
+    this.beaconGeometry = new THREE.TorusGeometry(0.42, 0.06, 6, 18);
+    this.beaconMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false });
+    this.beacon = new THREE.Mesh(this.beaconGeometry, this.beaconMaterial);
+    this.beacon.rotation.x = Math.PI / 2;
+    this.beacon.position.y = GHOST_BEACON_HEIGHT;
+    // Une yole translucide se dessine APRÈS l'eau et les coques opaques, sinon
+    // l'océan la recouvre à moitié selon l'ordre de soumission.
+    for (const mesh of [this.hull, this.sail, this.mast, this.beacon]) mesh.renderOrder = 8;
+    this.tiltRoot.add(this.hull, this.sail, this.mast);
+    this.root.add(this.beacon);
+  }
+
+  /** Même convention que YoleVisual : cap sur la racine, gîte inversée et tangage sur le groupe incliné. */
+  setPose(pose, time = 0) {
+    if (!pose) return false;
+    this.root.position.set(pose.x, pose.y, pose.z);
+    this.root.rotation.y = pose.heading;
+    this.tiltRoot.rotation.z = -pose.roll;
+    this.tiltRoot.rotation.x = pose.pitch;
+    this.beacon.position.y = GHOST_BEACON_HEIGHT + Math.sin(time * 2.4) * 0.12;
+    this.beacon.rotation.z = time * 0.8;
+    return true;
+  }
+
+  setVisible(visible) {
+    this.root.visible = Boolean(visible);
+    return this.root.visible;
+  }
+
+  setColor(color) {
+    this.material.color?.set?.(color);
+    this.sailMaterial.color?.set?.(color);
+    this.beaconMaterial.color?.set?.(color);
+  }
+
+  dispose() {
+    this.root.parent?.remove?.(this.root);
+    // La coque venue des assets est partagée avec les quatre yoles : on ne la
+    // libère pas. Tout le reste appartient au fantôme.
+    if (!this.hullFromAsset) this.hull.geometry?.dispose?.();
+    this.sailGeometry.dispose?.();
+    this.mastGeometry.dispose?.();
+    this.beaconGeometry.dispose?.();
+    this.material.dispose?.();
+    this.sailMaterial.dispose?.();
+    this.beaconMaterial.dispose?.();
+  }
+}
+
 // ---- src/game/balance.js ----
 // Réglage central du jeu : constantes d'équilibrage, identités des yoles, étapes
 // du Tour et petits utilitaires partagés.
@@ -21224,6 +21555,49 @@ function removeReplayFromVault(vault, id) {
   try { return Boolean(vault.remove?.(id)); } catch { return false; }
 }
 
+// Import d'un replay reçu d'un ami : même graine, son fantôme court à côté du
+// joueur (voir game/ghost.js). Deux mégaoctets couvrent largement la plus
+// longue étape du Tour avec sa trace ; au-delà, ce n'est pas un replay.
+const REPLAY_IMPORT_LIMIT_BYTES = 2 * 1024 * 1024;
+
+const REPLAY_IMPORT_STATUS = Object.freeze({
+  imported: "Replay importé · s'il partage la graine d'une course, son fantôme apparaîtra.",
+  imported_no_ghost: "Replay importé · lisible, mais sans trace de fantôme (ancienne version).",
+  incompatible: "Fichier refusé · replay d'une autre version du jeu.",
+  invalid: "Fichier illisible · ce n'est pas un replay YOLE.",
+  too_large: "Fichier trop lourd pour la replayothèque.",
+  storage: "Import impossible : stockage local indisponible."
+});
+
+function importReplayText(vault, text) {
+  let replay = null;
+  try {
+    replay = JSON.parse(String(text));
+  } catch {
+    return "invalid";
+  }
+  if (!replay || typeof replay !== "object" || Array.isArray(replay)) return "invalid";
+  let compatible = false;
+  try { compatible = isReplayCompatible(replay); } catch { compatible = false; }
+  if (!compatible) return "incompatible";
+  const metadata = safeObject(replay.metadata);
+  const saved = vault?.save?.(replay, { ...metadata, imported: true });
+  if (!saved) return "storage";
+  return normalizeGhostTrace(replay.ghost) ? "imported" : "imported_no_ghost";
+}
+
+async function importReplayFile(vault, file) {
+  if (!file || typeof file.text !== "function") return "invalid";
+  if (Number.isFinite(file.size) && file.size > REPLAY_IMPORT_LIMIT_BYTES) return "too_large";
+  let text = "";
+  try {
+    text = await file.text();
+  } catch {
+    return "invalid";
+  }
+  return importReplayText(vault, text);
+}
+
 function createElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -21376,7 +21750,7 @@ function buildLibrary() {
   const lead = createElement(
     "p",
     "",
-    "Relis exactement une course compatible ou garde son fichier JSON."
+    "Relis exactement une course compatible, garde son fichier JSON, ou importe celui d'un ami : même graine, son fantôme court à côté de toi."
   );
   lead.id = "replayLibraryLead";
   heading.append(eyebrow, title, lead);
@@ -21417,10 +21791,29 @@ function buildLibrary() {
     renderLibrary();
     setStatus("Tous les replays ont été effacés.");
   });
+  const importButton = createElement("button", "secondary replay-library__import", "IMPORTER UN FICHIER");
+  importButton.id = "replayLibraryImport";
+  importButton.type = "button";
+  const importInput = createElement("input", "replay-library__file");
+  importInput.type = "file";
+  importInput.accept = "application/json,.json";
+  importInput.hidden = true;
+  importInput.tabIndex = -1;
+  importInput.setAttribute("aria-hidden", "true");
+  importButton.addEventListener("click", () => importInput.click?.());
+  importInput.addEventListener("change", async () => {
+    const file = importInput.files?.[0];
+    importInput.value = "";
+    if (!file) return;
+    setStatus("Lecture du fichier…");
+    const outcome = await importReplayFile(resolveVault(), file);
+    renderLibrary();
+    setStatus(REPLAY_IMPORT_STATUS[outcome] ?? REPLAY_IMPORT_STATUS.invalid);
+  });
   const done = createElement("button", "primary", "FERMER");
   done.type = "button";
   done.addEventListener("click", closeReplayLibrary);
-  footerActions.append(clear, done);
+  footerActions.append(importButton, importInput, clear, done);
   footer.append(status, footerActions);
 
   shell.append(header, content, footer);
@@ -22497,6 +22890,785 @@ const GrowthSystems = {
       stage: result.stage
     }, this.time ?? 0);
     return outcome;
+  }
+};
+
+// ---- src/game/playtest-report.js ----
+// Rapport de playtest : ce qu'une session a RÉELLEMENT produit, agrégé pour les
+// portes Go/No-Go du MASTER_PLAN, et livrable par le testeur d'un seul geste.
+//
+// Pourquoi ce module existe. La télémétrie locale (`core/telemetry.js`) est
+// remise à zéro à chaque `startMatch()` et ne quitte jamais l'appareil : les
+// portes du plan initial — 70 % de premières contre-gîtes réussies, 50 % de
+// secondes manches, manche < 75 s, replay vu, défi partagé — n'étaient donc
+// mesurables nulle part. Ce module observe le flux de télémétrie pour TOUTE la
+// session, réduit chaque événement dans un état borné, et produit un JSON sans
+// donnée personnelle que le joueur partage lui-même (feuille de partage,
+// presse-papiers ou téléchargement).
+//
+// ⚠️ TOUT ICI EST HORS SIMULATION. Rien n'entre dans le checksum, rien n'est lu
+// par la boucle fixe, aucun tirage aléatoire. Le module est pur (aucun accès
+// implicite au DOM) pour rester testable en Node et embarquable tel quel dans
+// le monofichier — d'où des noms de haut niveau tous préfixés `playtest*`.
+
+const PLAYTEST_REPORT_VERSION = 1;
+const PLAYTEST_REPORT_KIND = "yole-bwa-brawl-playtest-report";
+
+// Portes du MASTER_PLAN (§12 « Go/No-Go ») et de la ROADMAP (M4), reprises
+// telles quelles. `direction: "min"` veut dire « au moins », `"max"` « au plus ».
+// Les deux portes marquées `indicative` n'avaient pas de seuil chiffré dans le
+// plan : le seuil proposé sert de repère, pas de couperet.
+const PLAYTEST_GATES = Object.freeze({
+  firstShiftSuccess: Object.freeze({ label: "Première contre-gîte réussie", threshold: 0.70, direction: "min", unit: "taux" }),
+  secondRound: Object.freeze({ label: "Seconde manche lancée", threshold: 0.50, direction: "min", unit: "taux" }),
+  roundMedianSeconds: Object.freeze({ label: "Durée médiane d'une manche", threshold: 75, direction: "max", unit: "s" }),
+  takedownUnderstood: Object.freeze({ label: "Au moins un takedown", threshold: 0.50, direction: "min", unit: "taux", indicative: true }),
+  weaponDominance: Object.freeze({ label: "Part des éliminations par arme", threshold: 0.65, direction: "max", unit: "taux", indicative: true }),
+  replayViewed: Object.freeze({ label: "Replay regardé", threshold: 0.20, direction: "min", unit: "taux" }),
+  shared: Object.freeze({ label: "Défi partagé", threshold: 0.05, direction: "min", unit: "taux" }),
+  frameP50Ms: Object.freeze({ label: "Intervalle médian entre images", threshold: 20, direction: "max", unit: "ms" })
+});
+
+// Budget d'événements bruts conservés en queue de rapport. Les portes ne
+// dépendent PAS de cette liste : elles sont réduites au fil de l'eau, donc
+// perdre les événements les plus anciens n'efface jamais une première
+// contre-gîte ou une initiation.
+const PLAYTEST_EVENT_TAIL = 400;
+
+const PLAYTEST_ROUND_SAMPLES = 64;
+const PLAYTEST_TIER_SAMPLES = 32;
+const PLAYTEST_USER_AGENT_LIMIT = 160;
+
+function playtestRound3(value) {
+  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0;
+}
+
+function playtestFinitePayload(payload) {
+  const clean = {};
+  for (const [key, value] of Object.entries(payload || {})) {
+    if (typeof value === "number") clean[key] = Number.isFinite(value) ? playtestRound3(value) : 0;
+    else if (typeof value === "string") clean[key] = value.slice(0, 80);
+    else if (typeof value === "boolean" || value === null) clean[key] = value;
+  }
+  return clean;
+}
+
+function playtestMedian(values) {
+  const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/**
+ * Classe une raison d'élimination (libellé FR affiché au joueur) dans une
+ * famille stable. Les libellés changent avec le ton du jeu ; les familles, non.
+ */
+function playtestEliminationFamily(reason = "") {
+  const text = String(reason).toLocaleUpperCase("fr");
+  if (/BRUME|GRAIN|ENSEVELI|SABLE/.test(text)) return "storm";
+  if (/CHAVIR/.test(text)) return "capsize";
+  if (/CHRONO|HORS TEMPS/.test(text)) return "timer";
+  if (/COUL|DÉTRUIT|DETRUIT|EXPLOS|COQUE|STRUCTURE|NOY|ÉQUIPAGE|EQUIPAGE/.test(text)) return "weapon";
+  return "other";
+}
+
+function createPlaytestState() {
+  return {
+    matches: 0,
+    matchesByMode: { combat: 0, tour: 0, versus: 0, training: 0, challenge: 0, daily: 0, replay: 0 },
+    matchesEnded: 0,
+    matchesWon: 0,
+    rounds: 0,
+    roundsInCurrentMatch: 0,
+    maxRoundsInMatch: 0,
+    roundSeconds: [],
+    shiftAttempts: 0,
+    shiftSuccesses: 0,
+    firstShiftSuccessAtMs: null,
+    shiftsBeforeFirstSuccess: null,
+    training: { reason: null, elapsed: null, atMs: null },
+    playerTakedowns: 0,
+    playerHits: 0,
+    playerEliminations: { storm: 0, capsize: 0, timer: 0, weapon: 0, other: 0 },
+    eliminations: { storm: 0, capsize: 0, timer: 0, weapon: 0, other: 0 },
+    weaponsUsed: {},
+    pickups: 0,
+    boosts: 0,
+    replayViews: 0,
+    challengeShares: 0,
+    challengeShareAttempts: 0,
+    challengesStarted: 0,
+    dailyStarted: 0,
+    ghostArmed: 0,
+    installPromptShown: 0,
+    installAccepted: 0,
+    quality: { tiers: [], min: null, max: null, final: null, manual: false },
+    firstMatchAtMs: null,
+    lastEventAtMs: 0
+  };
+}
+
+/**
+ * Réducteur pur : applique un événement de télémétrie à l'état de session.
+ * `atMs` est le temps écoulé depuis le début de la session, en millisecondes.
+ */
+function playtestApplyEvent(state, type, payload = {}, atMs = 0) {
+  if (!state || !type) return state;
+  const data = payload || {};
+  state.lastEventAtMs = Math.max(state.lastEventAtMs, atMs | 0);
+  switch (type) {
+    case "match_start": {
+      state.matches++;
+      state.roundsInCurrentMatch = 0;
+      if (state.firstMatchAtMs === null) state.firstMatchAtMs = atMs | 0;
+      if (data.replay) state.matchesByMode.replay++;
+      else if (data.versus) state.matchesByMode.versus++;
+      else if (data.tour) state.matchesByMode.tour++;
+      else state.matchesByMode.combat++;
+      if (data.training) state.matchesByMode.training++;
+      if (data.challenge) state.matchesByMode.challenge++;
+      if (data.daily) state.matchesByMode.daily++;
+      break;
+    }
+    case "round_start":
+    case "tour_stage_start": {
+      state.rounds++;
+      state.roundsInCurrentMatch++;
+      state.maxRoundsInMatch = Math.max(state.maxRoundsInMatch, state.roundsInCurrentMatch);
+      break;
+    }
+    case "round_end":
+    case "tour_stage_end": {
+      if (Number.isFinite(data.seconds) && data.seconds >= 0) {
+        state.roundSeconds.push(playtestRound3(data.seconds));
+        if (state.roundSeconds.length > PLAYTEST_ROUND_SAMPLES) state.roundSeconds.shift();
+      }
+      break;
+    }
+    case "match_end": {
+      state.matchesEnded++;
+      if (data.playerWon === true) state.matchesWon++;
+      break;
+    }
+    case "bwa_shift": {
+      // Seul le joueur compte : la Mêlée locale étiquette J2 avec `boat`.
+      if (Number.isInteger(data.boat) && data.boat !== 0) break;
+      state.shiftAttempts++;
+      if (data.critical === true) {
+        state.shiftSuccesses++;
+        if (state.firstShiftSuccessAtMs === null) {
+          state.firstShiftSuccessAtMs = atMs | 0;
+          state.shiftsBeforeFirstSuccess = state.shiftAttempts - 1;
+        }
+      }
+      break;
+    }
+    case "first_run_training_unlock": {
+      state.training = {
+        reason: typeof data.reason === "string" ? data.reason : "unknown",
+        elapsed: Number.isFinite(data.elapsed) ? playtestRound3(data.elapsed) : null,
+        atMs: atMs | 0
+      };
+      break;
+    }
+    case "takedown": {
+      if (data.attacker === 0) state.playerTakedowns++;
+      break;
+    }
+    case "player_hit": {
+      state.playerHits++;
+      break;
+    }
+    case "elimination": {
+      const family = playtestEliminationFamily(data.reason);
+      state.eliminations[family]++;
+      if (data.boat === 0) state.playerEliminations[family]++;
+      break;
+    }
+    case "pickup": state.pickups++; break;
+    case "boost_forward":
+    case "boost_lateral": state.boosts++; break;
+    case "replay_started": state.replayViews++; break;
+    case "challenge_shared":
+    case "challenge_copied": state.challengeShares++; state.challengeShareAttempts++; break;
+    case "challenge_cancelled":
+    case "challenge_unavailable": state.challengeShareAttempts++; break;
+    case "challenge_started": state.challengesStarted++; break;
+    case "daily_challenge_started": state.dailyStarted++; break;
+    case "ghost_armed": state.ghostArmed++; break;
+    case "install_prompt_shown": state.installPromptShown++; break;
+    case "install_prompt_accepted": state.installAccepted++; break;
+    case "quality_tier": {
+      if (!Number.isInteger(data.tier)) break;
+      const quality = state.quality;
+      quality.tiers.push(data.tier);
+      if (quality.tiers.length > PLAYTEST_TIER_SAMPLES) quality.tiers.shift();
+      quality.min = quality.min === null ? data.tier : Math.min(quality.min, data.tier);
+      quality.max = quality.max === null ? data.tier : Math.max(quality.max, data.tier);
+      quality.final = data.tier;
+      quality.manual = data.manual === true;
+      break;
+    }
+    default: {
+      if (type.startsWith("weapon_")) {
+        const weapon = type.slice("weapon_".length);
+        state.weaponsUsed[weapon] = (state.weaponsUsed[weapon] || 0) + 1;
+      }
+    }
+  }
+  return state;
+}
+
+/** Les portes Go/No-Go d'UNE session. L'agrégation entre testeurs se fait dans tools/playtest_aggregate.mjs. */
+function computeSessionGates(state, frames = null) {
+  const eliminated = Object.values(state.eliminations).reduce((sum, count) => sum + count, 0);
+  const weaponShare = eliminated > 0
+    ? (state.eliminations.weapon + state.eliminations.other) / eliminated
+    : null;
+  return {
+    firstShiftSuccess: {
+      value: state.firstShiftSuccessAtMs !== null,
+      secondsToFirst: state.firstShiftSuccessAtMs !== null ? playtestRound3(state.firstShiftSuccessAtMs / 1000) : null,
+      attemptsBefore: state.shiftsBeforeFirstSuccess,
+      attempts: state.shiftAttempts,
+      successes: state.shiftSuccesses
+    },
+    secondRound: {
+      value: state.maxRoundsInMatch >= 2 || state.matches >= 2,
+      rounds: state.rounds,
+      matches: state.matches,
+      rematch: state.matches >= 2
+    },
+    roundMedianSeconds: {
+      value: playtestMedian(state.roundSeconds),
+      samples: state.roundSeconds.length,
+      max: state.roundSeconds.length ? Math.max(...state.roundSeconds) : null
+    },
+    takedownUnderstood: {
+      value: state.playerTakedowns >= 1,
+      takedowns: state.playerTakedowns
+    },
+    weaponDominance: {
+      value: weaponShare === null ? null : playtestRound3(weaponShare),
+      eliminations: { ...state.eliminations },
+      playerEliminations: { ...state.playerEliminations }
+    },
+    replayViewed: { value: state.replayViews >= 1, views: state.replayViews },
+    shared: { value: state.challengeShares >= 1, shares: state.challengeShares, attempts: state.challengeShareAttempts },
+    frameP50Ms: {
+      value: frames?.interval?.p50 ?? null,
+      p95: frames?.interval?.p95 ?? null,
+      workP50: frames?.work?.p50 ?? null,
+      longFrameRate: frames?.longFrameRate ?? null
+    },
+    training: { ...state.training },
+    outcome: {
+      matchesEnded: state.matchesEnded,
+      matchesWon: state.matchesWon,
+      quality: { ...state.quality, tiers: undefined }
+    }
+  };
+}
+
+/** Verdict d'une porte pour une valeur agrégée (taux ou mesure). `null` = pas de donnée. */
+function playtestGateVerdict(gateKey, value) {
+  const gate = PLAYTEST_GATES[gateKey];
+  if (!gate || value === null || value === undefined || !Number.isFinite(value)) return null;
+  return gate.direction === "max" ? value <= gate.threshold : value >= gate.threshold;
+}
+
+/**
+ * Histogramme d'images à mémoire constante : intervalle entre deux images et
+ * temps de travail de `frame()`. Les percentiles sortent en bornes hautes de
+ * classe, ce qui suffit pour distinguer 16, 33 et 100 ms.
+ */
+class FrameSampler {
+  constructor(bucketMs = 2, buckets = 96) {
+    this.bucketMs = Math.max(0.5, Number(bucketMs) || 2);
+    this.buckets = Math.max(8, buckets | 0);
+    this.interval = new Uint32Array(this.buckets);
+    this.work = new Uint32Array(this.buckets);
+    this.reset();
+  }
+
+  reset() {
+    this.interval.fill(0);
+    this.work.fill(0);
+    this.count = 0;
+    this.intervalSum = 0;
+    this.workSum = 0;
+    this.intervalMax = 0;
+    this.workMax = 0;
+    this.longFrames = 0;
+  }
+
+  bucketOf(ms) {
+    return Math.min(this.buckets - 1, Math.max(0, Math.floor(ms / this.bucketMs)));
+  }
+
+  add(intervalMs, workMs = intervalMs) {
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) return false;
+    const work = Number.isFinite(workMs) && workMs >= 0 ? workMs : intervalMs;
+    this.interval[this.bucketOf(intervalMs)]++;
+    this.work[this.bucketOf(work)]++;
+    this.count++;
+    this.intervalSum += intervalMs;
+    this.workSum += work;
+    this.intervalMax = Math.max(this.intervalMax, intervalMs);
+    this.workMax = Math.max(this.workMax, work);
+    if (intervalMs > 50) this.longFrames++;
+    return true;
+  }
+
+  percentile(histogram, fraction) {
+    if (!this.count) return null;
+    const target = Math.max(1, Math.ceil(this.count * fraction));
+    let seen = 0;
+    for (let index = 0; index < histogram.length; index++) {
+      seen += histogram[index];
+      if (seen >= target) return (index + 1) * this.bucketMs;
+    }
+    return this.buckets * this.bucketMs;
+  }
+
+  stats() {
+    if (!this.count) return { frames: 0, interval: null, work: null, longFrames: 0, longFrameRate: null };
+    return {
+      frames: this.count,
+      interval: {
+        p50: this.percentile(this.interval, 0.5),
+        p95: this.percentile(this.interval, 0.95),
+        mean: playtestRound3(this.intervalSum / this.count),
+        max: playtestRound3(this.intervalMax)
+      },
+      work: {
+        p50: this.percentile(this.work, 0.5),
+        p95: this.percentile(this.work, 0.95),
+        mean: playtestRound3(this.workSum / this.count),
+        max: playtestRound3(this.workMax)
+      },
+      longFrames: this.longFrames,
+      longFrameRate: playtestRound3(this.longFrames / this.count)
+    };
+  }
+}
+
+/**
+ * Journal de session : survit à `telemetry.clear()`, réduit chaque événement
+ * dans l'état des portes et garde une queue bornée d'événements bruts.
+ */
+class PlaytestJournal {
+  constructor({ now = () => Date.now(), tail = PLAYTEST_EVENT_TAIL } = {}) {
+    this.now = typeof now === "function" ? now : () => Date.now();
+    this.tail = Math.max(20, tail | 0);
+    this.startedAt = this.now();
+    this.state = createPlaytestState();
+    this.events = [];
+    this.dropped = 0;
+    this.total = 0;
+  }
+
+  get elapsedMs() {
+    return Math.max(0, Math.round(this.now() - this.startedAt));
+  }
+
+  observe(type, payload = {}, gameTime = 0) {
+    if (!type) return false;
+    const atMs = this.elapsedMs;
+    const clean = playtestFinitePayload(payload);
+    playtestApplyEvent(this.state, String(type), clean, atMs);
+    this.events.push({ at: atMs, type: String(type), payload: clean, gameTime: playtestRound3(gameTime) });
+    this.total++;
+    if (this.events.length > this.tail) {
+      this.events.splice(0, this.events.length - this.tail);
+      this.dropped++;
+    }
+    return true;
+  }
+
+  snapshot() {
+    return {
+      startedAt: new Date(this.startedAt).toISOString(),
+      elapsedMs: this.elapsedMs,
+      total: this.total,
+      dropped: this.dropped,
+      state: JSON.parse(JSON.stringify(this.state)),
+      events: this.events.slice()
+    };
+  }
+}
+
+/**
+ * Profil d'appareil sans identifiant : de quoi répondre à « sur quoi ça a tourné ? »
+ * sans jamais répondre à « qui ? ». Chaque lecture est gardée : en Node ou dans
+ * un harnais, tout peut manquer.
+ */
+function describeDevice({
+  navigatorObject = globalThis.navigator,
+  windowObject = globalThis,
+  renderer = null
+} = {}) {
+  const device = {
+    userAgent: typeof navigatorObject?.userAgent === "string" ? navigatorObject.userAgent.slice(0, PLAYTEST_USER_AGENT_LIMIT) : null,
+    language: typeof navigatorObject?.language === "string" ? navigatorObject.language.slice(0, 12) : null,
+    hardwareConcurrency: Number.isFinite(navigatorObject?.hardwareConcurrency) ? navigatorObject.hardwareConcurrency : null,
+    deviceMemoryGb: Number.isFinite(navigatorObject?.deviceMemory) ? navigatorObject.deviceMemory : null,
+    touchPoints: Number.isFinite(navigatorObject?.maxTouchPoints) ? navigatorObject.maxTouchPoints : null,
+    coarsePointer: null,
+    standalone: null,
+    devicePixelRatio: Number.isFinite(windowObject?.devicePixelRatio) ? playtestRound3(windowObject.devicePixelRatio) : null,
+    viewport: Number.isFinite(windowObject?.innerWidth) && Number.isFinite(windowObject?.innerHeight)
+      ? [windowObject.innerWidth | 0, windowObject.innerHeight | 0]
+      : null,
+    gpu: null,
+    webgl2: null
+  };
+  try {
+    if (typeof windowObject?.matchMedia === "function") {
+      device.coarsePointer = Boolean(windowObject.matchMedia("(pointer:coarse)")?.matches);
+      device.standalone = Boolean(windowObject.matchMedia("(display-mode: standalone)")?.matches)
+        || navigatorObject?.standalone === true;
+    }
+  } catch { /* matchMedia absent ou refusé */ }
+  try {
+    const context = renderer?.getContext?.();
+    if (context) {
+      device.webgl2 = typeof globalThis.WebGL2RenderingContext === "function"
+        ? context instanceof globalThis.WebGL2RenderingContext
+        : null;
+      const info = context.getExtension?.("WEBGL_debug_renderer_info");
+      const unmasked = info ? context.getParameter?.(info.UNMASKED_RENDERER_WEBGL) : null;
+      if (typeof unmasked === "string") device.gpu = unmasked.slice(0, 120);
+    }
+  } catch { /* contexte perdu ou extension refusée */ }
+  return device;
+}
+
+/** Assemble le rapport complet. Tous les blocs sont optionnels : un harnais peut n'en fournir qu'un. */
+function buildPlaytestReport({
+  journal,
+  frames = null,
+  device = null,
+  quality = null,
+  build = null,
+  settings = null,
+  now = new Date()
+} = {}) {
+  const snapshot = journal?.snapshot?.() ?? { state: createPlaytestState(), events: [], total: 0, dropped: 0, elapsedMs: 0, startedAt: null };
+  const frameStats = typeof frames?.stats === "function" ? frames.stats() : frames;
+  const safeSettings = settings && typeof settings === "object"
+    ? Object.fromEntries(
+      ["quality", "qualityAuto", "aiLevel", "leftHanded", "haptics", "impact", "reduceFlash", "cameraRoll", "cameraZoom", "ghost", "trainingCompleted"]
+        .filter((key) => key in settings)
+        .map((key) => [key, settings[key]])
+    )
+    : null;
+  if (safeSettings && Array.isArray(settings?.loadout)) safeSettings.loadout = settings.loadout.slice(0, 2).map(String);
+  return {
+    kind: PLAYTEST_REPORT_KIND,
+    version: PLAYTEST_REPORT_VERSION,
+    createdAt: (now instanceof Date ? now : new Date(now)).toISOString(),
+    sessionStartedAt: snapshot.startedAt,
+    sessionSeconds: playtestRound3((snapshot.elapsedMs || 0) / 1000),
+    build: build && typeof build === "object" ? { ...build } : null,
+    device,
+    quality: quality && typeof quality === "object" ? { ...quality } : null,
+    frames: frameStats,
+    gates: computeSessionGates(snapshot.state, frameStats),
+    state: snapshot.state,
+    settings: safeSettings,
+    eventsTotal: snapshot.total,
+    eventsDropped: snapshot.dropped,
+    events: snapshot.events
+  };
+}
+
+/** Le même rapport sans la queue d'événements : tient dans un message ou un presse-papiers. */
+function compactPlaytestReport(report) {
+  if (!report || typeof report !== "object") return null;
+  const { events, ...compact } = report;
+  return { ...compact, eventsOmitted: Array.isArray(events) ? events.length : 0 };
+}
+
+function playtestReportFilename(report) {
+  const stamp = String(report?.createdAt || new Date().toISOString())
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+Z$/, "")
+    .replace("T", "-")
+    .slice(0, 15);
+  const tier = report?.quality?.label ? `-${String(report.quality.label).toLowerCase()}` : "";
+  return `yole-playtest-${stamp}${tier}.json`;
+}
+
+function playtestPercent(value) {
+  return Number.isFinite(value) ? `${Math.round(value * 100)} %` : "—";
+}
+
+/** Résumé lisible par l'organisateur du test, en une dizaine de lignes. */
+function summarizePlaytestReport(report) {
+  const gates = report?.gates ?? {};
+  const state = report?.state ?? createPlaytestState();
+  const frames = report?.frames;
+  const lines = [
+    "YOLE: BWA BRAWL — rapport de playtest",
+    `Session ${Math.round((report?.sessionSeconds ?? 0) / 60)} min · ${state.matches} partie(s) · ${state.rounds} manche(s)`,
+    `Première contre-gîte réussie : ${gates.firstShiftSuccess?.value ? `oui, après ${gates.firstShiftSuccess.secondsToFirst ?? "?"} s et ${gates.firstShiftSuccess.attemptsBefore ?? "?"} essai(s)` : "non"}`,
+    `Initiation : ${gates.training?.reason ?? "non déclenchée"}${Number.isFinite(gates.training?.elapsed) ? ` en ${Math.round(gates.training.elapsed)} s` : ""}`,
+    `Seconde manche : ${gates.secondRound?.value ? "oui" : "non"} · revanche : ${gates.secondRound?.rematch ? "oui" : "non"}`,
+    `Durée médiane d'une manche : ${Number.isFinite(gates.roundMedianSeconds?.value) ? `${Math.round(gates.roundMedianSeconds.value)} s` : "—"}`,
+    `Takedowns du joueur : ${state.playerTakedowns} · victoires : ${state.matchesWon}/${state.matchesEnded}`,
+    `Éliminations par arme : ${playtestPercent(gates.weaponDominance?.value)}`,
+    `Replay vu : ${gates.replayViewed?.value ? "oui" : "non"} · défi partagé : ${gates.shared?.value ? "oui" : "non"}`,
+    `Images : p50 ${frames?.interval?.p50 ?? "—"} ms · p95 ${frames?.interval?.p95 ?? "—"} ms · palier ${report?.quality?.label ?? "—"}${report?.quality?.manual ? " (manuel)" : ""}`,
+    `Appareil : ${report?.device?.gpu ?? "GPU inconnu"} · ${report?.device?.viewport ? report.device.viewport.join("×") : "?"} @${report?.device?.devicePixelRatio ?? "?"}${report?.device?.coarsePointer ? " · tactile" : ""}`
+  ];
+  return lines.join("\n");
+}
+
+/**
+ * Livre le rapport par le meilleur canal disponible, dans cet ordre : fichier
+ * via la feuille de partage (téléphone), texte via la feuille de partage,
+ * presse-papiers, téléchargement. Chaque étape est opt-in : rien ne part sans
+ * le geste du joueur qui a appelé cette fonction.
+ */
+async function deliverPlaytestReport(report, {
+  navigatorObject = globalThis.navigator,
+  clipboard = globalThis.navigator?.clipboard,
+  documentObject = globalThis.document,
+  urlObject = globalThis.URL,
+  BlobConstructor = globalThis.Blob,
+  FileConstructor = globalThis.File,
+  filename = playtestReportFilename(report)
+} = {}) {
+  if (!report) return "unavailable";
+  const fullJson = JSON.stringify(report);
+  const compactJson = JSON.stringify(compactPlaytestReport(report));
+  const summary = summarizePlaytestReport(report);
+
+  if (typeof FileConstructor === "function" && typeof navigatorObject?.canShare === "function" && typeof navigatorObject?.share === "function") {
+    try {
+      const file = new FileConstructor([fullJson], filename, { type: "application/json" });
+      if (navigatorObject.canShare({ files: [file] })) {
+        await navigatorObject.share({ files: [file], title: "Rapport de playtest YOLE", text: summary });
+        return "shared_file";
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return "cancelled";
+    }
+  }
+  if (typeof navigatorObject?.share === "function") {
+    try {
+      await navigatorObject.share({ title: "Rapport de playtest YOLE", text: `${summary}\n\n${compactJson}` });
+      return "shared_text";
+    } catch (error) {
+      if (error?.name === "AbortError") return "cancelled";
+    }
+  }
+  if (typeof clipboard?.writeText === "function") {
+    try {
+      await clipboard.writeText(`${summary}\n\n${compactJson}`);
+      return "copied";
+    } catch { /* presse-papiers refusé : on tente le téléchargement */ }
+  }
+  if (typeof BlobConstructor === "function" && typeof urlObject?.createObjectURL === "function" && documentObject?.createElement) {
+    try {
+      const blob = new BlobConstructor([fullJson], { type: "application/json" });
+      const href = urlObject.createObjectURL(blob);
+      const anchor = documentObject.createElement("a");
+      anchor.href = href;
+      anchor.download = filename;
+      anchor.click?.();
+      setTimeout(() => urlObject.revokeObjectURL?.(href), 1000);
+      return "downloaded";
+    } catch { /* téléchargement bloqué */ }
+  }
+  return "unavailable";
+}
+
+/** Libellés d'état après livraison, communs au bouton de fin et à celui de la pause. */
+const PLAYTEST_DELIVERY_STATUS = Object.freeze({
+  shared_file: "Rapport envoyé en fichier · merci, c'est exactement ce qu'il nous faut.",
+  shared_text: "Rapport envoyé en texte · le résumé et les mesures sont partis.",
+  copied: "Rapport copié · colle-le dans le groupe de test ou un mail.",
+  downloaded: "Rapport téléchargé · envoie le fichier .json à l'équipe.",
+  cancelled: "Partage annulé · ton rapport reste prêt.",
+  unavailable: "Partage indisponible ici · utilise TÉLÉMÉTRIE dans les outils avancés."
+});
+
+// ---- src/game/ghost.js ----
+// Fantôme : courir contre sa propre trace — ou celle d'un ami importée dans la
+// replayothèque — sur la même graine, sans serveur.
+//
+// La course se rejoue à l'identique quand la graine est la même : mer, vent,
+// caisses et rivaux au coup d'envoi. Le fantôme est donc une comparaison
+// honnête tant que les trajectoires n'ont pas divergé, et un simple repère
+// ensuite. Il se contente de LIRE la trace embarquée dans le replay
+// (`replay.ghost`, voir sim/replay.js) : aucune seconde simulation, aucun tirage
+// aléatoire, aucune écriture dans l'état de jeu. Il n'existe pas en relecture
+// (il recouvrirait la yole rejouée) ni en Mêlée locale (deux flux humains, un
+// seul fantôme n'aurait pas de sens).
+
+
+
+// Après le GO, on laisse le premier message de manche vivre : l'annonce du
+// fantôme attend une demi-seconde de course.
+const GHOST_ANNOUNCE_TICK = 30;
+const GHOST_GAP_EVEN_METERS = 2.5;
+
+function ghostStageOf(replay) {
+  const stage = replay?.metadata?.tourStage;
+  return Number.isInteger(stage) && stage >= 0 ? stage : null;
+}
+
+/**
+ * Choisit, parmi les entrées du coffre (les plus récentes d'abord), la trace à
+ * courir : même graine, même étape du Tour (ou aucune), replay compatible et
+ * trace valide. La plus récente gagne — c'est « ta dernière course ici ».
+ */
+function selectGhostReplay(entries, { seed, tourStage = null } = {}) {
+  const wantedSeed = seed >>> 0;
+  const wantedStage = Number.isInteger(tourStage) && tourStage >= 0 ? tourStage : null;
+  for (const item of Array.isArray(entries) ? entries : []) {
+    const replay = item && typeof item === "object" && "replay" in item ? item.replay : item;
+    if (!replay || typeof replay !== "object") continue;
+    let compatible = false;
+    try { compatible = isReplayCompatible(replay); } catch { compatible = false; }
+    if (!compatible) continue;
+    if ((replay.seed >>> 0) !== wantedSeed) continue;
+    if (ghostStageOf(replay) !== wantedStage) continue;
+    if (!normalizeGhostTrace(replay.ghost)) continue;
+    return replay;
+  }
+  return null;
+}
+
+/** Libellé de l'écart, du point de vue du joueur. */
+function ghostGapLabel(gapMeters) {
+  const gap = Number.isFinite(gapMeters) ? gapMeters : 0;
+  if (Math.abs(gap) <= GHOST_GAP_EVEN_METERS) return "À TA HAUTEUR";
+  const meters = Math.round(Math.abs(gap));
+  return gap > 0 ? `${meters} M DEVANT` : `${meters} M DERRIÈRE`;
+}
+
+const GhostSystems = {
+  initGhost() {
+    this.ghost = {
+      track: null,
+      replay: null,
+      visual: null,
+      visible: false,
+      announced: false,
+      gap: 0,
+      status: "off",
+      pose: { x: 0, y: 0, z: 0, heading: 0, roll: 0, pitch: 0 }
+    };
+    return this.ghost;
+  },
+
+  ghostEnabled() {
+    return this.settings?.get?.("ghost") !== false;
+  },
+
+  /**
+   * Arme le fantôme pour la partie qui démarre. À appeler quand graine, mode et
+   * étape sont connus, avant la première manche.
+   */
+  armGhost({ tourStage = null } = {}) {
+    if (!this.ghost) this.initGhost();
+    this.disarmGhost();
+    if (this.playback || this.versusLocal || !this.ghostEnabled()) return false;
+    let entries = [];
+    try { entries = this.replayVault?.list?.() ?? []; } catch { entries = []; }
+    const replay = selectGhostReplay(entries, { seed: this.seed, tourStage });
+    if (!replay) return false;
+    try {
+      this.ghost.track = new GhostTrack(replay.ghost);
+    } catch {
+      this.ghost.track = null;
+      return false;
+    }
+    this.ghost.replay = replay;
+    this.ghost.status = "armed";
+    this.telemetry?.track?.("ghost_armed", {
+      seed: this.seed >>> 0,
+      tourStage: Number.isInteger(tourStage) ? tourStage : -1
+    }, 0);
+    return true;
+  },
+
+  disarmGhost() {
+    const ghost = this.ghost;
+    if (!ghost) return false;
+    ghost.track = null;
+    ghost.replay = null;
+    ghost.visible = false;
+    ghost.announced = false;
+    ghost.gap = 0;
+    ghost.status = "off";
+    ghost.visual?.setVisible?.(false);
+    return true;
+  },
+
+  ghostVisual() {
+    if (!this.ghost.visual) {
+      this.ghost.visual = new GhostVisual(this.THREE, this.assets ?? null, GHOST_DEFAULT_COLOR);
+      this.scene?.add?.(this.ghost.visual.root);
+    }
+    return this.ghost.visual;
+  },
+
+  /**
+   * Côté rendu, à chaque image : lit la pose au tick courant de la manche en
+   * cours. Ne touche ni la simulation ni le replay.
+   */
+  updateGhostRender() {
+    const ghost = this.ghost;
+    if (!ghost?.track) return false;
+    const live = this.mode === "playing" && (this.countdown ?? 0) <= 0;
+    const sinceRoundStart = this.tick - (this.roundStartTick ?? 0);
+    const pose = live ? ghost.track.poseAt(this.round, sinceRoundStart, ghost.pose) : null;
+    if (!pose) {
+      if (ghost.visible) {
+        ghost.visible = false;
+        ghost.visual?.setVisible?.(false);
+      }
+      ghost.status = live && sinceRoundStart > 0 ? "gone" : "waiting";
+      return false;
+    }
+    const visual = this.ghostVisual();
+    visual.setPose(pose, this.time);
+    if (!ghost.visible) {
+      visual.setVisible(true);
+      ghost.visible = true;
+    }
+    if (!ghost.announced && sinceRoundStart >= GHOST_ANNOUNCE_TICK) {
+      ghost.announced = true;
+      this.showMessage?.("👻 TON FANTÔME EST SUR L'EAU", 1.3);
+    }
+    const player = this.boats?.[0];
+    ghost.gap = player ? pose.z - player.z : 0;
+    ghost.status = "racing";
+    return true;
+  },
+
+  /** Pastille HUD : présente dès qu'une trace est armée, muette sinon. */
+  updateGhostChip() {
+    const chip = this.ui?.ghostChip;
+    if (!chip) return false;
+    const ghost = this.ghost;
+    const show = Boolean(ghost?.track) && this.mode === "playing";
+    chip.classList?.toggle?.("hidden", !show);
+    if (!show) return false;
+    const value = this.ui.ghostGap;
+    if (value) {
+      value.textContent = ghost.status === "racing"
+        ? ghostGapLabel(ghost.gap)
+        : ghost.status === "gone" ? "HORS COURSE" : "AU DÉPART";
+    }
+    chip.classList?.toggle?.("ghost-ahead", ghost.status === "racing" && ghost.gap > GHOST_GAP_EVEN_METERS);
+    chip.classList?.toggle?.("ghost-behind", ghost.status === "racing" && ghost.gap < -GHOST_GAP_EVEN_METERS);
+    return true;
   }
 };
 
@@ -24258,6 +25430,13 @@ const MatchDirector = {
       boat.finishTick = 0;
     });
     this.replay.markRound(this.tick, this.round, this.seed ^ this.round);
+    // Le fantôme s'aligne sur le début de manche, jamais sur le tick absolu.
+    this.roundStartTick = this.tick;
+    this.telemetry?.track?.("round_start", {
+      round: this.round,
+      tour: Boolean(this.tour),
+      versus: Boolean(this.versusLocal)
+    }, this.time);
     if (announce) {
       this.showMessage(`MANCHE ${this.round}`, 1.1);
       // Le premier départ était le seul à armer réellement le 3-2-1 malgré le
@@ -24487,7 +25666,11 @@ const MatchDirector = {
       finishTicks,
       completedAt: new Date().toISOString()
     });
-    this.telemetry.track("tour_stage_end", { stage: tour.stage, places: places.map((boat) => boat.id) }, this.time);
+    this.telemetry.track("tour_stage_end", {
+      stage: tour.stage,
+      seconds: this.roundTime,
+      places: places.map((boat) => boat.id)
+    }, this.time);
     this.replay.finish(this.dynamicsList(), { tick: this.tick, tourStage: tour.stage, stage: stage.name });
     this.latestReplay = this.replay.export();
     const replayStored = Boolean(this.replayVault.save(this.latestReplay, this.latestReplay.metadata));
@@ -24715,6 +25898,12 @@ const MatchDirector = {
           1.2
         );
       }
+      this.telemetry?.track?.("round_end", {
+        round: this.round,
+        seconds: this.roundTime,
+        reason: "last_standing",
+        playerAlive: Boolean(alive[0]?.isPlayer)
+      }, this.time);
       this.roundEnding = 2.7;
     }
 
@@ -24742,6 +25931,12 @@ const MatchDirector = {
             : `${ordered[0].name} SURVIT AU CHRONO · +2`,
           1.2
         );
+        this.telemetry?.track?.("round_end", {
+          round: this.round,
+          seconds: this.roundTime,
+          reason: "timer",
+          playerAlive: Boolean(ordered[0]?.isPlayer)
+        }, this.time);
         this.roundEnding = 2.7;
       }
     }
@@ -25928,6 +27123,18 @@ const HudSystems = {
     setToggle(this.ui.leftHandedToggle, this.settings.get("leftHanded"), this.settings.get("leftHanded") ? "OUI" : "NON");
     setToggle(this.ui.perfToggle, this.settings.get("showPerf"), this.settings.get("showPerf") ? "VISIBLE" : "MASQUÉ");
     setToggle(this.ui.autoQualityToggle, !this.quality?.manual, !this.quality?.manual ? "ACTIF" : "MANUEL");
+    const tierLabel = ["LQ", "MQ", "HQ"][this.quality?.tier ?? 2] ?? "HQ";
+    setToggle(this.ui.qualityTierToggle, Boolean(this.quality?.manual), this.quality?.manual ? tierLabel : `AUTO · ${tierLabel}`);
+    this.ui.qualityTierToggle?.setAttribute?.(
+      "aria-label",
+      `Palier graphique : ${this.quality?.manual ? tierLabel : `automatique, actuellement ${tierLabel}`}. Activer pour passer au palier suivant.`
+    );
+    const ghostOn = this.settings.get("ghost") !== false;
+    setToggle(this.ui.ghostToggle, ghostOn, ghostOn ? "OUI" : "NON");
+    this.ui.ghostToggle?.setAttribute?.(
+      "aria-label",
+      `Fantôme de ta dernière course sur la même mer : ${ghostOn ? "affiché" : "masqué"}. Prend effet à la prochaine partie.`
+    );
     document.body?.classList.toggle("left-handed", this.settings.get("leftHanded"));
     document.body?.classList.toggle("hide-perf", !this.settings.get("showPerf"));
     document.body?.classList.toggle("reduce-flash", Boolean(this.settings.get("reduceFlash")));
@@ -26792,6 +27999,7 @@ const HudSystems = {
       this.ui.weatherChip.textContent = `${label} · ${Math.round(liveWeather.windSpeed)} m/s`;
       this.ui.weatherChip.style.background = liveWeather.stormAmount > 0.5 ? "rgba(73,25,96,.82)" : "rgba(2,44,59,.72)";
     }
+    this.updateGhostChip?.();
     this.ui.stormDistance.textContent = `${Math.round(stormDistance)} m`;
     this.ui.storm.classList.toggle("hidden", stormDistance > STORM_RANGE.hudProche || player.eliminated);
     // La musique suit le Grain. `Carnival Apocalypse` est la piste la plus dense
@@ -27303,6 +28511,13 @@ const InputSystems = {
       sfxVolume: byId("sfxVolumeSlider"),
       sfxVolumeValue: byId("sfxVolumeValue"),
       pauseStateLabel: byId("pauseStateLabel"),
+      playtestReport: byId("playtestReportBtn"),
+      playtestReportStatus: byId("playtestReportStatus"),
+      pausePlaytestReport: byId("pausePlaytestReportBtn"),
+      qualityTierToggle: byId("qualityTierToggle"),
+      ghostToggle: byId("ghostToggle"),
+      ghostChip: byId("ghostChip"),
+      ghostGap: byId("ghostGap"),
       pauseIcon: byId("pauseIcon"),
       loadoutChoices: byId("loadoutChoices"),
       loadoutDetail: byId("loadoutDetail"),
@@ -29050,6 +30265,24 @@ const InputSystems = {
     if (ui.replay) ui.replay.onclick = () => this.latestReplay && this.startReplay(this.latestReplay);
     if (ui.downloadReplay) ui.downloadReplay.onclick = () => this.latestReplay && downloadReplay(this.latestReplay);
     if (ui.downloadTelemetry) ui.downloadTelemetry.onclick = () => this.downloadTelemetry();
+    if (ui.playtestReport) ui.playtestReport.onclick = () => this.sharePlaytestReport();
+    if (ui.pausePlaytestReport) ui.pausePlaytestReport.onclick = () => this.sharePlaytestReport();
+    // AUTO → LQ → MQ → HQ → AUTO. Le palier manuel vit dans la pause : sur
+    // tactile, le bouton du rail de course est retiré (style.css, V19).
+    if (ui.qualityTierToggle) ui.qualityTierToggle.onclick = () => {
+      if (!this.quality.manual) {
+        this.quality.setTier(0, true);
+        this.settings.set("quality", "LQ");
+      } else if (this.quality.tier >= 2) {
+        this.quality.setAutomatic();
+        this.settings.set("quality", "auto");
+      } else {
+        const tier = this.quality.setTier(this.quality.tier + 1, true);
+        this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);
+      }
+      this.applySettingsUI();
+    };
+    if (ui.ghostToggle) ui.ghostToggle.onclick = () => this.toggleSetting("ghost");
     ui.quality.onclick = () => {
       const tier = this.quality.cycleManual();
       this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);
@@ -30952,6 +32185,12 @@ class Game {
     this.settings = new SettingsStore();
     this.cameraZoom = clamp(this.settings.get("cameraZoom") ?? 1.18, ZOOM_MIN, ZOOM_MAX);
     this.telemetry = new LocalTelemetry();
+    // Journal de session : il survit à telemetry.clear(), appelé à chaque
+    // partie, et alimente le rapport de playtest. Hors simulation, hors checksum.
+    this.playtestJournal = new PlaytestJournal();
+    this.telemetry.subscribe((type, payload, time) => this.playtestJournal.observe(type, payload, time));
+    this.frameSampler = new FrameSampler();
+    this.initGhost();
     this.spatial = new SpatialHash2D(14);
     this.spatialScratch = [];
     this.collisionScratch = {};
@@ -31038,6 +32277,7 @@ class Game {
         playLatestReplay: () => this.latestReplay && this.startReplay(this.latestReplay),
         telemetry: () => this.telemetry.snapshot(),
         downloadTelemetry: () => this.downloadTelemetry(),
+        playtestReport: () => this.buildPlaytestReport(),
         setQuality: (tier) => this.quality.setTier(tier, true),
         togglePerf: () => this.toggleSetting("showPerf"),
         THREE_REVISION: THREE.REVISION
@@ -31202,6 +32442,7 @@ class Game {
       this.ocean.setQuality(tier);
       this.world?.setQuality(tier);
       if (this.ui.quality) this.ui.quality.textContent = profile.label;
+      this.telemetry?.track?.("quality_tier", { tier, label: profile.label, manual: Boolean(this.quality?.manual) }, this.time ?? 0);
       // ⚠️ ON MÉMORISE CE QUE L'ADAPTATION A DÉCOUVERT. `settings.set("quality")`
       // n'était appelé que depuis deux gestionnaires de clic : les descentes
       // automatiques n'écrivaient rien. Chaque lancement rejouait donc la même
@@ -31494,7 +32735,15 @@ class Game {
     if (this.replay) this.replay.loadout = loadout;
     this.stats = { takedowns: 0, perfects: 0, maxSpeed: 0, boosts: 0, slingshots: 0 };
     this.telemetry.clear();
-    this.telemetry.track("match_start", { seed: this.seed, replay: Boolean(options.replay) }, 0);
+    this.telemetry.track("match_start", {
+      seed: this.seed,
+      replay: Boolean(options.replay),
+      tour: Boolean(options.tourStage),
+      versus: Boolean(this.versusLocal),
+      training: Boolean(this.trainingMode),
+      challenge: Boolean(options.challenge),
+      daily: Boolean(options.challenge && (this.activeChallenge?.daily || this.tour?.challengeDaily))
+    }, 0);
     this.spatial.clear();
     this.spatialScratch.length = 0;
     this.collisionPairs.clear();
@@ -31563,6 +32812,9 @@ class Game {
     this.ui.hud.classList.remove("hidden");
     this.ui.versusScreen?.classList.add("hidden");
     this.ui.versusHud?.classList.toggle("hidden", !this.versusLocal);
+    // Le fantôme se décide ici : graine, mode et étape sont connus, la
+    // première manche pas encore lancée.
+    this.armGhost({ tourStage: options.tourStage ? (this.tour?.stage ?? null) : null });
     this.resetRound(false);
     if (this.trainingMode) {
       this.enforceTrainingBasics();
@@ -31754,6 +33006,10 @@ class Game {
     } else {
       this.startMatch({ replay });
     }
+    this.telemetry.track("replay_started", {
+      seed: replay.seed >>> 0,
+      tourStage: Number.isInteger(tourStage) ? tourStage : -1
+    }, 0);
     this.latestReplay = replay;
     return true;
   }
@@ -32429,6 +33685,9 @@ class Game {
     // donc ici, au même tick et avant tout streamer ou VFX.
     if (this.playback) this.validateReplayState();
     else this.replay.checkpoint(this.tick, this.dynamicsList());
+    // Trace fantôme : lecture seule de la pose du joueur, à 20 Hz. Rien n'est
+    // écrit dans la simulation, le checksum ne bouge pas.
+    if (!this.playback) this.replay.recordGhostSample(this.tick, player.dynamics);
     this.worldRefreshTimer -= dt;
     if (this.worldRefreshTimer <= 0) {
       this.worldRefreshTimer = 0.20;
@@ -32509,6 +33768,7 @@ class Game {
     this.lastFrame = now;
     if (!outsideLiveRace) {
       this.quality.update(intervalleReel, this.frameWorkMs ?? intervalleReel);
+      this.frameSampler?.add(intervalleReel, this.frameWorkMs ?? intervalleReel);
     }
     this.pollGamepad();
     if (this.mode === "menu") this.time += raw * 0.65;
@@ -32579,6 +33839,7 @@ class Game {
     );
     if (this.mode === "playing") {
       for (const boat of this.boats) boat.renderUpdate(this.time, raw, weather);
+      this.updateGhostRender();
     } else this.updateAttract(raw);
 
     this.updateCamera(raw);
@@ -32852,6 +34113,71 @@ class Game {
     };
   }
 
+  /**
+   * Rapport de playtest : appareil, rendu, portes Go/No-Go de la session et
+   * queue d'événements. Aucune donnée personnelle — voir playtest-report.js.
+   */
+  buildPlaytestReport() {
+    const profile = this.qualityProfile ?? null;
+    let href = null;
+    try {
+      href = globalThis.location?.origin ? `${globalThis.location.origin}${globalThis.location.pathname ?? ""}` : null;
+    } catch { href = null; }
+    return buildPlaytestReport({
+      journal: this.playtestJournal,
+      frames: this.frameSampler,
+      device: describeDevice({ renderer: this.renderer }),
+      quality: {
+        tier: this.quality?.tier ?? null,
+        label: profile?.label ?? null,
+        manual: Boolean(this.quality?.manual),
+        autoCeiling: this.quality?.autoCeiling ?? null,
+        mobileProfile: Boolean(profile?.mobile),
+        pixelRatio: profile?.pixelRatio ?? null,
+        lastRender: this.lastRenderStats ?? null
+      },
+      build: {
+        simulationVersion: SIMULATION_VERSION,
+        gameplayVersion: GAMEPLAY_VERSION,
+        threeRevision: this.THREE?.REVISION ?? null,
+        href
+      },
+      settings: this.settings?.snapshot?.() ?? null
+    });
+  }
+
+  /** Livre le rapport par le meilleur canal disponible, sur geste explicite du joueur. */
+  async sharePlaytestReport() {
+    const report = this.buildPlaytestReport();
+    let outcome = "unavailable";
+    try {
+      outcome = await deliverPlaytestReport(report);
+    } catch {
+      outcome = "unavailable";
+    }
+    const status = PLAYTEST_DELIVERY_STATUS[outcome] ?? PLAYTEST_DELIVERY_STATUS.unavailable;
+    if (this.ui?.playtestReportStatus) this.ui.playtestReportStatus.textContent = status;
+    for (const button of [this.ui?.playtestReport, this.ui?.pausePlaytestReport]) {
+      if (button?.dataset) button.dataset.outcome = outcome;
+    }
+    const pauseButton = this.ui?.pausePlaytestReport;
+    if (pauseButton) {
+      const label = pauseButton.dataset?.label || pauseButton.textContent || "ENVOYER MON RAPPORT DE TEST";
+      if (pauseButton.dataset) pauseButton.dataset.label = label;
+      pauseButton.textContent = {
+        shared_file: "RAPPORT ENVOYÉ ✓",
+        shared_text: "RAPPORT ENVOYÉ ✓",
+        copied: "RAPPORT COPIÉ ✓",
+        downloaded: "RAPPORT TÉLÉCHARGÉ ✓",
+        cancelled: "PARTAGE ANNULÉ",
+        unavailable: "PARTAGE INDISPONIBLE"
+      }[outcome] ?? label;
+      setTimeout(() => { pauseButton.textContent = label; }, 3200);
+    }
+    this.telemetry?.track?.(`playtest_report_${outcome}`, {}, this.time ?? 0);
+    return outcome;
+  }
+
   downloadTelemetry() {
     if (typeof Blob === "undefined" || !globalThis.URL?.createObjectURL) return false;
     const blob = new Blob([JSON.stringify(this.telemetry.snapshot(), null, 2)], { type: "application/json" });
@@ -32877,7 +34203,8 @@ Object.assign(
   CameraSystems,
   VersusSystems,
   PickupSystems,
-  ObstacleSystems
+  ObstacleSystems,
+  GhostSystems
 );
 
 // ---- src/main.js ----
@@ -32919,6 +34246,13 @@ const ui = {
   downloadReplay: byId("downloadReplayBtn"),
   replayStatus: byId("replayStatus"),
   downloadTelemetry: byId("downloadTelemetryBtn"),
+  playtestReport: byId("playtestReportBtn"),
+  playtestReportStatus: byId("playtestReportStatus"),
+  pausePlaytestReport: byId("pausePlaytestReportBtn"),
+  qualityTierToggle: byId("qualityTierToggle"),
+  ghostToggle: byId("ghostToggle"),
+  ghostChip: byId("ghostChip"),
+  ghostGap: byId("ghostGap"),
   sound: byId("soundBtn"),
   quality: byId("qualityBtn"),
   settingsBtn: byId("settingsBtn"),

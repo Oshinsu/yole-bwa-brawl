@@ -13,13 +13,28 @@ export class LocalTelemetry {
     this.events = [];
     this.counters = new Map();
     this.startedAt = Date.now();
+    // Observateurs hors simulation : le journal de playtest s'y abonne pour
+    // survivre à clear(), qui remet les compteurs à zéro à chaque partie.
+    this.listeners = new Set();
   }
 
   track(type, payload = {}, time = globalThis.performance?.now?.() ?? 0) {
     if (!type) return;
-    this.events.push({ type: String(type), payload: finitePayload(payload), time: Math.round(Number(time) * 1000) / 1000 });
+    const event = { type: String(type), payload: finitePayload(payload), time: Math.round(Number(time) * 1000) / 1000 };
+    this.events.push(event);
     if (this.events.length > this.limit) this.events.splice(0, this.events.length - this.limit);
     this.counters.set(type, (this.counters.get(type) || 0) + 1);
+    for (const listener of this.listeners) {
+      // Un observateur défaillant ne doit jamais interrompre le jeu.
+      try { listener(event.type, event.payload, event.time); } catch { /* observateur externe */ }
+    }
+  }
+
+  /** Abonne un observateur ; renvoie la fonction de désabonnement. */
+  subscribe(listener) {
+    if (typeof listener !== "function") return () => false;
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   count(type) { return this.counters.get(type) || 0; }

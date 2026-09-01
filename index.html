@@ -162,6 +162,7 @@
     </div>
 
     <div id="weatherChip" class="weather-chip glass">☀ ALIZÉS STABLES</div>
+    <div id="ghostChip" class="ghost-chip glass hidden" role="status" aria-live="off"><span>👻 FANTÔME</span><b id="ghostGap">AU DÉPART</b></div>
     <aside id="minimap" class="minimap glass" aria-label="Mini-carte tactique">
       <div class="minimap-heading"><span>CAP &amp; COURSE</span><b id="minimapMode">COMBAT</b></div>
       <div class="minimap-map">
@@ -413,6 +414,7 @@
           <h3 id="courseLabel">COURSE</h3>
           <div>
              <button id="difficultyToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>ADVERSAIRES</b><small>TOUR</small></button>
+             <button id="ghostToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>FANTÔME</b><small>OUI</small></button>
           </div>
         </section>
         <section class="settings-group" aria-labelledby="visibiliteLabel">
@@ -425,7 +427,10 @@
         </section>
         <section class="settings-group quality-group" aria-labelledby="renduLabel">
           <h3 id="renduLabel">RENDU</h3>
-           <div><button id="autoQualityToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>QUALITÉ AUTO</b><small>ACTIF</small></button></div>
+           <div>
+             <button id="autoQualityToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>QUALITÉ AUTO</b><small>ACTIF</small></button>
+             <button id="qualityTierToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>PALIER</b><small>AUTO · HQ</small></button>
+           </div>
         </section>
       </div>
       <!-- ⚠️ <details> NATIF, ET AUCUN `id`. Un panneau replié par défaut ne
@@ -486,6 +491,7 @@
         <p class="raccourcis-note">Les huit chiffres <strong>tirent</strong> directement — pas besoin d&#39;appuyer sur Espace ensuite.</p>
       </details>
       <button id="pauseControlsBtn" class="settings-help secondary" type="button" aria-haspopup="dialog" aria-controls="controlsScreen">AIDE &amp; CONTRÔLES</button>
+      <button id="pausePlaytestReportBtn" class="settings-help secondary playtest-report" type="button" data-label="ENVOYER MON RAPPORT DE TEST">ENVOYER MON RAPPORT DE TEST</button>
       <button id="resetSettingsBtn" class="settings-reset secondary danger-soft" type="button">RÉINITIALISER LES RÉGLAGES</button>
       </div>
       <div class="modal-actions pause-action-rail"><button id="resumeBtn" class="primary" type="button">REPRENDRE</button><button id="restartBtn" class="secondary gameplay-only" type="button">RECOMMENCER</button><button id="pauseMenuBtn" class="secondary gameplay-only danger-soft" type="button">QUITTER · MENU PRINCIPAL</button></div>
@@ -506,8 +512,10 @@
       <div class="result-growth-actions">
          <button id="shareChallengeBtn" class="secondary share-challenge hidden" type="button">DÉFIER UN AMI</button>
          <button id="endInstallBtn" class="secondary install-after-win hidden" type="button">INSTALLER LE JEU</button>
+         <button id="playtestReportBtn" class="secondary playtest-report" type="button">ENVOYER MON RAPPORT DE TEST</button>
       </div>
       <small id="shareStatus" class="share-status" role="status" aria-live="polite">Même mer, même seed · résultat prêt à partager.</small>
+      <small id="playtestReportStatus" class="share-status playtest-status" role="status" aria-live="polite">Rapport de test opt-in · appareil, mesures et événements de jeu, aucune donnée personnelle.</small>
       <div class="replay-actions">
          <button id="replayBtn" class="secondary" type="button">REVOIR LE MATCH</button>
          <button id="endMenuBtn" class="secondary" type="button">RETOUR AU PORT</button>

@@ -68,6 +68,55 @@ compatibilité contrôlée, lecture, export et suppression) et à un panneau
 **Yole & crédits** qui réunit repères culturels, glossaire prudent, installation
 PWA, fonctionnement hors ligne, licences et non-affiliation.
 
+## Rapport de playtest et fantôme
+
+Deux ajouts pour **mesurer** le jeu au lieu de le régler à l'aveugle, et pour
+donner une raison de relancer la même mer.
+
+### Envoyer mon rapport de test
+
+Le `MASTER_PLAN` fixait des portes Go/No-Go — 70 % de premières contre-gîtes
+réussies, 50 % de secondes manches, manche sous 75 s, replay vu, défi partagé —
+qu'aucun outil ne mesurait : la télémétrie était remise à zéro à chaque partie
+et ne quittait jamais l'appareil.
+
+Un **journal de session** observe désormais la télémétrie pendant toute la
+session, calcule ces portes, et le bouton **ENVOYER MON RAPPORT DE TEST**
+(écran de résultat, et pause sous AIDE & CONTRÔLES) livre un JSON par la
+feuille de partage du téléphone, le presse-papiers ou un téléchargement. Rien ne
+part sans ce geste ; le rapport ne contient ni nom ni identifiant (voir
+`privacy.html`). Il porte l'appareil (GPU, fenêtre, densité, tactile), le palier
+de rendu et les temps par image (p50, p95), les portes de la session et les 400
+derniers événements.
+
+```bash
+npm run playtest:aggregate -- dossier/des/rapports --markdown RAPPORT.md
+```
+
+`docs/PLAYTEST_PROTOCOL.md` décrit la séance de 20 minutes, les trois téléphones
+et la décision à prendre selon la table. Les seuils vivent dans
+`PLAYTEST_GATES` (`src/game/playtest-report.js`) : une seule table de vérité.
+
+### Le fantôme
+
+Chaque replay emporte maintenant la **trace** de la yole du joueur à 20 Hz
+(position, cap, gîte, tangage — ~60 Ko par manche, hors checksum). Quand une
+partie démarre sur une graine déjà courue — revanche immédiate, défi du jour,
+défi reçu — la dernière trace compatible sort de la replayothèque et court à
+côté de toi en translucide, avec l'écart en mètres dans une pastille HUD. Elle
+n'est **jamais simulée** : elle se lit. Elle n'existe ni en relecture ni en
+Mêlée locale, et se coupe dans la pause (FANTÔME · OUI/NON).
+
+La replayothèque accepte l'**import** d'un fichier replay : celui d'un ami sur
+la même graine devient son fantôme. C'est la version sans serveur du défi
+partagé — le fichier voyage par la feuille de partage, pas par un classement.
+
+### Rail de course allégé sur tactile
+
+Sur pointeur tactile, la course perd deux boutons du rail droit — qualité et le
+second bouton de réglages — qui vivent déjà dans la pause. Un réglage **PALIER**
+(AUTO · LQ · MQ · HQ) y remplace le cycle manuel du rail. Le clavier garde tout.
+
 ## Atelier Ma Yole
 
 Le menu et l'atelier n'affichent aucune image générée de yole. Ils utilisent le

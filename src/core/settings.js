@@ -46,6 +46,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // la lecture (playerAiLevel) et voyage dans le replay, jamais relu depuis le
   // magasin au point d'usage.
   aiLevel: "tour",
+  // Fantôme : la trace de la dernière course sur la même graine, rendue en
+  // translucide à côté du joueur. Purement visuel, hors checksum ; désactivable
+  // depuis la pause pour qui le trouve distrayant.
+  ghost: true,
   // Les DEUX armes emportées en soute, choisies au garage. Voir LOADOUT_POOL
   // dans balance.js — un réglage corrompu est rattrapé par `resolveLoadout`,
   // qui garantit toujours deux armes valides.

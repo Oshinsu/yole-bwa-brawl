@@ -318,3 +318,43 @@ architecture finale — chaque cluster peut être promu en vraie classe isoléme
 
 Règle qui tient le tout : **un checksum qui bouge après un refactor signale une
 régression**, jamais une amélioration.
+
+## 18. Journal de playtest
+
+`core/telemetry.js` reste la télémétrie de PARTIE : `startMatch()` la remet à
+zéro. `game/playtest-report.js` s'y abonne (`telemetry.subscribe`) et réduit
+chaque événement dans un état de SESSION borné — parties, manches, contre-gîtes,
+initiation, takedowns, éliminations par famille, replays vus, partages, paliers
+de rendu — plus un histogramme d'images à mémoire constante (`FrameSampler`,
+intervalle et temps de travail).
+
+`buildPlaytestReport()` assemble appareil, rendu, portes Go/No-Go et queue
+d'événements ; `deliverPlaytestReport()` livre par feuille de partage (fichier
+puis texte), presse-papiers, puis téléchargement. Rien n'est envoyé sans geste
+du joueur, et rien de personnel n'y figure. Les seuils (`PLAYTEST_GATES`) sont
+partagés avec `tools/playtest_aggregate.mjs`, qui agrège les rapports d'une
+campagne en une table de verdicts.
+
+Tout est hors simulation : aucun tirage, aucune écriture dans l'état de jeu, rien
+dans le checksum.
+
+## 19. Fantôme
+
+Le replay emporte une **trace** (`replay.ghost`) : la pose de la yole du joueur
+tous les trois ticks, quantifiée en centimètres et milliradians, un segment par
+manche. `ReplayRecorder.recordGhostSample()` la lit après le dernier système
+autoritaire du tick, en lecture seule. `isReplayCompatible` l'ignore : un replay
+sans trace reste lisible, une trace corrompue est rejetée par
+`normalizeGhostTrace()` et fait simplement disparaître le fantôme.
+
+`game/ghost.js` (`GhostSystems`) arme, au `startMatch`, la trace la plus récente
+du coffre qui partage graine et étape ; `render/ghost-visual.js` la dessine —
+coque partagée, voile en deux triangles, balise — sans équipage ni sillage. Le
+lecteur (`GhostTrack.poseAt`) aligne la manche N du fantôme sur le tick de début
+de la manche N en direct (`roundStartTick`), jamais sur le tick absolu : les
+manches ne durent pas le même temps d'une course à l'autre.
+
+Le fantôme n'existe ni en relecture (il recouvrirait la yole rejouée), ni en
+Mêlée locale (deux flux humains), et se coupe par réglage. La replayothèque
+importe un fichier replay : sur la même graine, la trace d'un ami devient son
+fantôme — le défi partagé sans serveur.

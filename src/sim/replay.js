@@ -118,6 +118,136 @@ export function isReplayCompatible(replay) {
   );
 }
 
+// ── TRACE FANTÔME ────────────────────────────────────────────────────────────
+//
+// À côté des entrées quantifiées, le replay emporte la POSE de la yole du joueur
+// échantillonnée à 20 Hz : x, y, z en centimètres, cap, gîte et tangage en
+// milliradians. Ce n'est pas une source d'autorité — la relecture exacte reste
+// celle des entrées — c'est ce qui permet de courir CONTRE la trace sans
+// re-simuler la partie : un fantôme se lit, il ne se calcule pas.
+//
+// Un segment par manche : les positions repartent de la grille à chaque manche,
+// et la manche N du fantôme n'a aucune raison de commencer au même tick que la
+// manche N de la course en direct. Le lecteur aligne donc les deux sur le tick
+// de DÉBUT DE MANCHE, jamais sur le tick absolu.
+export const GHOST_TRACE_VERSION = 1;
+export const GHOST_TRACE_STRIDE = 3;
+export const GHOST_TRACE_FIELDS = 6;
+export const GHOST_POSITION_SCALE = 100;
+export const GHOST_ANGLE_SCALE = 1000;
+const GHOST_MAX_SEGMENTS = 64;
+const GHOST_MAX_VALUES = 120000 * GHOST_TRACE_FIELDS;
+const GHOST_INT_LIMIT = 2 ** 31 - 1;
+
+function ghostQuantize(value, scale) {
+  const scaled = Math.round((Number.isFinite(value) ? value : 0) * scale);
+  return Math.max(-GHOST_INT_LIMIT, Math.min(GHOST_INT_LIMIT, scaled));
+}
+
+function ghostLerpAngle(a, b, t) {
+  let delta = (b - a) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  else if (delta < -Math.PI) delta += Math.PI * 2;
+  return a + delta * t;
+}
+
+/**
+ * Valide une trace lue d'un replay (stockage local, fichier importé) et la
+ * renvoie normalisée, ou `null` dès qu'un champ ment. Une trace corrompue ne
+ * doit jamais faire tomber la course : elle fait simplement disparaître le
+ * fantôme.
+ */
+export function normalizeGhostTrace(trace) {
+  if (!trace || typeof trace !== "object" || Array.isArray(trace)) return null;
+  if (trace.version !== GHOST_TRACE_VERSION) return null;
+  const stride = trace.stride;
+  if (!Number.isInteger(stride) || stride < 1 || stride > 10) return null;
+  const positionScale = trace.positionScale;
+  const angleScale = trace.angleScale;
+  if (!Number.isFinite(positionScale) || positionScale <= 0) return null;
+  if (!Number.isFinite(angleScale) || angleScale <= 0) return null;
+  if (!Array.isArray(trace.segments) || trace.segments.length === 0 || trace.segments.length > GHOST_MAX_SEGMENTS) return null;
+  const segments = [];
+  let previousRound = 0;
+  let totalValues = 0;
+  for (const segment of trace.segments) {
+    if (!segment || typeof segment !== "object") return null;
+    const { round, fromTick, firstTick, data } = segment;
+    if (!Number.isInteger(round) || round <= previousRound) return null;
+    if (!Number.isInteger(fromTick) || fromTick < 0) return null;
+    if (!Number.isInteger(firstTick) || firstTick < fromTick) return null;
+    if (!Array.isArray(data) || data.length % GHOST_TRACE_FIELDS !== 0) return null;
+    totalValues += data.length;
+    if (totalValues > GHOST_MAX_VALUES) return null;
+    for (const value of data) {
+      if (!Number.isInteger(value) || Math.abs(value) > GHOST_INT_LIMIT) return null;
+    }
+    segments.push({ round, fromTick, firstTick, data });
+    previousRound = round;
+  }
+  return { version: GHOST_TRACE_VERSION, stride, positionScale, angleScale, fields: GHOST_TRACE_FIELDS, segments };
+}
+
+/**
+ * Lecteur de trace : rend la pose du fantôme pour une manche et un nombre de
+ * ticks écoulés depuis le début de CETTE manche, interpolée entre deux
+ * échantillons. `null` quand le fantôme n'a plus rien à dire — sa manche s'est
+ * finie plus tôt que celle en direct, par chavirage ou par victoire.
+ */
+export class GhostTrack {
+  constructor(trace) {
+    this.trace = normalizeGhostTrace(trace);
+    if (!this.trace) throw new TypeError("Invalid ghost trace");
+    this.segments = new Map(this.trace.segments.map((segment) => [segment.round, segment]));
+  }
+
+  get rounds() {
+    return [...this.segments.keys()];
+  }
+
+  segment(round) {
+    return this.segments.get(round) ?? null;
+  }
+
+  sampleCount(round) {
+    const segment = this.segment(round);
+    return segment ? segment.data.length / GHOST_TRACE_FIELDS : 0;
+  }
+
+  /** Durée couverte par la manche du fantôme, en ticks depuis son début de manche. */
+  roundTicks(round) {
+    const segment = this.segment(round);
+    if (!segment) return 0;
+    const count = segment.data.length / GHOST_TRACE_FIELDS;
+    return count ? segment.firstTick - segment.fromTick + (count - 1) * this.trace.stride : 0;
+  }
+
+  poseAt(round, ticksSinceRoundStart, out = {}) {
+    const segment = this.segment(round);
+    if (!segment) return null;
+    const count = segment.data.length / GHOST_TRACE_FIELDS;
+    if (count === 0) return null;
+    const { stride, positionScale, angleScale } = this.trace;
+    const offset = Number.isFinite(ticksSinceRoundStart) ? ticksSinceRoundStart : 0;
+    const t = (offset - (segment.firstTick - segment.fromTick)) / stride;
+    if (t > count - 1 + 1e-6) return null;
+    const clamped = Math.max(0, t);
+    const index = Math.min(count - 1, Math.floor(clamped));
+    const next = Math.min(count - 1, index + 1);
+    const fraction = next === index ? 0 : clamped - index;
+    const a = index * GHOST_TRACE_FIELDS;
+    const b = next * GHOST_TRACE_FIELDS;
+    const data = segment.data;
+    out.x = (data[a] + (data[b] - data[a]) * fraction) / positionScale;
+    out.y = (data[a + 1] + (data[b + 1] - data[a + 1]) * fraction) / positionScale;
+    out.z = (data[a + 2] + (data[b + 2] - data[a + 2]) * fraction) / positionScale;
+    out.heading = ghostLerpAngle(data[a + 3] / angleScale, data[b + 3] / angleScale, fraction);
+    out.roll = (data[a + 4] + (data[b + 4] - data[a + 4]) * fraction) / angleScale;
+    out.pitch = (data[a + 5] + (data[b + 5] - data[a + 5]) * fraction) / angleScale;
+    return out;
+  }
+}
+
 export class ReplayRecorder {
   constructor(seed, fixedHz = 60) {
     this.seed = seed >>> 0;
@@ -135,11 +265,50 @@ export class ReplayRecorder {
     this.lastInput = null;
     this.lastInputTick = -Infinity;
     this.metadata = {};
+    this.ghostSegments = [];
   }
 
   markRound(tick, round, seed = this.seed) {
     if (!this.enabled) return;
     this.rounds.push({ tick, round, seed: seed >>> 0 });
+    // Un segment de trace par manche : les yoles repartent de la grille.
+    this.ghostSegments.push({ round, fromTick: tick, firstTick: -1, data: [] });
+  }
+
+  /**
+   * Échantillonne la pose du joueur. Lecture seule sur `pose` : aucun état de
+   * simulation n'est touché, donc rien ne bouge dans le checksum.
+   */
+  recordGhostSample(tick, pose) {
+    if (!this.enabled || !pose) return false;
+    const segment = this.ghostSegments[this.ghostSegments.length - 1];
+    if (!segment) return false;
+    if ((tick - segment.fromTick) % GHOST_TRACE_STRIDE !== 0) return false;
+    if (segment.firstTick < 0) segment.firstTick = tick;
+    segment.data.push(
+      ghostQuantize(pose.x, GHOST_POSITION_SCALE),
+      ghostQuantize(pose.y, GHOST_POSITION_SCALE),
+      ghostQuantize(pose.z, GHOST_POSITION_SCALE),
+      ghostQuantize(pose.heading, GHOST_ANGLE_SCALE),
+      ghostQuantize(pose.roll, GHOST_ANGLE_SCALE),
+      ghostQuantize(pose.pitch, GHOST_ANGLE_SCALE)
+    );
+    return true;
+  }
+
+  ghostTrace() {
+    const segments = this.ghostSegments
+      .filter((segment) => segment.data.length > 0 && segment.firstTick >= 0)
+      .map(({ round, fromTick, firstTick, data }) => ({ round, fromTick, firstTick, data: data.slice() }));
+    if (!segments.length) return null;
+    return {
+      version: GHOST_TRACE_VERSION,
+      stride: GHOST_TRACE_STRIDE,
+      positionScale: GHOST_POSITION_SCALE,
+      angleScale: GHOST_ANGLE_SCALE,
+      fields: GHOST_TRACE_FIELDS,
+      segments
+    };
   }
 
   recordEvent(tick, type, payload = {}) {
@@ -221,7 +390,9 @@ export class ReplayRecorder {
       rounds: this.rounds,
       inputs: this.inputs,
       checkpoints: this.checkpoints,
-      events: this.events
+      events: this.events,
+      // Trace fantôme : optionnelle, hors checksum, ignorée par isReplayCompatible.
+      ghost: this.ghostTrace()
     };
   }
 }

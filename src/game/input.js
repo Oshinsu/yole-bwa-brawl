@@ -239,6 +239,13 @@ export const InputSystems = {
       sfxVolume: byId("sfxVolumeSlider"),
       sfxVolumeValue: byId("sfxVolumeValue"),
       pauseStateLabel: byId("pauseStateLabel"),
+      playtestReport: byId("playtestReportBtn"),
+      playtestReportStatus: byId("playtestReportStatus"),
+      pausePlaytestReport: byId("pausePlaytestReportBtn"),
+      qualityTierToggle: byId("qualityTierToggle"),
+      ghostToggle: byId("ghostToggle"),
+      ghostChip: byId("ghostChip"),
+      ghostGap: byId("ghostGap"),
       pauseIcon: byId("pauseIcon"),
       loadoutChoices: byId("loadoutChoices"),
       loadoutDetail: byId("loadoutDetail"),
@@ -1986,6 +1993,24 @@ export const InputSystems = {
     if (ui.replay) ui.replay.onclick = () => this.latestReplay && this.startReplay(this.latestReplay);
     if (ui.downloadReplay) ui.downloadReplay.onclick = () => this.latestReplay && downloadReplay(this.latestReplay);
     if (ui.downloadTelemetry) ui.downloadTelemetry.onclick = () => this.downloadTelemetry();
+    if (ui.playtestReport) ui.playtestReport.onclick = () => this.sharePlaytestReport();
+    if (ui.pausePlaytestReport) ui.pausePlaytestReport.onclick = () => this.sharePlaytestReport();
+    // AUTO → LQ → MQ → HQ → AUTO. Le palier manuel vit dans la pause : sur
+    // tactile, le bouton du rail de course est retiré (style.css, V19).
+    if (ui.qualityTierToggle) ui.qualityTierToggle.onclick = () => {
+      if (!this.quality.manual) {
+        this.quality.setTier(0, true);
+        this.settings.set("quality", "LQ");
+      } else if (this.quality.tier >= 2) {
+        this.quality.setAutomatic();
+        this.settings.set("quality", "auto");
+      } else {
+        const tier = this.quality.setTier(this.quality.tier + 1, true);
+        this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);
+      }
+      this.applySettingsUI();
+    };
+    if (ui.ghostToggle) ui.ghostToggle.onclick = () => this.toggleSetting("ghost");
     ui.quality.onclick = () => {
       const tier = this.quality.cycleManual();
       this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);
