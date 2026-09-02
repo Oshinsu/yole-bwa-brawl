@@ -95,6 +95,18 @@ const CREW_HIKE_SPAN = 3.0;
 // Le lacet ne va pas jusqu'à 90° : à pleine sortie on garde ~78°, ce qui laisse
 // lire l'épaule et le maillot au lieu d'une silhouette de profil pur.
 const CREW_HIKE_YAW = 1.36;
+// Assis au plat-bord, l'homme est tourné vers l'INTÉRIEUR de la coque, pieds
+// devant lui sur le plancher. Mesuré avant : tourné vers la proue avec les pieds
+// tirés de 30 cm vers la coque — donc sur son côté —, la jambe ne pouvait se
+// plier que dans le plan horizontal : genoux de côté à 47-88°, « en grenouille ».
+const CREW_ABOARD_YAW = 1.25;
+// Plan de flexion des genoux : l'AVANT du corps, avec un léger écart vers
+// l'extérieur (composante latérale pour une composante avant de 1 ; 0,12 ≈ 7°).
+// ⚠️ MESURÉ : le pôle déduit du bind (« bombement » du genou sur une jambe
+// quasi tendue) sortait à 30° vers l'extérieur — un bruit de 2 % de la
+// longueur de jambe, normalisé. Les six hommes assis à bord pliaient donc les
+// genoux à 24-33° du plan du corps, et jusqu'à 61° quand le bassin tournait.
+const CREW_KNEE_SPREAD = 0.12;
 // Bascule du buste au-dessus de l'eau. L'ancienne valeur (0,62 rad appliquée à
 // la racine) tenait l'homme presque droit ; la photo montre un renversement
 // franc, tête plus basse que le bassin sur les hommes du bout.
@@ -1152,7 +1164,13 @@ export class CrewVisual {
     const axis = new THREE.Vector3();
     const pole = new THREE.Vector3();
     const parentQuaternion = new THREE.Quaternion();
-    for (const chain of Object.values(this.ikChains)) {
+    // Repère du corps au bind : le personnage regarde +Z local, +X local est
+    // son côté GAUCHE (LeftUpLeg à +X dans le GLB).
+    const rootQuaternion = new THREE.Quaternion();
+    if (this.root?.getWorldQuaternion) this.root.getWorldQuaternion(rootQuaternion);
+    const avant = new THREE.Vector3(0, 0, 1).applyQuaternion(rootQuaternion);
+    const gauche = new THREE.Vector3(1, 0, 0).applyQuaternion(rootQuaternion);
+    for (const [nom, chain] of Object.entries(this.ikChains)) {
       if (!chain) continue;
       chain.poleRest = null;
       const rootJoint = chain.joints[chain.joints.length - 1];
@@ -1165,12 +1183,29 @@ export class CrewVisual {
       const span = axis.length();
       if (span < 1e-4) continue;
       axis.multiplyScalar(1 / span);
-      pole.subVectors(mid, root);
-      pole.addScaledVector(axis, -pole.dot(axis));
-      // Membre tendu au repos : aucun plan de flexion lisible. On laisse la
-      // chaîne sans pole plutôt que d'inventer une direction — le limiteur
-      // d'oscillation reste seul en charge, exactement comme avant.
-      if (pole.length() < span * 0.02) continue;
+      if (nom === "leftLeg" || nom === "rightLeg") {
+        // ⚠️ LES GENOUX PLIENT DEVANT, PAS LÀ OÙ LE BIND BOMBE. Sur une jambe
+        // quasi tendue le bombement du genou est un bruit (2 % de la longueur)
+        // qui, normalisé, donnait un pôle à 30° vers l'extérieur : les hommes
+        // assis à bord pliaient les genoux de côté (24-61°, mesuré en jeu).
+        // Le plan de flexion est celui du corps — l'avant, un soupçon dehors —
+        // porté par le bassin, qui l'emmène en arrière quand l'homme se renverse.
+        // Le côté EXTÉRIEUR se lit sur le rig lui-même (hanche à +X pour la
+        // jambe gauche du GLB livré, à −X sur le rig de test) : pas de convention
+        // de main cachée.
+        if (rootJoint.parent.getWorldPosition) rootJoint.parent.getWorldPosition(mid);
+        const versDehors = Math.sign(mid.clone().sub(root).dot(gauche)) || (nom === "leftLeg" ? 1 : -1);
+        pole.copy(avant).addScaledVector(gauche, -versDehors * CREW_KNEE_SPREAD);
+        pole.addScaledVector(axis, -pole.dot(axis));
+        if (pole.lengthSq() < 1e-8) continue;
+      } else {
+        pole.subVectors(mid, root);
+        pole.addScaledVector(axis, -pole.dot(axis));
+        // Membre tendu au repos : aucun plan de flexion lisible. On laisse la
+        // chaîne sans pole plutôt que d'inventer une direction — le limiteur
+        // d'oscillation reste seul en charge, exactement comme avant.
+        if (pole.length() < span * 0.02) continue;
+      }
       pole.normalize();
       rootJoint.parent.getWorldQuaternion(parentQuaternion);
       chain.poleRest = pole.clone().applyQuaternion(parentQuaternion.invert());
@@ -1440,6 +1475,100 @@ export class CrewVisual {
     }
   }
 
+  /**
+   * IK ANALYTIQUE À DEUX OS, AVEC PÔLE. Cible dans le repère de la racine,
+   * comme `solveLimbContact`. Retourne l'erreur de contact en mètres.
+   *
+   * ⚠️ REMPLACE LE CCD SUR LES APPUIS, ET C'EST LE CORRECTIF DES GENOUX TORDUS
+   * (passe 86). Mesuré en jeu, homme assis à bord : genoux qui plient de
+   * CÔTÉ à 47-88°, pieds croisés de 20 à 29 cm — depuis le début. Mécanique :
+   * le CCD tourne chaque os par « plus petite rotation » vers la cible
+   * (`setFromUnitVectors`), ce qui ajoute du roulis à la cuisse à chaque
+   * itération ; la remise dans le plan (`applyPoleTarget`) ne corrige après
+   * coup qu'une fraction bornée (`maxStep`, force 0,15-0,85). À l'équilibre le
+   * genou plie là où le roulis l'a mis.
+   *
+   * Ici la solution du triangle (hanche, genou, pied) est directe : le genou
+   * est POSÉ dans le plan du pôle — la direction de flexion du repos, portée
+   * par le parent (`poleRest`) — puis chaque os est orienté vers son point
+   * par la même rotation de parent que l'IK. Aucune torsion n'est créée, et
+   * la remise dans le plan finit le travail sur ce qui reste du clip.
+   */
+  solveTwoBone(chain, x, y, z, weight) {
+    if (!chain || weight <= 0.015 || !this.rigRoot?.updateWorldMatrix) return 0;
+    const [mid, upper] = chain.joints;
+    if (!upper?.parent || !mid || !chain.effector) return 0;
+    for (let index = 0; index < chain.joints.length; index++) {
+      chain.pose[index].copy(chain.joints[index].quaternion);
+    }
+    this.root.updateWorldMatrix(true, true);
+    this.ikTargetWorld.set(x, y, z);
+    this.root.localToWorld(this.ikTargetWorld);
+    this.rigRoot.updateWorldMatrix(true, true);
+    upper.getWorldPosition(this.poleRootWorld);
+    mid.getWorldPosition(this.poleMidWorld);
+    chain.effector.getWorldPosition(this.poleEndWorld);
+    const a = this.poleRootWorld.distanceTo(this.poleMidWorld);
+    const b = this.poleMidWorld.distanceTo(this.poleEndWorld);
+    if (a < 1e-4 || b < 1e-4) return 0;
+    this.poleAxis.subVectors(this.ikTargetWorld, this.poleRootWorld);
+    const portee = this.poleAxis.length();
+    if (portee < 1e-4) return 0;
+    this.poleAxis.multiplyScalar(1 / portee);
+    // Hors de portée, le membre se tend vers la cible ; trop près, il se plie
+    // au maximum. Les deux bornes évitent un acos hors domaine.
+    const d = clamp(portee, Math.abs(a - b) + 1e-3, a + b - 1e-3);
+    if (chain.poleRest && upper.parent.getWorldQuaternion) {
+      upper.parent.getWorldQuaternion(this.ikParentWorld);
+      this.poleDesired.copy(chain.poleRest).applyQuaternion(this.ikParentWorld);
+    } else {
+      this.poleDesired.subVectors(this.poleMidWorld, this.poleRootWorld);
+    }
+    this.poleDesired.addScaledVector(this.poleAxis, -this.poleDesired.dot(this.poleAxis));
+    if (this.poleDesired.lengthSq() < 1e-8) {
+      // Pôle aligné sur la corde : on garde le plan courant du genou.
+      this.poleDesired.subVectors(this.poleMidWorld, this.poleRootWorld);
+      this.poleDesired.addScaledVector(this.poleAxis, -this.poleDesired.dot(this.poleAxis));
+      if (this.poleDesired.lengthSq() < 1e-8) return 0;
+    }
+    this.poleDesired.normalize();
+    const cosinus = clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1);
+    const alpha = Math.acos(cosinus);
+    // Le genou (ou le coude) voulu, dans le plan du pôle.
+    this.poleCurrent.copy(this.poleRootWorld)
+      .addScaledVector(this.poleAxis, a * Math.cos(alpha))
+      .addScaledVector(this.poleDesired, a * Math.sin(alpha));
+    // ⚠️ SANS BUDGET D'OSCILLATION. `maxSwing` (1,35 rad aux bras) protégeait
+    // la silhouette contre un CCD libre ; ici la garde anatomique est la
+    // géométrie elle-même — triangle et plan du pôle. Dos à la mer, prendre le
+    // bois derrière les hanches demande 120° d'épaule depuis la pose du clip :
+    // sous ce budget la main manquait le bois de 47 à 62 cm, mesuré.
+    this.legDir.subVectors(this.poleCurrent, this.poleRootWorld).normalize();
+    this.alignBoneTowards(upper, mid, this.legDir, weight, Math.PI);
+    this.rigRoot.updateWorldMatrix(true, true);
+    mid.getWorldPosition(this.poleMidWorld);
+    this.legDir.subVectors(this.ikTargetWorld, this.poleMidWorld).normalize();
+    this.alignBoneTowards(mid, chain.effector, this.legDir, weight, Math.PI);
+    // Ce qui reste de roulis vient du clip, pas de nous : la remise dans le
+    // plan le reprend, autour de la corde, sans déplacer le contact. Le
+    // reclampage de `applyPoleTarget` lit `chain.pose` : on le rebase sur la
+    // pose résolue, sinon il défait l'alignement qui précède.
+    for (let index = 0; index < chain.joints.length; index++) {
+      chain.pose[index].copy(chain.joints[index].quaternion);
+    }
+    // ⚠️ EN PLUSIEURS PAS, JUSQU'AU BOUT. Chaque appel est plafonné à `maxStep`
+    // (0,90 rad) ; or les clips sources plient le genou À L'ENVERS (cuisse en
+    // arrière, tibia en avant — mesuré clip par clip), soit ~120° de plan à
+    // rattraper, et le clip remet l'erreur à zéro à chaque image. Un seul pas
+    // laissait 64 à 89° de torsion à l'équilibre.
+    for (let passe = 0; passe < 3; passe++) {
+      if (this.applyPoleTarget(chain, 1) < 0.02) break;
+    }
+    this.rigRoot.updateWorldMatrix(true, true);
+    chain.effector.getWorldPosition(this.ikEffectorWorld);
+    return this.ikEffectorWorld.distanceTo(this.ikTargetWorld);
+  }
+
   solveLimbContact(chain, x, y, z, strength, iterations = 2) {
     if (!chain || strength <= 0.015 || !this.rigRoot?.updateWorldMatrix) return 0;
     // Le solveur ne pilote plus quatre membres vers des cibles symétriques :
@@ -1505,6 +1634,13 @@ export class CrewVisual {
 
   applyRigContacts(hike, seated, catchLoad, transferCrouch) {
     if (!this.ikChains) return;
+    // ⚠️ LE PATRON BARRE ASSIS À LA POUPE, SANS PERCHE. Ses appuis sont écrits
+    // dans sa branche de `syncRig` (genoux pliés dans la coque, deux mains au
+    // manche). Ici, `catchLoad` lui donnait un contact de rappel et envoyait
+    // ses mains chercher un bois qui n'existe pas à son poste : avec le CCD
+    // borné cela passait sous le seuil, avec le deux-os qui atteint sa cible
+    // ses bras partaient en croix (47,8° d'abduction, harnais silhouette).
+    if (CREW_SPECIALIST_ROLES.includes(this.role)) return;
     const scale = Math.max(0.001, this.root.scale.y || 1);
     // La cible est la perche AFFAISSÉE à la station de l'homme, pas sa cote au
     // repos : `root.position.y` porte déjà la flèche, on la retire donc aussi
@@ -1621,23 +1757,17 @@ export class CrewVisual {
     // perche avant. Le CCD, borné par `maxSwing` (1,35 rad), partait de trop
     // loin et manquait le bois de 30 à 55 cm (mesuré en jeu). On pointe donc
     // d'abord chaque bras vers sa prise, en monde, puis le CCD affine.
-    this.preOrientArmsTowards(
-      handChain, surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx), rappelContact
-    );
-    firmWorst = Math.max(firmWorst, this.solveLimbContact(
+    firmWorst = Math.max(firmWorst, this.solveTwoBone(
       handChain,
       surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx),
-      rappelContact, 4
+      rappelContact
     ));
     const chaineLibre = mainExterieureDroite ? this.ikChains.leftArm : this.ikChains.rightArm;
     const dxLibre = prisesDerriere ? versLeLarge * CREW_GRIP_BEHIND_NEAR : -handDx * 1.9;
-    this.preOrientArmsTowards(
-      chaineLibre, surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre), rappelContact * 0.5
-    );
-    this.solveLimbContact(
+    this.solveTwoBone(
       chaineLibre,
       surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre),
-      rappelContact * 0.5, 3
+      rappelContact * 0.6
     );
 
     // ─── LES JAMBES : TENDUES VERS LE BAS, TENDUES VERS LE BATEAU, OU ASSISES ───
@@ -1677,11 +1807,11 @@ export class CrewVisual {
         const strength = Math.max(0.3, rappelContact) * legAuthority * 0.9;
         const cibleX = (dz) => (dxRail * cosYaw - dz * sinYaw) / scale;
         const cibleZ = (dz) => (dxRail * sinYaw + dz * cosYaw) / scale;
-        leftFootError = this.solveLimbContact(
-          this.ikChains.leftLeg, cibleX(gaucheZ), localY, cibleZ(gaucheZ), strength, 6
+        leftFootError = this.solveTwoBone(
+          this.ikChains.leftLeg, cibleX(gaucheZ), localY, cibleZ(gaucheZ), strength
         );
-        rightFootError = this.solveLimbContact(
-          this.ikChains.rightLeg, cibleX(-gaucheZ), localY, cibleZ(-gaucheZ), strength, 6
+        rightFootError = this.solveTwoBone(
+          this.ikChains.rightLeg, cibleX(-gaucheZ), localY, cibleZ(-gaucheZ), strength
         );
         firmWorst = Math.max(firmWorst, Math.min(leftFootError, rightFootError));
         softWorst = Math.max(softWorst, Math.max(leftFootError, rightFootError));
@@ -1703,18 +1833,25 @@ export class CrewVisual {
       // À bord ou en traversée : appuis sur les planchers, inchangés.
       const footY = (0.12 - this.root.position.y) / scale;
       const legStrength = Math.max(deckContact * 0.72, reposContact * 0.62);
+      // ⚠️ LES CIBLES ÉTAIENT INVERSÉES GAUCHE-DROITE, DEPUIS LE DÉBUT. Sur ce
+      // rig, +X local est le côté GAUCHE de l'homme (LeftUpLeg à +X dans le GLB,
+      // face à +Z). Le pied gauche visait −0,15 et le droit +0,15 : les jambes se
+      // croisaient par construction (mesuré : 20 à 35 cm), et l'IK tordait les
+      // genoux de 47 à 88° pour y arriver — c'est ça, les « genoux tordus ».
+      // Chaque pied vise désormais SON côté ; le deux-os avec pôle fait plier
+      // le genou devant, dans le plan du corps.
       if (contactMode === CREW_CONTACT_BOTH_FEET || leadLeft) {
-        leftFootError = this.solveLimbContact(
+        leftFootError = this.solveTwoBone(
           this.ikChains.leftLeg,
-          -0.15 + versCoque * reposContact * 0.30, footY, 0.02 - deckContact * 0.10 - reposContact * 0.06,
-          legStrength, 6
+          0.15, footY, 0.02 - deckContact * 0.10 + reposContact * 0.30,
+          legStrength
         );
       }
       if (contactMode === CREW_CONTACT_BOTH_FEET || !leadLeft) {
-        rightFootError = this.solveLimbContact(
+        rightFootError = this.solveTwoBone(
           this.ikChains.rightLeg,
-          0.15 + versCoque * reposContact * 0.30, footY, 0.02 + deckContact * 0.10 + reposContact * 0.06,
-          legStrength, 6
+          -0.15, footY, 0.02 + deckContact * 0.10 + reposContact * 0.30,
+          legStrength
         );
       }
       firmWorst = Math.max(firmWorst, leadLeft ? leftFootError : rightFootError);
@@ -1788,30 +1925,6 @@ export class CrewVisual {
     }
     this.legDir.normalize();
     this.alignBoneTowards(this.torsoHips, this.torsoSpine, this.legDir, weight, Math.PI);
-    return true;
-  }
-
-  /**
-   * Oriente un bras (épaule → coude → main) vers une cible donnée dans le
-   * repère de la racine, en monde, bras tendu. Le CCD n'a plus qu'à affiner.
-   */
-  preOrientArmsTowards(chain, localX, localY, localZ, weight) {
-    if (!chain || !this.rigRoot?.updateWorldMatrix || weight <= 0.001) return false;
-    // CrewVisual ne garde pas THREE : on emprunte deux vecteurs de travail de
-    // l'IK, consommes AVANT alignBoneTowards qui les reecrit.
-    for (let index = 0; index < chain.joints.length; index++) {
-      chain.pose[index].copy(chain.joints[index].quaternion);
-    }
-    const [lower, upper] = chain.joints;
-    this.root.updateWorldMatrix(true, true);
-    this.ikEffectorWorld.set(localX, localY, localZ);
-    this.root.localToWorld(this.ikEffectorWorld);
-    upper.getWorldPosition(this.ikJointWorld);
-    this.legDir.subVectors(this.ikEffectorWorld, this.ikJointWorld);
-    if (this.legDir.lengthSq() < 1e-6) return false;
-    this.legDir.normalize();
-    this.alignBoneTowards(upper, lower, this.legDir, weight, Math.PI);
-    this.alignBoneTowards(lower, chain.effector, this.legDir, weight, Math.PI);
     return true;
   }
 
@@ -2088,7 +2201,13 @@ export class CrewVisual {
     // long du bois se retrouve sur le dos. À bord (hike = 0) le lacet retombe à
     // zéro et l'équipier regarde la proue, comme avant.
     const familyPose = CREW_FAMILY_POSE[this.stagingFamily] ?? CREW_FAMILY_POSE.levier;
-    const yaw = -side * hike * CREW_HIKE_YAW * familyPose.yaw;
+    // À bord (peu ou pas sorti), l'homme se tourne vers l'intérieur de la coque ;
+    // la traversée efface ce tour, le rappel prend le relais au-delà.
+    const assisAuBord = clamp((0.42 - hike) / 0.30, 0, 1) * (1 - transferCrouch);
+    const yaw = -side * (
+      hike * CREW_HIKE_YAW * familyPose.yaw * (1 - assisAuBord)
+      + CREW_ABOARD_YAW * assisAuBord
+    );
     this.root.rotation.y = yaw;
     // ⚠️ La bascule N'EST PLUS à la racine. Elle y faisait pivoter l'homme
     // autour de ses pieds, ce qui décollait le bassin du bois. Elle passe au

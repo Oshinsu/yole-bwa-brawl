@@ -657,6 +657,36 @@ d'un homme assis tronc en arrière n'atteignait pas le bois derrière sa
 hanche, et la limite anatomique du CCD faisait manquer la cible de 59 cm — le
 harnais mesurait le mannequin, pas le moteur.
 
+### Les genoux pliaient à l'envers dans les seeds (2 septembre, passe 86)
+
+Sonde sur les clips seuls (`scratch/sonde_seed.mjs <glb>`, poids 1, sans
+procédural ni IK) : dans les cinq actions livrées, cuisse vers −Z (arrière) et
+tibia vers +Z (avant). Sur ce rig, l'axe X local des os de jambe est latéral et
+leur Z local pointe vers l'arrière : une rotation X positive envoie la cuisse en
+arrière (extension de hanche), une rotation X négative envoie le tibia en avant
+(hyperextension). Les seeds `POSE_ROTATIONS_DEG` écrivaient cuisse +62 / tibia
+−100 pour la pose assise — l'anatomie au signe près. Les bras tournaient bien.
+
+Correctif à la source : les 36 valeurs X de `UpLeg`/`Leg`/`Foot` sont négées dans
+`tools/build_crew_asset.py` et les cinq actions recuites dans Blender 5.2 headless
+(`--mode upgrade --reauthor-actions` puis `--mode export`, sur des COPIES des
+masters dans `tmp/crew-v2/`), pour les quatre rigs. Diff clip par clip : seules
+les six os de jambe changent.
+
+Conséquences dans le moteur :
+
+- `solveTwoBone` (deux os + pôle, solution du triangle) remplace le CCD sur
+  mains, plat-bord et planchers ; il ne crée aucune torsion ;
+- le pôle des JAMBES est le plan du corps — avant, `CREW_KNEE_SPREAD` dehors, côté
+  lu sur le rig — plus le bombement du bind (bruit à 30° vers l'extérieur) ;
+- cibles de pieds à bord remises du bon côté (+X local = côté GAUCHE) ;
+- à bord l'homme se tourne vers l'intérieur (`CREW_ABOARD_YAW`) ;
+- le patron sort de `applyRigContacts` : pas de perche sous lui.
+
+Mesuré en jeu à bord : torsion des genoux 47-88° → 7-22°. À cheval : 0-15°,
+mains 0-8 cm, poitrine au ciel. Règle : **quand une pose résiste à trois passes
+de réglage, sonder le clip seul** — et corriger l'asset dans Blender.
+
 ### Dos à la mer — la cause racine (2 septembre, nuit)
 
 Planche de poses isolées sous les yeux du propriétaire : « pitoyable ». Les

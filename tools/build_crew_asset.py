@@ -146,6 +146,18 @@ ACTION_BRIEFS = {
 # procédural (`CREW_HIKE_RECLINE`), mais `syncRig` ne lui laisse plus que 41 %
 # d'amplitude depuis que l'assise et la station tiennent l'autorité. Le tripler
 # ne suffisait donc plus — c'est un constat mesuré, pas une préférence.
+# ⚠️ SIGNE DES JAMBES RETOURNE LE 2 SEPTEMBRE 2026, MESURE CLIP PAR CLIP.
+# Sur ce rig, l axe X local des os de jambe est lateral et leur axe Z local
+# pointe vers l ARRIERE : une rotation X positive envoie la cuisse en arriere
+# (extension de hanche) et une rotation X negative envoie le tibia en avant
+# (hyperextension du genou). Les seeds ecrivaient exactement cela — cuisse +62,
+# tibia -100 pour la pose assise — donc CHAQUE pose pliait le genou a l envers.
+# Mesure sur les clips seuls, poids 1, sans procedural ni IK : cuisse vers
+# -Z (arriere) et tibia vers +Z (avant) dans les cinq actions. A l ecran :
+# les « genoux tordus » signales depuis le debut. Les bras, eux, tournaient
+# dans le bon sens (la flexion du coude est bien vers l avant).
+# Toutes les valeurs X de UpLeg, Leg et Foot sont negees ci-dessous, y compris
+# les amplitudes de respiration. Rien d autre ne change.
 POSE_ROTATIONS_DEG = {
     # Assise recalée le 6 août 2026 sur photos de bordée SANS gîte (Tour des
     # yoles 2019, GFA Caraïbes, CC BY-SA — tmp/references/) : l'homme est ASSIS
@@ -161,12 +173,12 @@ POSE_ROTATIONS_DEG = {
         "Spine01": (8, 0, -1),
         "Spine": (3, 0, 0),
         "neck": (-21, 0, 0),
-        "LeftUpLeg": (62, 0, -8),
-        "RightUpLeg": (66, 0, 8),
-        "LeftLeg": (-100, 0, 0),
-        "RightLeg": (-104, 0, 0),
-        "LeftFoot": (8, 0, 0),
-        "RightFoot": (6, 0, 0),
+        "LeftUpLeg": (-62, 0, -8),
+        "RightUpLeg": (-66, 0, 8),
+        "LeftLeg": (100, 0, 0),
+        "RightLeg": (104, 0, 0),
+        "LeftFoot": (-8, 0, 0),
+        "RightFoot": (-6, 0, 0),
         "LeftArm": (-13, 0, 25),
         "RightArm": (-15, 0, -23),
         "LeftForeArm": (-62, 0, 4),
@@ -181,12 +193,12 @@ POSE_ROTATIONS_DEG = {
         "Spine01": (1, 0, 0),
         "Spine": (1, 0, 0),
         "neck": (-28, 0, 0),
-        "LeftUpLeg": (10, 0, -12),
-        "RightUpLeg": (5, 0, 11),
-        "LeftLeg": (-95, 0, 0),
-        "RightLeg": (-85, 0, 0),
-        "LeftFoot": (10, 0, 0),
-        "RightFoot": (8, 0, 0),
+        "LeftUpLeg": (-10, 0, -12),
+        "RightUpLeg": (-5, 0, 11),
+        "LeftLeg": (95, 0, 0),
+        "RightLeg": (85, 0, 0),
+        "LeftFoot": (-10, 0, 0),
+        "RightFoot": (-8, 0, 0),
         "LeftArm": (0, 0, 35),
         "RightArm": (0, 0, -33),
         "LeftForeArm": (0, 0, 7),
@@ -201,12 +213,12 @@ POSE_ROTATIONS_DEG = {
         "Spine01": (3, 0, 0),
         "Spine": (2, 0, 0),
         "neck": (-31, 0, 0),
-        "LeftUpLeg": (10, 0, -10),
-        "RightUpLeg": (-20, 0, 8),
-        "LeftLeg": (-100, 0, 0),
-        "RightLeg": (-60, 0, 0),
-        "LeftFoot": (12, 0, 0),
-        "RightFoot": (-5, 0, 0),
+        "LeftUpLeg": (-10, 0, -10),
+        "RightUpLeg": (20, 0, 8),
+        "LeftLeg": (100, 0, 0),
+        "RightLeg": (60, 0, 0),
+        "LeftFoot": (-12, 0, 0),
+        "RightFoot": (5, 0, 0),
         "LeftArm": (0, 0, 40),
         "RightArm": (0, 0, -38),
         "LeftForeArm": (-20, 0, 8),
@@ -222,11 +234,11 @@ POSE_ROTATIONS_DEG = {
         "Spine": (3, 0, 0),
         "neck": (-38, 0, 0),
         "LeftUpLeg": (0, 0, -10),
-        "RightUpLeg": (-45, 0, 5),
-        "LeftLeg": (-105, 0, 0),
-        "RightLeg": (-75, 0, 0),
-        "LeftFoot": (16, 0, 0),
-        "RightFoot": (-8, 0, 0),
+        "RightUpLeg": (45, 0, 5),
+        "LeftLeg": (105, 0, 0),
+        "RightLeg": (75, 0, 0),
+        "LeftFoot": (-16, 0, 0),
+        "RightFoot": (8, 0, 0),
         "LeftArm": (-42, 0, 16),
         "RightArm": (-38, 0, -14),
         "LeftForeArm": (-24, 0, 6),
@@ -241,12 +253,12 @@ POSE_ROTATIONS_DEG = {
         "Spine01": (10, 0, 3),
         "Spine": (6, 0, 2),
         "neck": (-26, 0, 0),
-        "LeftUpLeg": (50, 0, -12),
-        "RightUpLeg": (-30, 0, 16),
-        "LeftLeg": (-115, 0, 0),
-        "RightLeg": (-50, 0, 0),
-        "LeftFoot": (18, 0, 0),
-        "RightFoot": (-5, 0, 0),
+        "LeftUpLeg": (-50, 0, -12),
+        "RightUpLeg": (30, 0, 16),
+        "LeftLeg": (115, 0, 0),
+        "RightLeg": (50, 0, 0),
+        "LeftFoot": (-18, 0, 0),
+        "RightFoot": (5, 0, 0),
         "LeftArm": (-20, 0, 40),
         "RightArm": (-5, 0, -25),
         "LeftForeArm": (-55, 0, 7),
@@ -300,12 +312,12 @@ POSE_MOTION_DEG = {
     # Les jambes en opposition de phase : un appui se charge pendant que
     # l'autre se relâche. C'est ce report de poids qui fait « tenir », et il est
     # invisible si les deux jambes bougent ensemble.
-    "LeftUpLeg": ((2.0, 0.0, 1.2), 1.0, 0.50),
-    "RightUpLeg": ((2.0, 0.0, -1.2), 1.0, 0.00),
-    "LeftLeg": ((-2.4, 0.0, 0.0), 1.0, 0.55),
-    "RightLeg": ((-2.4, 0.0, 0.0), 1.0, 0.05),
-    "LeftFoot": ((1.4, 0.0, 0.0), 1.0, 0.60),
-    "RightFoot": ((1.4, 0.0, 0.0), 1.0, 0.10),
+    "LeftUpLeg": ((-2, 0.0, 1.2), 1.0, 0.50),
+    "RightUpLeg": ((-2, 0.0, -1.2), 1.0, 0.00),
+    "LeftLeg": ((2.4, 0.0, 0.0), 1.0, 0.55),
+    "RightLeg": ((2.4, 0.0, 0.0), 1.0, 0.05),
+    "LeftFoot": ((-1.4, 0.0, 0.0), 1.0, 0.60),
+    "RightFoot": ((-1.4, 0.0, 0.0), 1.0, 0.10),
 }
 
 # La transition n'est pas une boucle : elle est jouée par PROGRESSION de la

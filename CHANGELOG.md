@@ -13,6 +13,66 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 86 — les genoux pliaient à l'envers, depuis le début
+
+Le propriétaire, capture de l'homme à bord sous les yeux : « les genoux, les
+jambes sont TORDUS — c'était le problème depuis le début ». Et : « pourquoi tu
+n'utilises pas Blender ? ». Les deux remarques étaient justes.
+
+- **La mesure.** Sonde sur les clips SEULS (poids 1, sans procédural ni IK) :
+  dans les cinq actions du GLB livré, la cuisse partait vers **−Z (l'arrière)**
+  et le tibia vers **+Z (l'avant)**. `pont_interieur` : cuisse `[0,07 −0,78
+  −0,63]`, tibia `[0,04 −0,87 +0,49]`. Un genou qui plie à l'envers, dans chaque
+  clip, sur les quatre rigs. Tout ce que l'IK faisait depuis — pôle, remise dans
+  le plan, deux-os — se battait contre un clip qui pliait dans l'autre sens ; ce
+  combat, c'est la torsion qu'on voyait à l'écran (**47-88°** à bord, mesurée
+  en jeu).
+- **La cause.** Sur ce rig, l'axe X local des os de jambe est latéral et leur
+  axe Z local pointe vers l'ARRIÈRE : une rotation X positive envoie la cuisse
+  en arrière, une rotation X négative envoie le tibia en avant. Les seeds
+  (`POSE_ROTATIONS_DEG`, `tools/build_crew_asset.py`) écrivaient cuisse +62,
+  tibia −100 pour la pose assise — l'anatomie exacte, au signe près. Les bras,
+  eux, tournaient dans le bon sens.
+- **Le correctif, à la source.** Les 36 valeurs X de `UpLeg`, `Leg`, `Foot` sont
+  négées (amplitudes de respiration comprises) et les cinq actions **recuites
+  dans Blender 5.2 headless** sur des copies des quatre masters (principal,
+  locks, casquette, bakoua), textures ramenées à 256, tailles identiques à la
+  production. Diff clip par clip entre ancien et nouveau GLB : **seules les six
+  os de jambe changent** (14° à 175°), tout le reste est identique au degré
+  près. Après : `pont_interieur` cuisse `[0,15 −0,44 +0,89]` (avant-haut), tibia
+  `[0,23 −0,81 −0,54]` (bas) — sur les quatre rigs.
+- **Le pôle des genoux vient du corps, plus du bruit du bind.** Le pôle déduit
+  du « bombement » du genou au bind (2 % de la longueur d'une jambe quasi
+  tendue, normalisé) sortait à **30° vers l'extérieur** : les six hommes assis à
+  bord pliaient donc les genoux de côté, 24-33°, jusqu'à 61° quand le bassin
+  tournait. Le plan de flexion des jambes est désormais l'AVANT du corps, un
+  soupçon dehors (`CREW_KNEE_SPREAD` 0,12 ≈ 7°), le côté extérieur lu sur le rig
+  lui-même. Mesuré en jeu à bord : torsion **7-22°** (un genou à 31°), pieds
+  chacun de leur côté (0,15-0,24 m), contre 47-88° au départ de la passe.
+- **Le résolveur deux-os avec pôle** (`solveTwoBone`) remplace le CCD sur mains,
+  plat-bord et planchers : le genou (ou le coude) est POSÉ dans le plan du pôle
+  par la solution du triangle, puis chaque os orienté vers son point. Aucune
+  torsion créée ; la remise dans le plan finit le travail. Les cibles de pieds
+  à bord étaient de plus INVERSÉES gauche-droite (+X local est le côté GAUCHE
+  de l'homme) : pieds croisés de 20-29 cm, mesuré.
+- **À bord, l'homme se tourne vers l'intérieur** (`CREW_ABOARD_YAW` 1,25 rad,
+  fondu par `assisAuBord`), et **le patron sort des contacts de perche** : à la
+  poupe, `catchLoad` lui donnait un contact de rappel et le deux-os, qui atteint
+  sa cible, envoyait ses bras en croix (47,8° d'abduction → 28,8°).
+- **Planche de trois poses isolées relue** : assis à cheval dos à la mer, jambes
+  pendantes de chaque côté de la perche, genoux vers l'avant ; allongé, jambes
+  vers la coque, mains au bois ; à bord, debout genoux souples, regard à la
+  voile. À cheval en jeu : torsion 0-15°, mains à 0-8 cm du bois, poitrine au
+  ciel +0,52…+0,93.
+- Contrats : `crew-pole-target` porte le nouveau plan des jambes (écart voulu
+  0,12 rad au repos) ; genou au plat-bord toléré à 95° (92° mesuré à la
+  demi-sortie : le deux-os résout le triangle exactement, le genou suit la
+  distance hanche-plat-bord). Purement visuel : les quatre checksums sont
+  inchangés.
+- Règle retenue : **quand une pose résiste à trois passes de réglage, sonder le
+  clip seul.** Le bug était dans l'asset, pas dans le résolveur — et l'asset se
+  corrige dans Blender, en une ligne de seeds, pas en couches d'IK.
+
 ## Passe 85 — dos à la mer : la cause racine des poses de l'équipage
 
 Le propriétaire, planche de poses isolées sous les yeux : « pitoyable ». Il

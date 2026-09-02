@@ -280,7 +280,10 @@ const releves = SCENARIOS.map((scenario) => joue(scenario, batisRig(json), bibli
 // l'axe du bois, côté bateau, est un talon crocheté — le défaut à refuser.
 const CONTRATS = {
   flexionGenouMaxRappel: 40,      // degrés : tendu, à la tolérance d'un dressage naturel
-  flexionGenouMaxPlatBord: 90,    // pied calé au plat-bord : le genou fléchit autant que la distance l'impose (photo 4 : genoux à angle droit ; dos à la mer, 82-83° mesurés)
+  // Passe 86 : le deux-os resout le triangle hanche-genou-pied EXACTEMENT, le
+  // genou suit donc la distance hanche->plat-bord (92 deg mesure a la demi-sortie,
+  // ancrage). La photo 4 montre un angle droit ; 95 laisse 5 deg de geometrie.
+  flexionGenouMaxPlatBord: 95,    // pied calé au plat-bord : le genou fléchit autant que la distance l'impose (photo 4 : genoux à angle droit ; dos à la mer, 82-83° mesurés)
   piedAuDessusDuBoisMax: 0.16,    // mètres : pas de talon crocheté sur le bois (marge : pied posé au plat-bord)
   lecturesAdmises: ["bas", "bateau"]
 };

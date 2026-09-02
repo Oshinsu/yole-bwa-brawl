@@ -11,8 +11,11 @@
 // écarte le milieu de 8,8 cm et 4,5 cm de la corde — le plan est déjà là.
 //
 // Trois propriétés à tenir, et le test échoue si l'une saute :
-//   1. le pole se capture sur un membre fléchi, et RESTE NUL sur un membre tendu
-//      (sinon on inventerait une direction à partir de bruit) ;
+//   1. le pole des BRAS se capture sur un membre fléchi, et RESTE NUL sur un
+//      membre tendu (sinon on inventerait une direction à partir de bruit) ;
+//      celui des JAMBES est le plan du corps — avant, CREW_KNEE_SPREAD dehors —
+//      depuis la passe 86 : mesuré en jeu, le bombement du bind (2 % de la
+//      jambe) donnait un pôle à 30° et des genoux pliés de côté ;
 //   2. un coude retourné revient de son côté ;
 //   3. la correction ne DÉPLACE PAS la main — elle tourne autour de l'axe
 //      racine→extrémité, donc le contact obtenu par le CCD est intact.
@@ -116,7 +119,11 @@ for (const nom of ["leftArm", "rightArm", "leftLeg", "rightLeg"]) {
   const rootJoint = chain.joints[chain.joints.length - 1];
 
   const repos = ecartDePole(visual, chain);
-  assert.ok(repos && Math.abs(repos.angle) < 1e-3,
+  // Bras : pole capturé sur le bind, écart nul au repos. Jambes : pole = plan du
+  // corps (avant + CREW_KNEE_SPREAD dehors) ; au repos le genou du rig de test
+  // bombe droit devant, la mesure vaut donc exactement cet écart voulu (0,12 rad).
+  const toleranceRepos = nom.endsWith("Leg") ? 0.13 : 1e-3;
+  assert.ok(repos && Math.abs(repos.angle) <= toleranceRepos,
     `${nom} : au repos, le pole courant doit DÉJÀ être le pole voulu (écart ${repos?.angle})`);
 
   // On retourne franchement l'articulation autour de la corde : 2,2 rad, très

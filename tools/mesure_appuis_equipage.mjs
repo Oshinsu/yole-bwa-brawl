@@ -143,9 +143,31 @@ function joue(scenario, rig, bibliotheque) {
   // Distance d'un point à l'AXE du bwa (qui court selon X à la cote CREW_BEAM_Y, z = 0.5).
   const distAxe = (p) => p ? Math.hypot(p.y - CREW_BEAM_Y, p.z - 0.5) : null;
 
+  // Sonde de pole : direction de flexion du genou retenue au repos, exprimee
+  // dans le repere de la yole, et normale du plan de flexion courant.
+  const chaineG = visuel.ikChains?.leftLeg;
+  let poleMonde = null;
+  if (chaineG?.poleRest && chaineG.joints?.[1]?.parent) {
+    const q = chaineG.joints[1].parent.getWorldQuaternion(new THREE.Quaternion());
+    const v = chaineG.poleRest.clone().applyQuaternion(q);
+    const qy = yole.getWorldQuaternion(new THREE.Quaternion()).invert();
+    v.applyQuaternion(qy);
+    poleMonde = [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)];
+  }
+  const normaleGenou = (hancheG && genouG && piedG)
+    ? new THREE.Vector3().crossVectors(genouG.clone().sub(hancheG), piedG.clone().sub(genouG)).normalize()
+    : null;
   return {
     scenario: scenario.nom,
     pose: visuel.legPose ?? null,
+    poleRestGauche: chaineG?.poleRest ? [+chaineG.poleRest.x.toFixed(2), +chaineG.poleRest.y.toFixed(2), +chaineG.poleRest.z.toFixed(2)] : null,
+    poleGaucheYole: poleMonde,
+    normaleGenouGauche: normaleGenou ? [+normaleGenou.x.toFixed(2), +normaleGenou.y.toFixed(2), +normaleGenou.z.toFixed(2)] : null,
+    lacetRacine: +(visuel.root.rotation.y * DEG).toFixed(0),
+    cuisseGauche: (hancheG && genouG) ? genouG.clone().sub(hancheG).normalize().toArray().map((v) => +v.toFixed(2)) : null,
+    tibiaGauche: (genouG && piedG) ? piedG.clone().sub(genouG).normalize().toArray().map((v) => +v.toFixed(2)) : null,
+    chaineGauche: chaineG ? chaineG.joints.map((j) => j.name || j.type) : null,
+    pivotJambeGauche: visuel.leftLegPivot ? [visuel.leftLegPivot.rotation.x, visuel.leftLegPivot.rotation.y, visuel.leftLegPivot.rotation.z].map((v) => +(v * DEG).toFixed(0)) : null,
     // Le contact qui manquait : le périnée au-dessus du DESSUS du bois.
     assiseAuDessusDuBois: perinee ? +(perinee.y - DESSUS_DU_BOIS).toFixed(3) : null,
     hipsAuDessusDeLAxe: hips ? +(hips.y - CREW_BEAM_Y).toFixed(3) : null,

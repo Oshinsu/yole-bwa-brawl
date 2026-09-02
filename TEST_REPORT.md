@@ -1,5 +1,43 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 86 — les genoux pliaient à l'envers
+
+Validation du 2 septembre 2026 (après-midi) :
+
+- `npm run verify` : **OK** ; smoke navigateur sans erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : seeds, GLB, résolveur et pôle sont du rendu pur ;
+- sonde clips seuls, quatre rigs : `pont_interieur` cuisse **−Z → +Z 0,78…0,89**
+  (avant-haut), tibia vers le bas dans les quatre ; diff clip par clip ancien →
+  nouveau GLB : seules `UpLeg`/`Leg`/`Foot` changent, le reste au degré près ;
+- Blender 5.2 headless : `upgrade --reauthor-actions` + `export` OK sur les
+  quatre masters (copies), `structuralOk`/`authoredReady` vrais ;
+  `productionReady` reste faux pour la seule raison `unvalidatedContacts`
+  (étape QA manuelle du studio, jamais cochée, état identique à avant) ;
+- mesure en jeu à bord (gîte 0,03, six hommes) : torsion des genoux **47-88°
+  (départ) → 24-61° (nouveau GLB seul) → 7-22°** avec le pôle dans le plan du
+  corps (un genou à 31°), pieds chacun de leur côté 0,15-0,24 m ;
+- mesure en jeu à cheval (gîte 0,42) : torsion 0-15° (deux genoux droits 26-33°
+  sur les jambes pendantes), mains à 0-8 cm du bois (une à 30), assise −2…−4 cm,
+  poitrine au ciel +0,52…+0,93, tronc 66-80° ;
+- harnais silhouette strict OK, patron 47,8° → 28,8° d'abduction ;
+  `crew-pole-target` mis au nouveau contrat des jambes ; genou au plat-bord
+  toléré à 95° (92° mesuré à la demi-sortie, triangle exact) ; `test:crew` OK ;
+- planche de trois poses isolées régénérée et relue : genoux vers l'avant dans
+  les trois, aucune jambe tordue, bras au bois derrière les hanches à cheval.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire sur la planche — c'est lui qui corrige ;
+- les Hips des rigs variantes (casquette, locks) ont un repère différent du
+  principal : les clips de station y tournent le bassin de côté, ce que le
+  procédural écrase en jeu, mais un jour de recuit des seeds Hips par variante
+  serait plus propre ;
+- les seeds de station (`cale_court`, `demi_sorti`, `extension_extreme`) gardent
+  des flexions de tibia de 95-105°, plausibles maintenant dans le bon sens mais
+  jamais recettées seules : l'IK les écrase au plat-bord.
+
+
 ## Passe 85 — dos à la mer
 
 Validation du 2 septembre 2026 (nuit) :
