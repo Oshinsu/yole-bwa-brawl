@@ -1,5 +1,33 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 82 — Meshy 7 sur le décor, et le rocher procédural
+
+Validation du 2 septembre 2026 :
+
+- `npm run verify` : **OK** ; 182 fichiers précachés ; smoke navigateur sans
+  erreur console ni page ; benchmark 149 461 pas bateau/s ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : la géométrie du rocher est construite une fois, sur une graine
+  CONSTANTE, hors de tout flux RNG contractuel ;
+- charge de rendu re-mesurée en course (1280×720) : 212 300 triangles en HQ
+  contre 209 852 avant, soit **+2 448** — 17 rochers visibles, pas 96 — et
+  **173 appels de dessin, inchangés** ;
+- quatre générations Meshy 7 mesurées et rendues côte à côte avec les
+  géométries du jeu, mêmes matériaux et mêmes lumières : roches à 417, 418 et
+  307 triangles, palme à 68 ;
+- `test/mock-three.module.js` expose `IcosahedronGeometry`, et
+  `makeRockGeometry` rend la géométrie telle quelle quand le moteur simulé la
+  livre creuse — les suites qui montent un `Game` complet passent sans toucher
+  au rendu.
+
+### Ce qui n'est pas vérifié ici
+
+- l'aspect du rocher sur téléphone réel, à la distance de jeu ;
+- une génération Meshy à partir d'une planche de référence plutôt que d'un
+  texte : l'évaluation du 12 août montre que l'alignement y est bien meilleur,
+  et ce test n'a porté que sur du texte.
+
+
 ## Passe 81 — les repères posés sur le relief
 
 Validation du 2 septembre 2026 :

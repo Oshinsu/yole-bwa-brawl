@@ -152,3 +152,62 @@ Vérifié en jeu sur captures (repos assis, gîte 20°, traction 35°) : les qua
 identités se lisent dans la même rangée, chacune anime ses propres clips,
 `replayChecksum` inchangé. Le bakoua reste conique (réserve maintenue), les
 tresses restent à générer.
+
+---
+
+# Le décor : où Meshy gagne, où il perd — 2 septembre 2026
+
+Question posée : puisqu'il reste des crédits, pourquoi ne pas générer aussi les
+petits éléments d'environnement — mini-îles, cocotiers, sargasses, rochers ?
+Quatre générations `meshy-7` en mode `preview` (géométrie nue, sans texture) et
+un montage comparatif ont tranché.
+
+## Le budget réel, mesuré en course
+
+| | valeur |
+|---|---|
+| charge totale à l'écran (HQ, 1280×720) | 209 852 triangles, 173 appels de dessin |
+| dont décor | 50 460 triangles, 41 appels |
+| cocotier | 96 triangles de tronc, 5 × 24 de palme |
+| rocher | 36 triangles, 96 instances, **un seul appel** |
+| modèle Meshy livré (catamaran de flottille) | 2 343 triangles |
+
+Un cocotier au tarif Meshy brut, c'est 1,97 million de triangles rien qu'en
+palmes. Le remesh accepte une cible explicite, donc l'affaire n'est pas jouée
+d'avance — d'où le test.
+
+## La contrainte que personne n'avait écrite
+
+Rochers, palmes et mornes sont **recolorés arène par arène** : les deux premiers
+par leur matériau (`shallowRock`, `leaf`), le troisième par ses couleurs de
+sommet le long d'une rampe sable → jungle → roche. Une texture Meshy les
+figerait sur une seule palette et effacerait ce qui distingue les huit arènes.
+**De Meshy, on ne peut donc prendre que la géométrie** — ce qui a l'avantage de
+supprimer texture et poids : les trois roches font 23 à 26 Ko.
+
+## Résultats
+
+| pièce | triangles | verdict |
+|---|---:|---|
+| dodécaèdre du jeu (avant) | 36 | régulier, mais propre |
+| roche Meshy A | 417 | boîte arrondie, sans caractère |
+| roche Meshy B | 418 | amas mou, silhouette confuse |
+| roche Meshy C (promptée « éclat anguleux ») | 307 | **fragmentée, un morceau détaché** |
+| **icosaèdre bruité (retenu)** | **180** | silhouette cassée franche |
+| palme du jeu | 24 | lame courbée, retombante |
+| palme Meshy | 68 | étoile éclatée, sans nervure ni retombée |
+
+Montages : `previews/meshy/comparaison.html` et `previews/meshy/palmes.html`
+(hors dépôt), rendus avec les matériaux et les lumières du jeu.
+
+## La règle qu'on en tire
+
+**Meshy gagne sur l'objet fabriqué à silhouette reconnaissable, et perd sur le
+petit élément naturel à bas budget.** Ses réussites dans ce dépôt le disent
+déjà : catamaran et vedette de flottille, équipage et ses variantes — tous des
+objets faits de main d'homme, vus entiers, à quelques exemplaires. Là où l'objet
+est minuscule, répété par centaines, recoloré par arène et décrit par une forme
+simple, une primitive bruitée est plus juste, plus légère et gratuite.
+
+Les crédits vont donc aux **cases créoles, gommiers, pontons et bateaux de
+flottille**, pas aux cailloux ni aux palmes.

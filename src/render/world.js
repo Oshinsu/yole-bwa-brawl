@@ -190,6 +190,46 @@ export function distanceToIslandCollider(island, x, z, out = {}) {
 // Tronc de cocotier : sweep conique doucement incurvé (courbe en S légère),
 // centré sur Y comme l'ancien cylindre (base -1,6, sommet +1,6), avec une
 // grappe de trois cocos fusionnée sous la couronne — zéro instance de plus.
+/**
+ * Rocher : un icosaèdre subdivisé, poussé par un bruit accroché à la POSITION
+ * du sommet — le même principe que le moutonnement des mornes.
+ *
+ * ⚠️ MESURÉ CONTRE MESHY 7 LE 2 SEPTEMBRE, ET C'EST LE PROCÉDURAL QUI GAGNE.
+ * Trois roches générées au texte (417, 418 et 307 triangles) rendues côte à
+ * côte avec ce bloc et l'ancien dodécaèdre, même matériau, même lumière : la
+ * première sort en boîte arrondie, la deuxième en amas mou, la troisième —
+ * pourtant promptée « éclat anguleux » — fragmentée avec un morceau détaché.
+ * Le bruit donne une silhouette cassée franche pour 180 triangles, deux fois
+ * moins, sans octet téléchargé et SANS TEXTURE : les rochers sont recolorés
+ * arène par arène via `materials.shallowRock`, ce qu'un maillage texturé
+ * figerait sur une seule palette.
+ *
+ * La graine est une CONSTANTE, jamais le flux RNG partagé : la géométrie est
+ * construite une fois, hors de toute suite de tirages contractuelle.
+ */
+function makeRockGeometry(THREE, graine = 1.7, subdivisions = 2) {
+  const geometry = new THREE.IcosahedronGeometry(1, subdivisions);
+  const position = geometry.attributes?.position;
+  // Le double moteur des tests rend des géométries creuses : sans sommets, il
+  // n'y a rien à pousser, et la forme n'a de sens qu'à l'écran.
+  if (!position?.count) return geometry;
+  const sommet = new THREE.Vector3();
+  const bruit = (x, y, z) => (
+    Math.sin(x * 2.7 + graine) * Math.cos(y * 3.1 - graine * 1.7) * 0.5
+    + Math.sin(y * 5.3 - graine * 2.3) * Math.cos(z * 4.1 + graine) * 0.28
+    + Math.sin(z * 8.9 + graine * 3.1) * Math.cos(x * 7.3) * 0.13
+  );
+  for (let index = 0; index < position.count; index++) {
+    sommet.fromBufferAttribute(position, index);
+    const rayon = 1 + bruit(sommet.x, sommet.y, sommet.z) * 0.34;
+    // Aplati : un bloc posé au sol, pas une bille.
+    sommet.multiplyScalar(rayon);
+    position.setXYZ(index, sommet.x, sommet.y * 0.78, sommet.z * 0.92);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function makePalmTrunkGeometry(THREE) {
   const anneaux = 6, segments = 6, demi = 1.6;
   const positions = [], indices = [], uvs = [];
@@ -522,7 +562,7 @@ export class WorldStreamer {
 
     this.baseGeometry = new THREE.CylinderGeometry(1, 1.08, 1, 24);
     this.hillGeometry = new THREE.ConeGeometry(1, 1, 22);
-    this.rockGeometry = new THREE.DodecahedronGeometry(1, 0);
+    this.rockGeometry = makeRockGeometry(THREE);
     this.landmarkConeGeometry = new THREE.ConeGeometry(1, 1, 22);
     this.landmarkTowerGeometry = new THREE.CylinderGeometry(0.72, 1, 1, 10);
     this.landmarkBoxGeometry = new THREE.BoxGeometry(1, 1, 1);

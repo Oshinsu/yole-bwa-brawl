@@ -112,6 +112,7 @@ export const ConeGeometry = geometry("ConeGeometry");
 export const RingGeometry = geometry("RingGeometry");
 export const TorusGeometry = geometry("TorusGeometry");
 export const DodecahedronGeometry = geometry("DodecahedronGeometry");
+export const IcosahedronGeometry = geometry("IcosahedronGeometry");
 
 class Material {
   constructor(options = {}) {

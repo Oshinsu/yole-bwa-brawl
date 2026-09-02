@@ -13,6 +13,43 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 82 — Meshy 7 sur le décor : ce qu'il gagne, ce qu'il perd
+
+Question du propriétaire : « les petits éléments de l'environnement, les mini
+îles, cocotiers, sargasses, rochers, autant les générer par Meshy, j'ai des
+crédits ». Quatre générations et un montage comparatif plus tard, la réponse est
+mesurée — et elle n'est pas celle qu'on attendait.
+
+- **Mesure de départ** : en course, 173 appels de dessin et 209 852 triangles,
+  dont **50 460 triangles et 41 appels pour tout le décor**. Le décor est
+  instancié : un cocotier coûte 96 triangles de tronc et 5 × 24 de palme, un
+  rocher 36, et chaque famille tient en **un seul appel**.
+- **Contrainte oubliée jusqu'ici, et décisive** : rochers, palmes et mornes sont
+  **recolorés arène par arène** — par matériau pour les premiers, par couleurs de
+  sommet pour les seconds. Un maillage texturé les figerait sur une seule
+  palette et ferait perdre aux huit arènes ce qui les distingue. Donc, de Meshy,
+  on ne peut prendre que **la géométrie**.
+- **Rochers, trois générations** (417, 418 et 307 triangles, géométrie nue, 23 à
+  26 Ko) rendues côte à côte avec l'ancien dodécaèdre, même matériau, même
+  lumière : boîte arrondie, amas mou, et — pour celle promptée « éclat anguleux
+  » — un maillage **fragmenté avec un morceau détaché**. Aucune ne bat une
+  primitive.
+- **Ce qui gagne : le bruit.** `makeRockGeometry` pousse un icosaèdre subdivisé
+  par un bruit accroché à la position du sommet, comme le moutonnement des
+  mornes : silhouette cassée franche pour **180 triangles**, deux fois moins que
+  Meshy, zéro octet, palette d'arène conservée. En jeu : +2 448 triangles
+  seulement (17 rochers visibles), appels de dessin inchangés.
+- **Palme, une génération** : 68 triangles, une étoile éclatée sans nervure ni
+  retombée, pour trois fois le coût de la lame courbée du jeu (24 triangles).
+  La décimation du feuillage échoue, comme le 12 août.
+- **Règle retenue** : Meshy gagne sur l'**objet fabriqué à silhouette
+  reconnaissable** — ses deux réussites du dépôt sont le catamaran et la vedette
+  de flottille, plus l'équipage — et perd sur le **petit élément naturel à bas
+  budget**, où une primitive bruitée est plus juste, plus légère et gratuite.
+  Les crédits vont donc aux cases créoles, gommiers et pontons, pas aux cailloux.
+- Sargasses : inchangées, déjà un maillage instancié à texture détourée.
+- Purement visuel : les quatre checksums sont inchangés.
+
 ## Passe 81 — les repères posés sur le relief, et non dedans
 
 Avant d'acheter le moindre modèle 3D, une mesure : à quoi ressemblent les
