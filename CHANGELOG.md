@@ -13,6 +13,46 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 81 — les repères posés sur le relief, et non dedans
+
+Avant d'acheter le moindre modèle 3D, une mesure : à quoi ressemblent les
+repères d'étape et d'arène vus depuis la course ? Réponse en captures — trois
+sur huit ne rendaient **aucun pixel**.
+
+- **Mesuré avant.** Les cotes des bâtis étaient écrites en dur, réglées pour une
+  île plate ; or le morne du repère est tiré au hasard
+  (`rng.range(9, 20)` × élancement × profil d'archétype). Le phare de la
+  Caravelle (21 m) était planté sous un morne de 46 m, la ville de
+  Fort-de-France (9 m) sous 25 m, les mâts de Sainte-Anne (11 m) sous 13 m.
+  Aucune cote fixe ne peut suivre un relief aléatoire : il faut **lire le sol**.
+- **`addLandmarkBuilding`** pose désormais chaque bâti sur le sol, à un décalage
+  depuis le centre de l'île, comme les cocotiers le font déjà. Le sol est **lu
+  sur le maillage par tir de rayon** (`solDuRepere`) : l'estimation analytique
+  ajoute jusqu'à 5,5 % d'épaulement, soit 2,5 m sur un morne de 46 m, et le
+  phare flottait visiblement au-dessus de la crête — vu deux fois en capture
+  avant de le corriger. Un repère se construit une fois par étape : le rayon ne
+  coûte rien.
+- **La plage est un sol.** `landmarkGroundHeight` retient le plus haut du relief
+  et du sable : au-delà de 0,75 de rayon le relief repasse sous l'eau, et sans
+  la plage rien ne peut se poser sur le rivage. C'est ce qui permet à la ville
+  de Fort-de-France de descendre **au bord de l'eau, devant le morne**, au lieu
+  d'être alignée au centre de l'île, dessous.
+- **`pointDeRive`** place les bâtis sur la rive tournée vers le couloir de
+  course : ville en arc au bord de l'eau, mâts pavoisés sur la plage,
+  palétuviers sur la frange sableuse, phares sur l'épaule du morne, éperon de
+  basalte planté dans le flanc.
+- **Mesuré après**, sommets des repères : Caravelle 56 m (invisible avant),
+  Fort-de-France 11 m au ras de l'eau devant un morne de 25 m, Sainte-Anne 22 m,
+  Pelée 58 m, Diamant 41 m.
+- Contrat : `test/landmarks.test.mjs` (dans `npm run test:world`) rejoue les
+  8 étapes et les 8 arènes sur 4 graines chacune — 172 bâtis mesurés — et exige
+  que la moitié au moins de chaque bâti émerge de son sol, que rien ne flotte
+  au-dessus, et que chaque repère culmine à 6 m. Lancé sur l'ancien code, il
+  échoue dès la première étape du Tour.
+- **Purement visuel** : `addLandmarkMesh` n'ajoute aucun collider et aucune île
+  n'a bougé. Les quatre checksums sont identiques à la passe 80
+  (`017e9fdc`, `05b2f763`, `2b887431`, `fee31c05`).
+
 ## Passe 80 — huit arènes pour la Combat Box
 
 Demande de jeu : « il faudra d'autres maps aussi, mieux faites, avec plus de

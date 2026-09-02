@@ -420,6 +420,30 @@ Sept archétypes de côte : `tropical`, `lagoon`, `islets`, `volcanic`, et
 depuis la passe 80 `mangrove`, `cayes`, `cliffs`. Neuf repères, dont la
 presqu'île de la Caravelle.
 
+### Poser un repère (passe 81)
+
+Le morne d'un repère est tiré au hasard : sa hauteur va de 5 à 66 m selon
+l'archétype et le tirage. **Aucune cote fixe ne peut le suivre** — c'est le
+défaut qui rendait trois repères sur huit invisibles, enterrés dans leur
+propre île. Règles :
+
+1. Un bâti se pose avec `addLandmarkBuilding(ile, …, dx, dz, …)`, jamais avec
+   une cote `y` écrite à la main.
+2. Le sol vient de `solDuRepere`, qui **tire un rayon vertical sur le
+   maillage**. L'estimation analytique `landmarkGroundHeight` (relief ∪ plage)
+   n'est que le repli : près du sommet elle dépasse le maillage de quelques
+   pour cent, ce qui suffit à faire flotter un phare.
+3. `pointDeRive(ile, side, angle, rayon, surLaPlage)` donne un point de la
+   rive tournée vers la course. Au-delà de 0,75 de rayon de morne le relief
+   repasse sous l'eau : c'est la plage qui porte le rivage (`surLaPlage`).
+4. Un chapeau (lanterne, fanion) se pose avec `addLandmarkCap` sur le sommet
+   d'un autre bâti, et se marque `userData.pose = "sommet"` pour que le
+   contrat ne le cherche pas au sol.
+5. Tout cela est **purement visuel** : seuls `addLandmarkIsland` et
+   `addStaticLandmarkCollider` touchent la physique.
+
+`test/landmarks.test.mjs` verrouille le tout sur 16 côtes × 4 graines.
+
 ## 21. Portrait
 
 Le portrait se joue depuis la passe 78. La mise en page tient dans le bloc V21

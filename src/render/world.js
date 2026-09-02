@@ -385,7 +385,7 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
   return geometry;
 }
 
-function islandSurfaceHeight(descriptor, worldDx, worldDz) {
+export function islandSurfaceHeight(descriptor, worldDx, worldDz) {
   const shape = descriptor.visualShape;
   if (!shape || !descriptor.visualHeight) return 0.2;
   const rotation = descriptor.visualRotation || 0;
@@ -408,6 +408,36 @@ function islandSurfaceHeight(descriptor, worldDx, worldDz) {
   const height = t * t * (3 - 2 * t);
   const shoulder = Math.cos(angle * (shape.ridgeCount - 1) - shape.ridgePhase) * 0.055 * Math.sin(t * Math.PI);
   return descriptor.visualBaseY + (height + shoulder) * descriptor.visualHeight - 0.08;
+}
+
+/**
+ * La cote du sol d'un repère : le plus haut du relief et de la plage. Le
+ * morne l'emporte au centre, la plage sur le rivage — et un bâti posé à
+ * 0,85 de rayon se retrouve les pieds dans le sable, pas sous l'eau.
+ */
+export function landmarkGroundHeight(island, dx, dz) {
+  if (!island) return 0;
+  const relief = island.visualShape ? islandSurfaceHeight(island, dx, dz) : -Infinity;
+  const surLaPlage = island.sandRx && island.sandRz
+    && Math.hypot(dx / island.sandRx, dz / island.sandRz) <= 1;
+  const plage = surLaPlage ? island.sandTopY ?? -Infinity : -Infinity;
+  const sol = Math.max(relief, plage);
+  return Number.isFinite(sol) ? sol : 0;
+}
+
+/**
+ * Un point du RIVAGE tourné vers le couloir de course, en décalage depuis le
+ * centre de l'île. `rayon` est en unités du morne (1 = pied du relief), ou de
+ * la PLAGE si `surLaPlage` : au-delà de ~0,75 de morne le relief repasse sous
+ * l'eau — c'est le sable qui porte le rivage.
+ */
+function pointDeRive(island, side, angle, rayon = 0.68, surLaPlage = false) {
+  const rx = (surLaPlage ? island?.sandRx : island?.visualRx) || island?.rx || 1;
+  const rz = (surLaPlage ? island?.sandRz : island?.visualRz) || island?.rz || 1;
+  return {
+    dx: -side * Math.cos(angle) * rx * rayon,
+    dz: Math.sin(angle) * rz * rayon
+  };
 }
 
 // Clé de tri partagée. `nearestIslands` est appelée ~15 fois par image (4 yoles
@@ -573,6 +603,13 @@ export class WorldStreamer {
     // tournée du morne doit voyager avec sa rotation : l'ancien collider restait
     // aligné sur les axes pendant que le relief pivotait, laissant jusqu'à des
     // dizaines de mètres de roche sans contact.
+    // La PLAGE est un sol praticable, distinct du morne : un bourg se pose au
+    // bord de l'eau, pas à mi-pente. `islandSurfaceHeight` ne décrit que le
+    // relief et repasse sous l'eau au-delà de 0,75 de rayon — sans la plage,
+    // rien ne peut être posé sur le rivage.
+    descriptor.sandTopY = -0.3 + profile.sandLift + (0.42 + descriptor.rx * 0.003) * 0.5;
+    descriptor.sandRx = descriptor.rx * profile.sandScale;
+    descriptor.sandRz = descriptor.rz * profile.sandScale;
     descriptor.visualHeight = hillHeight;
     descriptor.visualBaseY = -0.95;
     descriptor.visualRx = descriptor.rx * 0.86 * profile.hillWidth;
@@ -863,6 +900,70 @@ export class WorldStreamer {
     return mesh;
   }
 
+  /**
+   * Un bâti POSÉ SUR LE RELIEF de l'île du repère, à un décalage depuis son
+   * centre : `islandSurfaceHeight` donne la cote du sol, exactement comme pour
+   * les cocotiers.
+   *
+   * ⚠️ MESURÉ LE 2 SEPTEMBRE, ET C'ÉTAIT LE VRAI DÉFAUT DES REPÈRES. Les cotes
+   * étaient écrites en dur, réglées pour une île plate : le phare de la
+   * Caravelle (21 m) était planté sous un morne de 46 m, la ville de
+   * Fort-de-France (9 m) sous un morne de 25 m, les mâts de Sainte-Anne (11 m)
+   * sous 13 m. Trois repères sur huit ne rendaient aucun pixel. Le morne, lui,
+   * est tiré au hasard (`rng.range(9, 20)` × élancement × profil) : aucune cote
+   * fixe ne peut le suivre, il faut lire le sol.
+   *
+   * Purement visuel : `addLandmarkMesh` n'ajoute aucun collider, et l'île n'a
+   * pas bougé — la physique et les checksums sont intacts.
+   */
+  /**
+   * La cote du sol LUE SUR LE MAILLAGE, par tir de rayon vertical sur le relief
+   * et la plage de l'île.
+   *
+   * ⚠️ L'estimation analytique (`landmarkGroundHeight`) ne suffit pas près du
+   * sommet : elle ajoute jusqu'à 5,5 % d'épaulement au relief, soit 2,5 m sur
+   * un morne de 46 m, et le phare de la Caravelle flottait visiblement
+   * au-dessus de la crête — vu en capture, deux fois. Le rayon lit la vérité du
+   * maillage. Un repère se construit une fois par étape : le coût est nul.
+   * L'estimation reste le repli quand l'île n'a pas de maillage (tests nus).
+   */
+  solDuRepere(island, dx, dz) {
+    const cible = island?.visualGroup;
+    if (cible && this.THREE.Raycaster) {
+      this.landmarkRay = this.landmarkRay ?? new this.THREE.Raycaster();
+      this.landmarkRayOrigin = this.landmarkRayOrigin ?? new this.THREE.Vector3();
+      this.landmarkRayDown = this.landmarkRayDown ?? new this.THREE.Vector3(0, -1, 0);
+      cible.updateWorldMatrix(true, true);
+      this.landmarkRayOrigin.set((island.x ?? 0) + dx, 400, (island.z ?? 0) + dz);
+      this.landmarkRay.set(this.landmarkRayOrigin, this.landmarkRayDown);
+      const touches = this.landmarkRay.intersectObject(cible, true);
+      if (touches.length) return touches[0].point.y;
+    }
+    return landmarkGroundHeight(island, dx, dz);
+  }
+
+  addLandmarkBuilding(island, geometry, material, dx, dz, sx, sy, sz, rotationY = 0, enfoncement = 0.12) {
+    const sol = this.solDuRepere(island, dx, dz);
+    const mesh = this.addLandmarkMesh(
+      geometry, material,
+      (island?.x ?? 0) + dx, sol + sy * (0.5 - enfoncement), (island?.z ?? 0) + dz,
+      sx, sy, sz, rotationY
+    );
+    mesh.userData.pose = "sol";
+    return mesh;
+  }
+
+  /** Une lanterne, un toit : posé sur le SOMMET d'un autre bâti, pas sur le sol. */
+  addLandmarkCap(base, geometry, material, sx, sy, sz, rotationY = 0) {
+    const mesh = this.addLandmarkMesh(
+      geometry, material,
+      base.position.x, base.position.y + base.scale.y * 0.5 + sy * 0.42, base.position.z,
+      sx, sy, sz, rotationY
+    );
+    mesh.userData.pose = "sommet";
+    return mesh;
+  }
+
   addStaticLandmarkCollider(x, z, rx, rz, rotation = 0) {
     const descriptor = {
       x,
@@ -906,22 +1007,24 @@ export class WorldStreamer {
     const x = routeCenter(z) + side * offset;
 
     if (landmark.type === "pointe-marin") {
-      this.addLandmarkIsland(x, z, 31, 52, rng);
-      this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.landmarkIvory,
-        x - side * 4, 7.0, z - 6, 2.5, 13, 2.5);
-      this.addLandmarkMesh(this.landmarkConeGeometry, this.materials.landmarkRoof,
-        x - side * 4, 14.4, z - 6, 3.2, 3.7, 3.2);
+      // Le phare de la Pointe Marin, près du sommet de la pointe.
+      const ile = this.addLandmarkIsland(x, z, 31, 52, rng);
+      const epaule = pointDeRive(ile, side, 0.5, 0.34);
+      const tour = this.addLandmarkBuilding(ile, this.landmarkTowerGeometry,
+        this.materials.landmarkIvory, epaule.dx, epaule.dz, 2.5, 13, 2.5, 0, 0.22);
+      this.addLandmarkCap(tour, this.landmarkConeGeometry, this.materials.landmarkRoof, 3.2, 3.7, 3.2);
     } else if (landmark.type === "ilets-francois") {
       this.addLandmarkIsland(x, z, 18, 27, rng);
       this.addLandmarkIsland(x + side * 31, z + 19, 12, 19, rng);
       this.addLandmarkIsland(x - side * 27, z - 23, 10, 16, rng);
     } else if (landmark.type === "baie-robert") {
-      this.addLandmarkIsland(x, z, 34, 45, rng);
+      // Bosquet de palétuviers sur la rive tournée vers la course.
+      const ile = this.addLandmarkIsland(x, z, 34, 45, rng);
       this.addLandmarkIsland(x + side * 48, z + 28, 16, 24, rng);
       for (let index = -2; index <= 2; index++) {
-        this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.darkGreen,
-          x + index * 6, 4.1 + Math.abs(index) * 0.45, z - 8 + Math.abs(index) * 2,
-          2.2, 8 + Math.abs(index), 2.2);
+        const rive = pointDeRive(ile, side, index * 0.30, 0.78, true);
+        this.addLandmarkBuilding(ile, this.landmarkTowerGeometry, this.materials.darkGreen,
+          rive.dx, rive.dz, 2.2, 8 + Math.abs(index), 2.2, 0, 0.16);
       }
     } else if (landmark.type === "pelee") {
       this.addStaticLandmarkCollider(x, z, 82, 68);
@@ -931,12 +1034,14 @@ export class WorldStreamer {
       this.addLandmarkMesh(geometry, this.materials.island, x - side * 46, -1.2, z + 12,
         42, 66, 38, -side * 0.16);
     } else if (landmark.type === "baie-fdf") {
-      this.addLandmarkIsland(x, z, 48, 60, rng);
+      // La ville AU BORD DE L'EAU, en arc sur la rive tournée vers la course,
+      // et non plus alignée au centre de l'île, sous le morne.
+      const ile = this.addLandmarkIsland(x, z, 48, 60, rng);
       for (let index = -4; index <= 4; index++) {
         const height = 5 + (Math.abs(index * 17) % 8);
-        this.addLandmarkMesh(this.landmarkBoxGeometry, this.materials.landmarkTown,
-          x + index * 6.2, height * 0.5 + 0.4, z - 8 + (index % 2) * 4,
-          4.5, height, 5.5);
+        const rive = pointDeRive(ile, side, index * 0.16, 0.82, true);
+        this.addLandmarkBuilding(ile, this.landmarkBoxGeometry, this.materials.landmarkTown,
+          rive.dx, rive.dz, 4.5, height, 5.5, side * index * 0.09, 0.06);
       }
     } else if (landmark.type === "diamant") {
       this.addStaticLandmarkCollider(x, z, 30, 25, side * 0.12);
@@ -945,27 +1050,34 @@ export class WorldStreamer {
       this.addLandmarkMesh(this.rockGeometry, this.materials.darkGreen,
         x - side * 5, 9, z + 2, 18, 17, 16, -side * 0.18);
     } else if (landmark.type === "cap-salomon") {
-      this.addLandmarkIsland(x, z, 47, 66, rng);
-      this.addLandmarkMesh(this.landmarkBoxGeometry, this.materials.basalt,
-        x - side * 20, 8, z - 10, 19, 16, 35, side * 0.22);
+      // L'éperon de basalte planté dans le flanc, côté course.
+      const ile = this.addLandmarkIsland(x, z, 47, 66, rng);
+      const rive = pointDeRive(ile, side, -0.30, 0.58);
+      this.addLandmarkBuilding(ile, this.landmarkBoxGeometry, this.materials.basalt,
+        rive.dx, rive.dz, 19, 16, 35, side * 0.22, 0.30);
     } else if (landmark.type === "sainte-anne") {
-      this.addLandmarkIsland(x, z, 36, 58, rng);
+      // La ligne d'arrivée du Tour : cinq mâts pavoisés sur la plage, hauts
+      // assez pour casser la ligne du morne.
+      const ile = this.addLandmarkIsland(x, z, 36, 58, rng);
       for (let index = -2; index <= 2; index++) {
-        const poleX = x + index * 7;
-        this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.landmarkIvory,
-          poleX, 5.5, z - 12, 0.35, 11, 0.35);
+        const rive = pointDeRive(ile, side, index * 0.20, 0.80, true);
+        const mat = this.addLandmarkBuilding(ile, this.landmarkTowerGeometry,
+          this.materials.landmarkIvory, rive.dx, rive.dz, 0.35, 11, 0.35, 0, 0.05);
         const flag = this.addLandmarkMesh(this.landmarkFlagGeometry, this.materials.landmarkAccent,
-          poleX + side * 1.8, 9.4, z - 12, 3.6, 1.5, 1, side * Math.PI * 0.5);
+          mat.position.x + side * 1.8, mat.position.y + 3.4, mat.position.z,
+          3.6, 1.5, 1, side * Math.PI * 0.5);
         flag.castShadow = false;
+        flag.userData.pose = "sommet";
       }
     } else if (landmark.type === "caravelle") {
       // Presqu'île de la Caravelle : un gros morne, le phare blanc à lanterne
       // rouge sur la pointe, un éperon de basalte qui plonge côté course.
-      this.addLandmarkIsland(x, z, 40, 58, rng);
-      this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.landmarkIvory,
-        x - side * 8, 9.5, z - 10, 2.2, 18, 2.2);
-      this.addLandmarkMesh(this.landmarkConeGeometry, this.materials.landmarkRoof,
-        x - side * 8, 19.6, z - 10, 3.0, 3.4, 3.0);
+      const ile = this.addLandmarkIsland(x, z, 40, 58, rng);
+      // Sur l'épaule du morne tournée vers la course, à mi-hauteur de la crête.
+      const epaule = pointDeRive(ile, side, 0.55, 0.30);
+      const tour = this.addLandmarkBuilding(ile, this.landmarkTowerGeometry,
+        this.materials.landmarkIvory, epaule.dx, epaule.dz, 2.2, 18, 2.2, 0, 0.22);
+      this.addLandmarkCap(tour, this.landmarkConeGeometry, this.materials.landmarkRoof, 3.0, 3.4, 3.0);
       this.addStaticLandmarkCollider(x - side * 30, z + 18, 14, 22, side * 0.3);
       this.addLandmarkMesh(this.landmarkBoxGeometry, this.materials.basalt,
         x - side * 30, 5, z + 18, 22, 10, 36, side * 0.3);

@@ -1,5 +1,34 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 81 — les repères posés sur le relief
+
+Validation du 2 septembre 2026 :
+
+- `npm run verify` : **OK** ; 182 fichiers précachés ; smoke navigateur sans
+  erreur console ni page ;
+- **les quatre checksums sont identiques à la passe 80** (`017e9fdc` simulation,
+  `05b2f763` Combat Box, `2b887431` première étape du Tour, `fee31c05` cadence) :
+  la passe est purement visuelle, aucune île n'a bougé ;
+- `test/landmarks.test.mjs` (dans `npm run test:world`) : 8 étapes + 8 arènes,
+  4 graines chacune, **172 bâtis** mesurés contre le sol lu au rayon. Lancé sur
+  l'ancien code il échoue dès l'étape 1 du Tour (« bâti de 13 m enterré dans un
+  morne de 12 m — il n'en sort que 3,1 m ») ;
+- captures avant/après des huit repères d'arène relues : la ville de
+  Fort-de-France est passée d'invisible à une façade au bord de l'eau, le phare
+  de la Caravelle d'invisible à 56 m de haut, les mâts de Sainte-Anne d'invisible
+  à cinq mâts sur la plage ;
+- mesure de charge de rendu en course (1280×720, atelier Playwright) :
+  173 appels de dessin et 209 852 triangles en HQ, 154 et 157 127 en LQ — dont
+  50 460 triangles et 41 appels pour le décor. C'est le budget de référence pour
+  la passe de modèles qui suit.
+
+### Ce qui n'est pas vérifié ici
+
+- la lecture des repères sur téléphone réel ;
+- l'aspect des bâtis eux-mêmes, qui restent des primitives (boîtes, cylindres,
+  cônes) : c'est l'objet de la passe de modèles.
+
+
 ## Passe 80 — huit arènes pour la Combat Box
 
 Validation du 1er septembre 2026 :
