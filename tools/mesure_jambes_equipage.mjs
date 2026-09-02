@@ -203,9 +203,31 @@ function mesureTronc(visuel, yole, signe) {
   };
 }
 
-/** Classe une jambe : "bas" (tendue vers l'eau), "bateau" (tendue vers la coque), "repliee". */
+const CONTRATS = {
+  flexionGenouMaxRappel: 40,      // degrés : tendu, à la tolérance d'un dressage naturel
+  // Assis à cheval face au large (passe 87, photos Sainte-Luce et bout des
+  // bois) : genou plié de 70 à 100° sur les hommes photographiés ; 45-120
+  // laisse la géométrie du rig respirer, et refuse la jambe raide comme le
+  // talon crocheté.
+  flexionGenouMinAssis: 45,
+  flexionGenouMaxAssis: 120,
+  // Passe 86 : le deux-os resout le triangle hanche-genou-pied EXACTEMENT, le
+  // genou suit donc la distance hanche->plat-bord (92 deg mesure a la demi-sortie,
+  // ancrage). La photo 4 montre un angle droit ; 95 laisse 5 deg de geometrie.
+  flexionGenouMaxPlatBord: 95,    // pied calé au plat-bord : le genou fléchit autant que la distance l'impose (photo 4 : genoux à angle droit ; dos à la mer, 82-83° mesurés)
+  piedAuDessusDuBoisMax: 0.16,    // mètres : pas de talon crocheté sur le bois (marge : pied posé au plat-bord)
+  lecturesAdmises: ["assis", "bas", "bateau"]
+};
+
+/** Classe une jambe : "assis" (à cheval face au large), "bas" (tendue vers l'eau), "bateau" (tendue vers la coque), "repliee". */
 function lecture(jambe) {
   if (!jambe || jambe.flexionGenou === null) return "?";
+  // Passe 87 — assis à cheval FACE AU LARGE (photos de course) : cuisse portée
+  // en avant vers le large (donc À L'OPPOSÉ du bateau), genou plié comme sur
+  // un cheval, pied pendu sous le bois. Avant la passe 87 cette lecture
+  // n'existait pas : l'homme assis avait les jambes de pendu (« bas »).
+  if (jambe.cuisseVersBateau > 110 && jambe.flexionGenou >= CONTRATS.flexionGenouMinAssis
+    && jambe.flexionGenou <= CONTRATS.flexionGenouMaxAssis && jambe.piedAuDessusDuBois < 0) return "assis";
   // Tendue vers l'eau : cuisse verticale, genou tendu.
   if (jambe.cuisseDepuisBas < 35 && jambe.flexionGenou < 40) return "bas";
   // Vers le bateau : cuisse couchée vers la coque et pied JAMAIS crocheté
@@ -278,15 +300,6 @@ const releves = SCENARIOS.map((scenario) => joue(scenario, batisRig(json), bibli
 // est soit verticale (assis à cheval, pieds vers l'eau) soit couchée vers le
 // bateau (allongé sur la perche, ou pieds au plat-bord). Un pied au-dessus de
 // l'axe du bois, côté bateau, est un talon crocheté — le défaut à refuser.
-const CONTRATS = {
-  flexionGenouMaxRappel: 40,      // degrés : tendu, à la tolérance d'un dressage naturel
-  // Passe 86 : le deux-os resout le triangle hanche-genou-pied EXACTEMENT, le
-  // genou suit donc la distance hanche->plat-bord (92 deg mesure a la demi-sortie,
-  // ancrage). La photo 4 montre un angle droit ; 95 laisse 5 deg de geometrie.
-  flexionGenouMaxPlatBord: 95,    // pied calé au plat-bord : le genou fléchit autant que la distance l'impose (photo 4 : genoux à angle droit ; dos à la mer, 82-83° mesurés)
-  piedAuDessusDuBoisMax: 0.16,    // mètres : pas de talon crocheté sur le bois (marge : pied posé au plat-bord)
-  lecturesAdmises: ["bas", "bateau"]
-};
 
 if (!process.argv.includes("--json")) {
   console.log("");
@@ -310,7 +323,8 @@ for (const r of releves) {
   for (const [nom, jambe, lect] of [["gauche", r.gauche, r.lectureGauche], ["droite", r.droite, r.lectureDroite]]) {
     if (!jambe) continue;
     const piedAuPlatBord = lect === "bateau" && Math.abs(jambe.piedHorsCoque) < PLAT_BORD_TOLERANCE;
-    const genouMax = piedAuPlatBord ? CONTRATS.flexionGenouMaxPlatBord : CONTRATS.flexionGenouMaxRappel;
+    const genouMax = piedAuPlatBord ? CONTRATS.flexionGenouMaxPlatBord
+      : lect === "assis" ? CONTRATS.flexionGenouMaxAssis : CONTRATS.flexionGenouMaxRappel;
     if (jambe.flexionGenou > genouMax) {
       echecs.push(`« ${r.scenario} » : genou ${nom} plié à ${jambe.flexionGenou.toFixed(0)}°, maximum ${genouMax}°${piedAuPlatBord ? " (pied au plat-bord)" : ""}`);
     }

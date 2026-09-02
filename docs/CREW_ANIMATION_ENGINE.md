@@ -657,6 +657,32 @@ d'un homme assis tronc en arrière n'atteignait pas le bois derrière sa
 hanche, et la limite anatomique du CCD faisait manquer la cible de 59 cm — le
 harnais mesurait le mannequin, pas le moteur.
 
+### L'assis regarde le large — les poses recalées sur les photos (2 septembre, passe 87)
+
+Quarante photos du Tour des yoles (Wikimedia Commons) et la fiche d'inventaire du
+patrimoine, relues contre la planche : le dresseur assis est à cheval FACE AU
+LARGE, dos au bateau, buste droit ou penché en avant, les deux mains devant lui
+sur le bois, genoux à 70-100°. Seul l'homme du bout s'allonge (dos sur le bois,
+tête au large, jambes vers la coque). À bord, personne n'est debout : assis sur
+son bois au plat-bord, mains dessus. La passe 85 avait tourné l'assis face à la
+coque, renversé, mains derrière — une posture qui n'existe sur aucune photo.
+
+Grammaire retenue, dans `update()` puis `applyRigContacts()` :
+
+| pose (`crewLegPoseFor`) | face | tronc | mains | jambes | regard |
+|---|---|---|---|---|---|
+| `bas` (assis à cheval) | le large (lacet du signe du bord) | 15° en avant | devant, 0,42 / 0,16 m le long du bois | cuisses en avant (1,4), tibias sous le bois (0,35), genou ~86° | devant soi (`gazeAhead`, repère `headfront`) |
+| `bateau` (allongé / pieds au plat-bord) | la coque (sur le dos) | 52° ou couché à 10° du bois | de part et d'autre du bassin | plat-bord si à portée, sinon couchées, genou souple 23° | la voile (`gazeAtSail`) |
+| `repos` (à bord) | le large | 10° | devant, 0,30 / 0,13 m | pieds au plancher en deçà de la lisse | devant soi |
+
+Le contact d'assise (`reposContact`) ne s'efface plus avec le rappel mais avec
+l'autorité des jambes. Le poing est une clé de forme « poing » du maillage
+(`tools/crew_fist_shapekey.py`, morph target), fondue par `setFist` avec le
+contact des mains. Contrats : `crew-seating` (lacet par pose calculée),
+`mesure_jambes` (lecture « assis »), silhouette (regard dorsal allongé, devant soi
+assis). Règle : **une pose se recette contre des photos de course mises côte à
+côte, pas contre la description qu'on en fait.**
+
 ### Les genoux pliaient à l'envers dans les seeds (2 septembre, passe 86)
 
 Sonde sur les clips seuls (`scratch/sonde_seed.mjs <glb>`, poids 1, sans

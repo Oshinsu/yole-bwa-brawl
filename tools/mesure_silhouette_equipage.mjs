@@ -351,7 +351,7 @@ function joue(scenario, rig, bibliotheque) {
       pire = { ...releve, instant };
     }
   }
-  return { scenario: scenario.nom, deploye: scenario.deployment > 0.5, specialiste: Boolean(scenario.role), ...pire };
+  return { scenario: scenario.nom, deploye: scenario.deployment > 0.5, specialiste: Boolean(scenario.role), legPose: visuel.legPose ?? null, ...pire };
 }
 
 // ── AMPLITUDE INTERNE DES ACTIONS ────────────────────────────────────────────
@@ -423,6 +423,9 @@ const SEUILS = {
   // donc dos à la mer. Un dresseur sorti au rappel doit rester franchement
   // dorsal ; on n'exige rien de celui qui est encore dans le bateau.
   regardDorsalMin: 0.15,
+  // Assis à cheval face au large : le visage vise l'horizon un peu bas.
+  regardAssisMin: -0.5,
+  regardAssisMax: 0.35,
   // Contact bassin ↔ bois, en mètres. Le calcul d'assise vise la cote exacte
   // (`CREW_BEAM_Y`) ; on tolère deux centimètres pour l'interpolation des
   // poses, pas plus. Les spécialistes (patron, écoute) sont exclus : leurs
@@ -455,8 +458,16 @@ for (const ligne of releves) {
   if (ligne.envergureMains > SEUILS.envergureMainsMax) {
     echecs.push(`« ${ligne.scenario} » : envergure des mains ${ligne.envergureMains.toFixed(2)} m, maximum ${SEUILS.envergureMainsMax} m`);
   }
-  if (ligne.deploye && ligne.regard !== null && ligne.regard < SEUILS.regardDorsalMin) {
-    echecs.push(`« ${ligne.scenario} » : regard à ${ligne.regard.toFixed(2)} — l'homme travaille VENTRE à la mer, il doit porter par le DOS`);
+  // Passe 87 : le contrat de regard suit la pose. ALLONGÉ (« bateau »), l'homme
+  // est sur le dos et regarde la voile : regard dorsal. ASSIS à cheval
+  // (« bas »), il regarde l'eau devant lui, vers le large : ni le ciel, ni ses
+  // pieds (photos de course).
+  if (ligne.deploye && ligne.regard !== null && ligne.legPose === "bateau" && ligne.regard < SEUILS.regardDorsalMin) {
+    echecs.push(`« ${ligne.scenario} » : regard à ${ligne.regard.toFixed(2)} — allongé, l'homme porte par le DOS et regarde la voile`);
+  }
+  if (ligne.deploye && ligne.regard !== null && ligne.legPose === "bas"
+    && (ligne.regard < SEUILS.regardAssisMin || ligne.regard > SEUILS.regardAssisMax)) {
+    echecs.push(`« ${ligne.scenario} » : regard à ${ligne.regard.toFixed(2)} — assis face au large, il regarde l'eau devant lui`);
   }
   if (ligne.derniveleQuaternion > SEUILS.derniveleQuaternionMax) {
     echecs.push(`« ${ligne.scenario} » : quaternion d'os non unitaire (écart ${ligne.derniveleQuaternion.toExponential(2)}) — l'os arrive à l'écran avec une ÉCHELLE`);

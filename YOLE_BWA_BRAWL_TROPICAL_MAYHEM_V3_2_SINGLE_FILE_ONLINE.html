@@ -16457,10 +16457,12 @@ const CREW_HIKE_SPAN = 3.0;
 // Le lacet ne va pas jusqu'à 90° : à pleine sortie on garde ~78°, ce qui laisse
 // lire l'épaule et le maillot au lieu d'une silhouette de profil pur.
 const CREW_HIKE_YAW = 1.36;
-// Assis au plat-bord, l'homme est tourné vers l'INTÉRIEUR de la coque, pieds
-// devant lui sur le plancher. Mesuré avant : tourné vers la proue avec les pieds
-// tirés de 30 cm vers la coque — donc sur son côté —, la jambe ne pouvait se
-// plier que dans le plan horizontal : genoux de côté à 47-88°, « en grenouille ».
+// Assis au plat-bord SUR SON BOIS, l'homme est tourné vers le LARGE (passe 87,
+// photos de course : un dresseur qui attend est assis sur sa perche, face à sa
+// pointe, mains dessus), pieds devant lui au plancher, juste en deçà de la
+// lisse. Mesuré avant la passe 86 : tourné vers la proue avec les pieds tirés
+// de 30 cm sur le côté, la jambe ne pouvait se plier que dans le plan
+// horizontal — genoux de côté à 47-88°, « en grenouille ».
 const CREW_ABOARD_YAW = 1.25;
 // Plan de flexion des genoux : l'AVANT du corps, avec un léger écart vers
 // l'extérieur (composante latérale pour une composante avant de 1 ; 0,12 ≈ 7°).
@@ -16860,12 +16862,16 @@ const CREW_RAIL_X = 1.08 * HULL_VISUAL_WIDTH_SCALE;
 // rappel, et longueur de la rampe. En dessous, l'homme est encore au plat-bord.
 const CREW_LEG_AUTHORITY_START = 0.22;
 const CREW_LEG_AUTHORITY_SPAN = 0.22;
-// Jambes pendantes : écart de part et d'autre du bois (composante latérale pour
-// une cuisse unitaire), légère ouverture vers le large, et détente du genou —
-// tan(8°), le pied revient un peu vers la coque.
+// Assis à cheval FACE AU LARGE (photos réelles : Sainte-Luce, bout des bois,
+// yole jaune) : écart des cuisses de part et d'autre du bois (composante
+// latérale pour une cuisse unitaire), cuisses portées EN AVANT vers le large
+// (1,4 ≈ 54° de la verticale — assis sur le bois comme sur un cheval, genoux
+// à 70-100°), tibias qui redescendent un peu vers l'arrière (talons sous le
+// bois, 0,35 ≈ 19°). Avant : cuisses verticales, genou quasi tendu (8°) —
+// des jambes de pendu, pas de cavalier.
 const CREW_HANG_STRADDLE = 0.26;
-const CREW_HANG_LEAN = 0.06;
-const CREW_HANG_KNEE = 0.14;
+const CREW_SEAT_THIGH_FORWARD = 1.4;
+const CREW_SEAT_SHIN_BACK = 0.35;
 // Vers le bateau : part de la jambe qu'on accepte de tendre pour atteindre le
 // plat-bord ; au-delà, la jambe se couche sur la perche. Cote du pied posé au
 // plat-bord (dessus de la lisse sous la perche + épaisseur du pied), cote du
@@ -16874,6 +16880,10 @@ const CREW_RAIL_REACH = 0.985;
 const CREW_RAIL_FOOT_OFFSET = -0.03;
 const CREW_POLE_FOOT_LIFT = 0.075;
 const CREW_POLE_LEG_REACH = 0.985;
+// Allongé sur la perche, le genou garde une flexion souple (photos : jambes
+// longues, jamais raides) : composante verticale ajoutée à la cuisse, retirée
+// au tibia — 0,20 ≈ 23° de flexion.
+const CREW_LYING_KNEE_LIFT = 0.20;
 const CREW_FEET_SPREAD = 0.11;
 // Tronc. Assis à cheval et pieds au plat-bord : degrés depuis la verticale
 // du MONDE, basculé vers le large dans le plan de la perche — c'est la
@@ -16884,17 +16894,45 @@ const CREW_FEET_SPREAD = 0.11;
 // gîte) : tronc composé jusqu'à 117°, l'homme du bout tête en bas sous le
 // bois ; puis, l'axe « vers le large » pris dans le repère gîté, 31°/38°
 // au lieu de 42°/52°.
-const CREW_TORSO_RECLINE_ASTRIDE = 42;
-// Dos à la mer et penché en arrière, l'homme assis à cheval prend le bois
-// DERRIÈRE ses hanches, les deux mains du côté du large (photos 1 et 3) :
-// la main d'appui loin, la seconde près du bassin. En mètres le long de la
-// perche, depuis le bassin, vers le large.
-const CREW_GRIP_BEHIND_FAR = 0.32;
-const CREW_GRIP_BEHIND_NEAR = 0.11;
+// ⚠️ PASSE 87 : L'ASSIS REGARDE LE LARGE. Sur les photos de course (Sainte-Luce,
+// bout des bois, yole jaune — Wikimedia Commons), le dresseur assis est à
+// cheval sur le faisceau FACE À LA POINTE, dos au bateau, buste droit ou penché
+// EN AVANT comme un jockey, les deux mains DEVANT lui sur le bois. La passe 85
+// l'avait tourné face à la coque et renversé en arrière, mains derrière : la
+// posture d'un baigneur sur un banc, qui n'existe sur aucune photo. Seul
+// l'homme du bout s'allonge — lui garde la face vers la coque, dos sur le bois.
+// Degrés depuis la verticale, vers la mer, donc EN AVANT pour l'assis.
+const CREW_TORSO_LEAN_ASTRIDE = 15;
+// Les deux prises DEVANT le bassin, le long de la perche vers le large : la
+// main d'appui loin, la seconde près de l'entrejambe (Sainte-Luce, homme 2).
+// En mètres le long de la perche, depuis le bassin.
+const CREW_GRIP_AHEAD_FAR = 0.36;
+const CREW_GRIP_AHEAD_NEAR = 0.16;
+// À bord, le dresseur qui attend est ASSIS SUR SON BOIS au plat-bord, face au
+// large, mains dessus, pieds au plancher devant lui — jamais debout (seuls le
+// patron et le premier se lèvent). Penché de quelques degrés, prises courtes.
+const CREW_TORSO_LEAN_ABOARD = 10;
+const CREW_GRIP_ABOARD_FAR = 0.30;
+const CREW_GRIP_ABOARD_NEAR = 0.13;
+// Les pieds se posent au plancher juste en deçà du plat-bord.
+const CREW_ABOARD_FEET_MARGIN = 0.12;
+// Assis face au large, le procédural penche déjà le bassin en avant (radians
+// à pleine sortie) ; `reclineTorso` finit le geste à l'angle des photos.
+const CREW_SEATED_LEAN = 0.18;
 // Le regard va à la voile : la nuque se redresse vers la verticale et vers
 // la coque pendant que le tronc part en arrière. Direction monde, composante
 // vers la coque pour une composante verticale de 1.
 const CREW_GAZE_INBOARD = 0.95;
+// Assis face au large, la tête se penche un peu vers l'AVANT (composante vers
+// le large, négative dans le repère « vers la coque ») : l'os de tête de ce rig
+// pointe haut et en arrière, le mettre vertical fait fixer le ciel (regard
+// mesuré +0,55 à +0,67 au harnais silhouette). Il regarde l'eau devant lui.
+// Assis face au large, le VISAGE (os de tête → repère « headfront » du GLB)
+// vise l'horizon vers le large, un peu bas : composante verticale pour une
+// composante horizontale de 1. Mesuré avant : aligner la nuque sur la
+// verticale laissait le visage au ciel (+0,55 à +0,82), parce que l'os de
+// tête de ce rig pointe haut et en avant (33°) et que le clip le renverse.
+const CREW_GAZE_AHEAD_DOWN = -0.12;
 const CREW_TORSO_RECLINE_RAIL = 52;
 const CREW_TORSO_PLANK_ABOVE_POLE = 10;
 
@@ -17342,6 +17380,14 @@ class CrewVisual {
     // graphe de scène.
     this.headBone = bound.head;
     this.rigRoot = rig;
+    // Clé de forme « poing » (passe 87, cuite dans Blender) : les doigts se
+    // referment sur le bois quand une main s'y pose. Le rig n'a pas d'os de
+    // doigts ; c'est le maillage qui porte le geste.
+    this.fistMeshes = [];
+    rig.traverse((node) => {
+      const index = node.isSkinnedMesh ? node.morphTargetDictionary?.poing : undefined;
+      if (index !== undefined && node.morphTargetInfluences) this.fistMeshes.push({ mesh: node, index });
+    });
     const actual = { ...bound, ...optional };
     this.rigJoints = [];
     const proxies = {};
@@ -17405,6 +17451,7 @@ class CrewVisual {
     this.legLeft = new THREE.Vector3();
     this.legDir = new THREE.Vector3();
     this.captureRestPoles(THREE);
+    this.measureHandedness(THREE);
     this.measureBindSplay(THREE);
     this.measureHipHeight(THREE);
     this.measureLegLength(THREE);
@@ -17517,6 +17564,18 @@ class CrewVisual {
   //
   // Stocké dans le repère du PARENT de la racine de chaîne : le pole suit alors
   // l'épaule et la hanche quand le corps tourne, sans recalcul.
+  /** De quel cote du rig est la main gauche : +1 si a +X local, -1 sinon. */
+  measureHandedness(THREE) {
+    this.leftSign = 1;
+    const left = this.ikChains?.leftArm?.joints?.[1];
+    const right = this.ikChains?.rightArm?.joints?.[1];
+    if (!left?.getWorldPosition || !right?.getWorldPosition || !this.root?.worldToLocal || !THREE?.Vector3) return;
+    this.root.updateWorldMatrix(true, true);
+    const gauche = this.root.worldToLocal(left.getWorldPosition(new THREE.Vector3()));
+    const droite = this.root.worldToLocal(right.getWorldPosition(new THREE.Vector3()));
+    this.leftSign = Math.sign(gauche.x - droite.x) || 1;
+  }
+
   captureRestPoles(THREE) {
     if (!this.rigRoot?.updateWorldMatrix || !THREE?.Vector3) return;
     this.rigRoot.updateWorldMatrix(true, true);
@@ -17994,6 +18053,13 @@ class CrewVisual {
     return this.ikEffectorWorld.distanceTo(this.ikTargetWorld);
   }
 
+  /** Ferme les poings sur le bois : 0 = main ouverte, 1 = serrée. */
+  setFist(weight) {
+    if (!this.fistMeshes?.length) return;
+    const value = clamp(weight, 0, 1);
+    for (const { mesh, index } of this.fistMeshes) mesh.morphTargetInfluences[index] = value;
+  }
+
   applyRigContacts(hike, seated, catchLoad, transferCrouch) {
     if (!this.ikChains) return;
     // ⚠️ LE PATRON BARRE ASSIS À LA POUPE, SANS PERCHE. Ses appuis sont écrits
@@ -18002,7 +18068,11 @@ class CrewVisual {
     // ses mains chercher un bois qui n'existe pas à son poste : avec le CCD
     // borné cela passait sous le seuil, avec le deux-os qui atteint sa cible
     // ses bras partaient en croix (47,8° d'abduction, harnais silhouette).
-    if (CREW_SPECIALIST_ROLES.includes(this.role)) return;
+    if (CREW_SPECIALIST_ROLES.includes(this.role)) {
+      // Le patron tient sa pagaie à deux mains : poings fermés.
+      this.setFist(0.85);
+      return;
+    }
     const scale = Math.max(0.001, this.root.scale.y || 1);
     // La cible est la perche AFFAISSÉE à la station de l'homme, pas sa cote au
     // repos : `root.position.y` porte déjà la flèche, on la retire donc aussi
@@ -18024,9 +18094,9 @@ class CrewVisual {
     // les hommes debout), tirés vers l'INTÉRIEUR de la coque comme sur les
     // photos de bordée assise. Il s'efface dès que le rappel ou la traversée
     // prennent la main.
-    const reposContact = seated
-      * clamp(1 - rappelContact * 2, 0, 1)
-      * (1 - transferCrouch);
+    // Passe 87 : le fondu de ce contact ne suit plus le rappel mais la pose de
+    // jambes, voir plus bas — un homme encore « repos » au plat-bord reste
+    // franchement assis sur son bois, pieds au plancher, mains dessus.
     let firmWorst = 0;
     let softWorst = 0;
 
@@ -18044,6 +18114,14 @@ class CrewVisual {
       transferCrouch
     });
     this.legPose = legPose;
+    // Tant que la pose de jambes est « repos », l homme est ASSIS sur son bois
+    // (mesure : a hike 0,36 au plat-bord, l ancien fondu par le rappel laissait
+    // 31 % de contact — mains a 10 cm, jambes molles, regard au ciel). Sorti,
+    // l assise s efface avec l AUTORITE des jambes, qui prend la main au meme
+    // moment : pas de saut.
+    const reposContact = legPose === "repos"
+      ? seated * (1 - transferCrouch)
+      : seated * (1 - transferCrouch) * (1 - legAuthority);
     const versCoque = -(Math.sign(this.root.position.x) || 1);
     const hipY = this.root.position.y + (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * scale;
     const legLength = (this.legLength ?? CREW_TARGET_HEIGHT * 0.47) * scale;
@@ -18054,15 +18132,22 @@ class CrewVisual {
     const railFootY = CREW_BEAM_Y - droop + CREW_RAIL_FOOT_OFFSET;
     const railReachable = Math.hypot(dxRail, railFootY - hipY, CREW_FEET_SPREAD) <= CREW_RAIL_REACH * legLength;
     if (legPose === "bas") {
-      this.reclineTorso(CREW_TORSO_RECLINE_ASTRIDE, legAuthority, -versCoque, false);
+      // Face au large : le même penchant « vers la mer » est un penchant EN
+      // AVANT — le jockey des photos, pas le baigneur renversé de la passe 85.
+      this.reclineTorso(CREW_TORSO_LEAN_ASTRIDE, legAuthority, -versCoque, false);
     } else if (legPose === "bateau") {
       if (railReachable) this.reclineTorso(CREW_TORSO_RECLINE_RAIL, legAuthority, -versCoque, false);
       else this.reclineTorso(90 - CREW_TORSO_PLANK_ABOVE_POLE, legAuthority, -versCoque, true);
+    } else if (legPose === "repos") {
+      // Assis sur son bois au plat-bord, face au large, à peine penché.
+      this.reclineTorso(CREW_TORSO_LEAN_ABOARD, reposContact * 0.8, -versCoque, false);
     }
-    // Le tronc part en arrière, le regard reste sur la voile : la nuque se
-    // redresse vers la verticale et vers la coque. Sans ça, l'homme fixe le
-    // ciel — vu sur la planche de poses après le retournement.
-    if (legPose === "bas" || legPose === "bateau") this.gazeAtSail(legAuthority, versCoque);
+    // Allongé, le tronc part en arrière et le regard reste sur la voile : la
+    // nuque se redresse vers la verticale et vers la coque. Assis face au large,
+    // la tête reste droite : il regarde l'eau devant lui, pas le ciel.
+    if (legPose === "bateau") this.gazeAtSail(legAuthority, versCoque);
+    else if (legPose === "bas") this.gazeAhead(legAuthority, versCoque);
+    else if (legPose === "repos") this.gazeAhead(reposContact * 0.8, versCoque);
 
     // ─── LA CIBLE VIT DANS LE REPÈRE DU BWA, PAS DANS CELUI DE L'HOMME ──────
     //
@@ -18102,15 +18187,26 @@ class CrewVisual {
     // — ce qui la différencie de la directrice sans la lâcher.
     const ECART_MAINS = 0.155;
     const mainExterieureDroite = this.root.position.x >= 0;
-    // Assis à cheval, dos à la mer : les deux prises passent DERRIÈRE les
-    // hanches, côté large. Allongé ou pieds au plat-bord, l'homme tient le
-    // bois de part et d'autre du bassin comme avant.
+    // ⚠️ PASSE 87. Assis à cheval face au large, ou assis à bord sur son bois :
+    // les DEUX prises sont DEVANT lui, le long de la perche vers le large — la
+    // main d'appui loin, la seconde près de l'entrejambe, les deux fermes
+    // (photos : Sainte-Luce, homme 2). Allongé ou pieds au plat-bord, l'homme
+    // tient le bois de part et d'autre du bassin.
     const versLeLarge = Math.sign(this.root.position.x) || 1;
-    const prisesDerriere = legPose === "bas";
-    const handDx = prisesDerriere
-      ? versLeLarge * CREW_GRIP_BEHIND_FAR
+    const prisesDevant = legPose === "bas" || legPose === "repos";
+    const aBord = legPose === "repos";
+    const poidsPrise = aBord ? reposContact * 0.9 : rappelContact;
+    const handDx = prisesDevant
+      ? versLeLarge * (aBord ? CREW_GRIP_ABOARD_FAR : CREW_GRIP_AHEAD_FAR)
       : mainExterieureDroite ? ECART_MAINS : -ECART_MAINS;
-    const handChain = mainExterieureDroite ? this.ikChains.rightArm : this.ikChains.leftArm;
+    // La main d appui est celle DU COTE de la prise : le lacet est a 72°, pas
+    // 90°, la perche passe donc un peu a gauche ou a droite de l axe du corps.
+    // Un bras qui croisait le corps manquait le bois de 11 cm (rig de test,
+    // bras courts). `leftSign` dit de quel cote du rig est la main gauche.
+    const mainLoinDroite = prisesDevant
+      ? surLeBoisX(handDx) * (this.leftSign ?? 1) < 0
+      : mainExterieureDroite;
+    const handChain = mainLoinDroite ? this.ikChains.rightArm : this.ikChains.leftArm;
     // La cible est le DESSUS de la perche (axe + rayon), pas son axe : la paume
     // se pose dessus. Depuis la remontée d'assise (+10,5 cm), viser l'axe
     // demandait 10 cm de portée de trop — la prise échouait à 0,101 m.
@@ -18122,15 +18218,19 @@ class CrewVisual {
     firmWorst = Math.max(firmWorst, this.solveTwoBone(
       handChain,
       surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx),
-      rappelContact
+      poidsPrise
     ));
-    const chaineLibre = mainExterieureDroite ? this.ikChains.leftArm : this.ikChains.rightArm;
-    const dxLibre = prisesDerriere ? versLeLarge * CREW_GRIP_BEHIND_NEAR : -handDx * 1.9;
+    const chaineLibre = mainLoinDroite ? this.ikChains.leftArm : this.ikChains.rightArm;
+    const dxLibre = prisesDevant
+      ? versLeLarge * (aBord ? CREW_GRIP_ABOARD_NEAR : CREW_GRIP_AHEAD_NEAR)
+      : -handDx * 1.9;
     this.solveTwoBone(
       chaineLibre,
       surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre),
-      rappelContact * 0.6
+      prisesDevant ? poidsPrise * 0.95 : rappelContact * 0.6
     );
+    // Le poing se ferme sur le bois à mesure que la main s'y pose.
+    this.setFist(Math.max(poidsPrise, rappelContact));
 
     // ─── LES JAMBES : TENDUES VERS LE BAS, TENDUES VERS LE BATEAU, OU ASSISES ───
     //
@@ -18202,17 +18302,23 @@ class CrewVisual {
       // genoux de 47 à 88° pour y arriver — c'est ça, les « genoux tordus ».
       // Chaque pied vise désormais SON côté ; le deux-os avec pôle fait plier
       // le genou devant, dans le plan du corps.
+      // Assis face au large, les pieds vont DEVANT lui — donc vers la lisse —
+      // et s'arrêtent juste en deçà du plat-bord : un homme posé au bord garde
+      // les pieds dans la coque, genoux pliés, pas au-dessus de l'eau.
+      const avance = clamp(
+        CREW_RAIL_X - CREW_ABOARD_FEET_MARGIN - Math.abs(this.root.position.x), 0.06, 0.32
+      );
       if (contactMode === CREW_CONTACT_BOTH_FEET || leadLeft) {
         leftFootError = this.solveTwoBone(
           this.ikChains.leftLeg,
-          0.15, footY, 0.02 - deckContact * 0.10 + reposContact * 0.30,
+          0.15, footY, 0.02 - deckContact * 0.10 + reposContact * avance,
           legStrength
         );
       }
       if (contactMode === CREW_CONTACT_BOTH_FEET || !leadLeft) {
         rightFootError = this.solveTwoBone(
           this.ikChains.rightLeg,
-          -0.15, footY, 0.02 + deckContact * 0.10 + reposContact * 0.30,
+          -0.15, footY, 0.02 + deckContact * 0.10 + reposContact * avance,
           legStrength
         );
       }
@@ -18294,12 +18400,43 @@ class CrewVisual {
    * Le regard sur la voile : la nuque (Neck → Head) vise une direction monde
    * proche de la verticale, inclinée vers la coque, quel que soit le tronc.
    */
-  gazeAtSail(weight, versCoque) {
+  ensureGazeJoints() {
+    if (this.gazeNeck !== undefined) return;
+    this.gazeNeck = this.rigJoints.find((entry) => /^neck$/i.test(entry.boneName))?.joint ?? null;
+    this.gazeHead = this.rigJoints.find((entry) => /^head$/i.test(entry.boneName))?.joint ?? null;
+    // Le repère du visage : le nœud « headfront » du GLB, devant la face. Les
+    // rigs de test n'en ont pas ; le visage n'est alors pas piloté.
+    this.gazeFront = this.rigRoot?.getObjectByName?.("headfront") ?? null;
+  }
+
+  /**
+   * Le regard devant soi, vers le large (assis à cheval, assis à bord) : la
+   * nuque se redresse, puis le VISAGE vise l'horizon un peu bas. C'est le
+   * visage qu'on aligne, pas l'axe de l'os de tête — mesure `orientationDorsale`
+   * du harnais silhouette, la même que sur photo.
+   */
+  gazeAhead(weight, versCoque) {
     if (!this.rigRoot?.updateWorldMatrix || !this.rigJoints || weight <= 0.001) return false;
-    if (this.gazeNeck === undefined) {
-      this.gazeNeck = this.rigJoints.find((entry) => /^neck$/i.test(entry.boneName))?.joint ?? null;
-      this.gazeHead = this.rigJoints.find((entry) => /^head$/i.test(entry.boneName))?.joint ?? null;
-    }
+    this.ensureGazeJoints();
+    if (!this.gazeNeck || !this.gazeHead) return false;
+    const parent = this.root.parent;
+    if (parent?.getWorldQuaternion) parent.getWorldQuaternion(this.legParentWorld);
+    else this.legParentWorld.identity();
+    this.legOutward.set(-versCoque, 0, 0).applyQuaternion(this.legParentWorld);
+    this.legOutward.y = 0;
+    if (this.legOutward.lengthSq() < 1e-6) this.legOutward.set(-versCoque, 0, 0);
+    this.legOutward.normalize();
+    this.legDir.set(0, 1, 0).addScaledVector(this.legOutward, 0.15).normalize();
+    this.alignBoneTowards(this.gazeNeck, this.gazeHead, this.legDir, weight * 0.9, 1.3);
+    if (!this.gazeFront) return true;
+    this.legDir.copy(this.legOutward).addScaledVector(this.ikIdentityUp ?? (this.ikIdentityUp = new this.legDir.constructor(0, 1, 0)), CREW_GAZE_AHEAD_DOWN).normalize();
+    this.alignBoneTowards(this.gazeHead, this.gazeFront, this.legDir, weight * 0.9, 1.2);
+    return true;
+  }
+
+  gazeAtSail(weight, versCoque, inboard = CREW_GAZE_INBOARD) {
+    if (!this.rigRoot?.updateWorldMatrix || !this.rigJoints || weight <= 0.001) return false;
+    this.ensureGazeJoints();
     if (!this.gazeNeck || !this.gazeHead) return false;
     const parent = this.root.parent;
     if (parent?.getWorldQuaternion) parent.getWorldQuaternion(this.legParentWorld);
@@ -18308,7 +18445,7 @@ class CrewVisual {
     this.legOutward.y = 0;
     if (this.legOutward.lengthSq() < 1e-6) this.legOutward.set(versCoque, 0, 0);
     this.legOutward.normalize();
-    this.legDir.set(0, 1, 0).addScaledVector(this.legOutward, CREW_GAZE_INBOARD).normalize();
+    this.legDir.set(0, 1, 0).addScaledVector(this.legOutward, inboard).normalize();
     this.alignBoneTowards(this.gazeNeck, this.gazeHead, this.legDir, weight * 0.9, 1.3);
     return true;
   }
@@ -18339,14 +18476,24 @@ class CrewVisual {
       const portee = CREW_POLE_LEG_REACH * legLength;
       const drop = hanche.y - surLaPerche;
       const dx = versCoque * Math.sqrt(Math.max(0.04, portee * portee - drop * drop - dz * dz));
-      // Direction hanche → cible, ramenée dans le monde.
+      // Direction hanche → cible, ramenée dans le monde. Le genou garde une
+      // flexion souple (photos : jambes longues, jamais raides) : la cuisse
+      // vise un peu AU-DESSUS de la ligne, le tibia redescend sur la cible.
       this.legDir.set(dx, surLaPerche - hanche.y, dz);
       if (parent?.getWorldQuaternion) {
         parent.getWorldQuaternion(this.legParentWorld);
         this.legDir.applyQuaternion(this.legParentWorld);
+      } else {
+        this.legParentWorld.identity();
       }
+      this.ikTargetWorld.copy(this.ikJointWorld).add(this.legDir);
       this.legDir.normalize();
+      this.legOutward.set(0, 1, 0).applyQuaternion(this.legParentWorld);
+      this.legDir.addScaledVector(this.legOutward, CREW_LYING_KNEE_LIFT).normalize();
       this.alignBoneTowards(upper, lower, this.legDir, weight, chain.maxSwing);
+      this.rigRoot.updateWorldMatrix(true, true);
+      lower.getWorldPosition(this.poleMidWorld);
+      this.legDir.subVectors(this.ikTargetWorld, this.poleMidWorld).normalize();
       this.alignBoneTowards(lower, chain.effector, this.legDir, weight, chain.maxSwing);
     }
     return true;
@@ -18378,14 +18525,18 @@ class CrewVisual {
         chain.pose[index].copy(chain.joints[index].quaternion);
       }
       const [lower, upper] = chain.joints;
-      // Cuisse : la gravité d'abord, l'écart de part et d'autre du bois ensuite.
+      // Cuisse : vers le bas ET en avant vers le large — assis sur le bois comme
+      // sur un cheval —, écartée de son côté du bois.
       this.legDir.set(0, -1, 0)
         .addScaledVector(this.legLeft, sideOfMan * CREW_HANG_STRADDLE)
-        .addScaledVector(this.legOutward, CREW_HANG_LEAN)
+        .addScaledVector(this.legOutward, CREW_SEAT_THIGH_FORWARD)
         .normalize();
       this.alignBoneTowards(upper, lower, this.legDir, weight, chain.maxSwing);
-      // Tibia : dans le prolongement, le pied à peine ramené vers la coque.
-      this.legDir.addScaledVector(this.legOutward, -CREW_HANG_KNEE).normalize();
+      // Tibia : il redescend, talon un peu sous le bois — le genou plie.
+      this.legDir.set(0, -1, 0)
+        .addScaledVector(this.legLeft, sideOfMan * CREW_HANG_STRADDLE * 0.5)
+        .addScaledVector(this.legOutward, -CREW_SEAT_SHIN_BACK)
+        .normalize();
       this.alignBoneTowards(lower, chain.effector, this.legDir, weight, chain.maxSwing);
       const rest = this.rigJoints?.find((entry) => entry.joint === chain.effector)?.rest;
       if (rest && chain.effector?.quaternion) chain.effector.quaternion.slerp(rest, weight).normalize();
@@ -18566,8 +18717,18 @@ class CrewVisual {
     // À bord (peu ou pas sorti), l'homme se tourne vers l'intérieur de la coque ;
     // la traversée efface ce tour, le rappel prend le relais au-delà.
     const assisAuBord = clamp((0.42 - hike) / 0.30, 0, 1) * (1 - transferCrouch);
-    const yaw = -side * (
-      hike * CREW_HIKE_YAW * familyPose.yaw * (1 - assisAuBord)
+    // ⚠️ PASSE 87 : LE SENS DÉPEND DE LA POSE DE JAMBES. Assis à cheval (« bas »)
+    // ou à bord (« repos »), l'homme regarde le LARGE : face vers la pointe de
+    // son bois, dos au bateau (photos de course). Allongé sur la perche
+    // (« bateau »), il garde la face vers la coque : c'est ce qui le met SUR LE
+    // DOS, tête au large, quand le bassin se renverse. La passe 85 tournait tout
+    // le monde face à la coque — juste pour l'allongé, faux pour l'assis.
+    const poseJambes = crewLegPoseFor({
+      family: this.stagingFamily, hike, x: this.root.position.x, transferCrouch
+    });
+    const faceAuLarge = poseJambes === "bateau" ? -1 : 1;
+    const yaw = side * (
+      faceAuLarge * hike * CREW_HIKE_YAW * familyPose.yaw * (1 - assisAuBord)
       + CREW_ABOARD_YAW * assisAuBord
     );
     this.root.rotation.y = yaw;
@@ -18576,12 +18737,15 @@ class CrewVisual {
     // bassin, seul point réellement en appui.
     this.root.rotation.z = 0;
 
-    // Dans ce repère retourné, +Z local pointe vers la COQUE : renverser le
-    // buste au-dessus de l'eau est donc un tangage NÉGATIF du bassin. Le signe
-    // est porté ici, une fois : tête et nuque compensent dans l'autre sens
-    // (le regard reste sur la voile), les jambes filles du bassin remontent
-    // toujours vers la coque, la prise de main s'allonge un peu.
-    const recline = -hike * CREW_HIKE_RECLINE * this.posture * familyPose.recline;
+    // Allongé, +Z local pointe vers la COQUE : se renverser au-dessus de l'eau
+    // est un tangage NÉGATIF du bassin. Assis face au large, +Z local pointe
+    // vers la MER : le bassin penche EN AVANT, tangage positif et modeste —
+    // `reclineTorso` finit le geste à l'angle des photos. Le signe est porté
+    // ici, une fois : les jambes filles du bassin l'annulent, la prise de
+    // main le repaie.
+    const recline = poseJambes === "bas"
+      ? hike * CREW_SEATED_LEAN * this.posture
+      : -hike * CREW_HIKE_RECLINE * this.posture * familyPose.recline;
 
     // Jambes : elles ne se règlent plus ici. D'après les photos de course, au
     // rappel elles sont TENDUES — vers le bas (assis à cheval sur le bois) ou
@@ -18614,7 +18778,12 @@ class CrewVisual {
     // les seeds mènent la pose et l'inversion faisait partir l'IK à 140° de sa
     // prise : mains mesurées à 0,44-0,76 m du bois, contre 0,06 sans elle. La
     // traction des bras vit dans les SEEDS (bras vers la perche), pas ici.
-    let grip = hike * CREW_GRIP_REACH * familyPose.grip * (1 - desordre * 0.30) - recline;
+    // Assis face au large, les bras vont DEVANT, vers le bois entre les cuisses
+    // (rotation négative des pivots, comme le patron à sa barre) ; le deux-os
+    // finit la prise. Allongé, ils cherchent le bois derrière le bassin.
+    let grip = poseJambes === "bas"
+      ? -(0.55 + 0.35 * hike) - recline
+      : hike * CREW_GRIP_REACH * familyPose.grip * (1 - desordre * 0.30) - recline;
     // ⚠️ RIG SANS BIBLIOTHÈQUE DE POSES UNIQUEMENT — gabarits et repli d'urgence.
     // Le rig livré tient sa traction par les seeds Blender ; celui-ci n'en a
     // pas, et ses bras partaient à l'opposé de la perche suspendue (prise ratée

@@ -13,6 +13,60 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 87 — l'assis regarde le large : les poses recalées sur les photos de course
+
+Le propriétaire : « analyse tes neuf vues, regarde où c'est pas bon, va chercher
+des photos toi-même ». Quarante photos du Tour des yoles (Wikimedia Commons :
+Sainte-Luce, bout des bois, yole jaune, GFA, 2019) et la fiche d'inventaire du
+patrimoine ont dit ce que la planche avait de faux — le GESTE, plus l'anatomie.
+
+- **Ce que montrent les photos.** Le dresseur assis est à cheval sur le faisceau
+  **face au large**, dos au bateau, buste droit ou penché en avant comme un
+  jockey, les deux mains **devant lui** sur le bois, genoux à 70-100°, pieds
+  pendants. Un seul homme, au bout, s'allonge : dos sur le bois, tête au large,
+  jambes vers la coque. Personne n'est debout : par petit temps les dresseurs
+  sont **assis sur leur bois au plat-bord**, mains dessus. « Normalement les
+  pieds au plat-bord, les jambes dans le vide quand la rafale est forte » (fiche
+  PCI). La passe 85 avait tourné l'assis face à la coque et renversé en arrière,
+  mains derrière : la posture d'un baigneur sur un banc, absente de toute photo.
+- **Le sens dépend de la pose de jambes.** `crewLegPoseFor` se lit dès le lacet :
+  assis (« bas ») et à bord (« repos ») regardent le large — lacet du signe du
+  bord ; allongé (« bateau ») garde la face vers la coque, ce qui le met sur le
+  dos quand le bassin se renverse. Tronc 15° en avant (`CREW_TORSO_LEAN_ASTRIDE`),
+  prises **devant** le bassin (`CREW_GRIP_AHEAD_FAR/NEAR` 0,42 / 0,16), cuisses
+  portées en avant et genoux pliés (`CREW_SEAT_THIGH_FORWARD` 1,4,
+  `CREW_SEAT_SHIN_BACK` 0,35), visage vers l'eau devant lui (`gazeAhead`, par le
+  repère `headfront` du GLB — aligner l'os de tête sur la verticale faisait fixer
+  le ciel, regard +0,55…+0,82 mesuré).
+- **À bord, assis sur son bois.** Face au large, prises courtes devant
+  (`CREW_GRIP_ABOARD_FAR/NEAR`), tronc 10°, pieds au plancher juste en deçà de la
+  lisse (`CREW_ABOARD_FEET_MARGIN`). Le contact d'assise ne s'efface plus avec le
+  rappel mais avec l'autorité des jambes : à hike 0,36 au plat-bord l'homme
+  gardait 31 % de contact — mains à 10 cm, jambes molles, regard au ciel.
+- **Allongé, genou souple** (`CREW_LYING_KNEE_LIFT` 0,20 ≈ 23°) : la cuisse vise un
+  peu au-dessus de la ligne, le tibia redescend sur la cible.
+- **Le poing.** Clé de forme « poing » cuite dans Blender 5.2 headless sur les
+  quatre rigs (`tools/crew_fist_shapekey.py`) : doigts = sommets pesés par
+  `LeftHand`/`RightHand` au-delà de la moitié de l'os, ligne d'articulation par
+  ACP de leur section, curl 125° au bout ; sens vérifié sur rendus Workbench
+  (paume, dos, tranche). Exportée en morph target (`export_morph`), fondue par
+  `CrewVisual.setFist` avec le contact des mains ; le patron serre sa pagaie.
+  Déplacement des bouts de doigts 13-15 cm.
+- **Mesuré en jeu** (six hommes, gîte 0,42) : les assis ont la poitrine vers la
+  mer **+0,65…+0,68** (contre −0,49…−0,54 face à la coque), lacet −75° du côté du
+  large, mains à −1 cm du bois, genoux 86°, tronc 39° en avant ; les allongés
+  inchangés (poitrine au ciel +0,90…+0,93, mains 0-3 cm). À bord (gîte 0,03) :
+  poitrine vers la mer +0,75…+0,97, mains 0-5 cm pour les hommes assis au bois.
+- **Contrats retournés avec le geste** : `crew-seating` attend le lacet du signe
+  du bord pour l'assis et opposé pour l'allongé (pose CALCULÉE par
+  `crewLegPoseFor`, pas lue) ; `mesure_jambes` gagne la lecture « assis » (cuisse
+  vers le large, genou 45-120°) ; le regard du harnais silhouette est dorsal pour
+  l'allongé (≥ 0,15) et devant soi pour l'assis (−0,5…+0,35) ; assise tolérée à
+  −10 cm (bassin penché en avant, le point d'assise descend de 2 cm). Purement
+  visuel : les quatre checksums sont inchangés.
+- **Planche jeu / réel** : trois poses du jeu au-dessus de trois photos de
+  course, envoyée au propriétaire ; c'est elle qui juge.
+
 ## Passe 86 — les genoux pliaient à l'envers, depuis le début
 
 Le propriétaire, capture de l'homme à bord sous les yeux : « les genoux, les

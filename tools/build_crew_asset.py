@@ -1079,7 +1079,11 @@ def export_candidate(path: Path, objects: Iterable[bpy.types.Object]) -> None:
         export_skins=True,
         export_influence_nb=4,
         export_all_influences=False,
-        export_morph=False,
+        # Passe 87 : la cle de forme « poing » (tools/crew_fist_shapekey.py) part
+        # dans le GLB comme morph target ; positions seules, ni normales ni tangentes.
+        export_morph=True,
+        export_morph_normal=False,
+        export_morph_tangent=False,
         export_gpu_instances=False,
     )
     if "FINISHED" not in result or not path.is_file():

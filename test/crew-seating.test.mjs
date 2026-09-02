@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { crewLegPoseFor } from '../src/render/yole-visual.js';
 
 class FakeClassList {
   constructor() { this.values = new Set(); }
@@ -217,10 +218,17 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
         sortis++;
         // Le lacet doit envoyer la face du BON bord : signe opposé pour un
         // déport négatif, par construction de la rotation autour de Y.
-        // Passe 85 : DOS A LA MER. Le lacet envoie la face vers la coque, donc
-        // son signe est OPPOSE au bord. Avant, face au large, le tronc renverse
-        // vers le large se pliait en avant (mesure : poitrine vers le bas).
-        if (Math.sign(homme.root.rotation.y || 1) === -Math.sign(x || 1)) lacetCorrect++;
+        // Passe 87 : LE SENS SUIT LA POSE DE JAMBES, comme sur les photos de
+        // course. Assis a cheval (« bas »), l homme regarde le LARGE : lacet du
+        // signe du bord. Allonge sur la perche (« bateau »), il garde la face
+        // vers la coque — c est ce qui le met sur le dos, tete au large : lacet
+        // oppose au bord. (Passe 85 : tout le monde face a la coque.)
+        // La pose de jambes se CALCULE ici (crewLegPoseFor) : selon le niveau de
+        // detail, les contacts ne sont pas toujours resolus dans ce test et
+        // homme.legPose peut manquer.
+        const poseJambes = crewLegPoseFor({ family: homme.stagingFamily, hike: Math.min(1, Math.abs(x) / 3.0), x });
+        const sensAttendu = poseJambes === "bateau" ? -Math.sign(x || 1) : Math.sign(x || 1);
+        if (Math.sign(homme.root.rotation.y || 1) === sensAttendu) lacetCorrect++;
         if (Math.abs(x) > 2.4) {
           bienSortis++;
           if (Math.abs(homme.root.rotation.y) > 0.9) lacetFranc++;

@@ -1,5 +1,43 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 87 — l'assis regarde le large
+
+Validation du 2 septembre 2026 (soir) :
+
+- `npm run verify` : **OK** ; smoke navigateur sans erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : lacet, tronc, prises, jambes, regard et poing sont du rendu pur ;
+- références : 40 photos Wikimedia Commons (recherche « yole ronde »),
+  recadrées sur les équipages ; fiche d'inventaire PCI « La yole ronde de la
+  Martinique » (pieds au plat-bord, jambes dans le vide sous rafale) ;
+- mesure en jeu, six hommes, gîte 0,42 : assis — lacet −75° (face au large),
+  poitrine vers la mer **+0,65…+0,68** (avant : −0,49…−0,54), tronc 39° en
+  avant, mains −1 cm, genoux 86°, torsion 6-25° ; allongés — poitrine au ciel
+  +0,90…+0,93, tronc 80°, mains −1…3 cm (une à 30), genoux 21-38° ;
+- mesure en jeu, gîte 0,03 : poitrine vers la mer +0,75…+0,97, hommes assis au
+  bois mains à 0-5 cm, genoux 101-123° (assise basse, pieds au plancher) ;
+- harnais : silhouette strict OK (regard assis +0,06…+0,22, allongé +0,79 ;
+  bras en croix ≤ 41,5°) ; jambes strict OK (lecture « assis », genou 73°) ;
+  appuis strict OK (assis −9 cm / tronc 15° / mains ≤ 5 cm) ; `crew-seating`
+  lacet correct 100 %, franc 100 % ; `test:crew` OK ;
+- poing : clé de forme sur les quatre GLB (238 / 329 / 299 / 335 Ko, un morph
+  target « poing »), déplacement des bouts de doigts 13-15 cm, sens vérifié sur
+  rendus Blender ; visible sur la planche (main sur le bois, doigts fermés) ;
+- planche de trois poses régénérée et relue ; planche jeu / réel envoyée.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire sur la planche ;
+- l'homme à bord est assis bas (bassin à la cote du bois, 0,235 m au-dessus du
+  plancher) : genoux à 100-120°, plus pliés que sur les photos où la perche
+  repose plus haut sur la lisse ;
+- les hommes du milieu de coque (|x| < 0,5) restent debout, mains loin du bois
+  (56-78 cm) : ils ne sont sur aucun bois, c'est voulu, mais leur geste d'attente
+  n'a pas été redessiné ;
+- le poing est une rotation rigide des sommets de doigts : lisible en jeu, pas
+  sculpté.
+
+
 ## Passe 86 — les genoux pliaient à l'envers
 
 Validation du 2 septembre 2026 (après-midi) :

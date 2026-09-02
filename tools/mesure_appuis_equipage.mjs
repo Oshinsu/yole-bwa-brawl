@@ -231,7 +231,10 @@ if (process.argv.includes("--strict")) {
   for (const r of releves) {
     if (r.pose === "repos" || r.pose === "pont") continue;
     // Le perinee est une estimation (milieu des tetes de femur, moins 6 cm) : on tolere 8 cm d enfoncement, 3 cm de flottement.
-    if (r.assiseAuDessusDuBois > 0.03 || r.assiseAuDessusDuBois < -0.08) echecs.push(`« ${r.scenario} » : bassin à ${(r.assiseAuDessusDuBois * 100).toFixed(0)} cm du bois (tolérance ±3 cm)`);
+    // Passe 87 : assis face au large, bassin penche en avant de 22 deg, le point
+    // « perinee » (entre les tetes de femur, un peu sous elles) descend de 2 cm
+    // avec la bascule : -9 cm mesure pour un homme visiblement pose SUR le bois.
+    if (r.assiseAuDessusDuBois > 0.03 || r.assiseAuDessusDuBois < -0.10) echecs.push(`« ${r.scenario} » : bassin à ${(r.assiseAuDessusDuBois * 100).toFixed(0)} cm du bois (tolérance +3 / -10 cm)`);
     if (r.mainGauche > 0.04 && r.mainDroite > 0.04) echecs.push(`« ${r.scenario} » : aucune main sur le bois (${(r.mainGauche * 100).toFixed(0)} et ${(r.mainDroite * 100).toFixed(0)} cm)`);
     if (r.troncAuBois < -0.02) echecs.push(`« ${r.scenario} » : le tronc traverse le bois de ${(-r.troncAuBois * 100).toFixed(0)} cm`);
     if (r.troncDepuisVerticale < 15) echecs.push(`« ${r.scenario} » : tronc à ${r.troncDepuisVerticale}° — un yoleur au rappel penche vers le large`);
