@@ -16873,6 +16873,16 @@ const CREW_FEET_SPREAD = 0.11;
 // bois ; puis, l'axe « vers le large » pris dans le repère gîté, 31°/38°
 // au lieu de 42°/52°.
 const CREW_TORSO_RECLINE_ASTRIDE = 42;
+// Dos à la mer et penché en arrière, l'homme assis à cheval prend le bois
+// DERRIÈRE ses hanches, les deux mains du côté du large (photos 1 et 3) :
+// la main d'appui loin, la seconde près du bassin. En mètres le long de la
+// perche, depuis le bassin, vers le large.
+const CREW_GRIP_BEHIND_FAR = 0.32;
+const CREW_GRIP_BEHIND_NEAR = 0.11;
+// Le regard va à la voile : la nuque se redresse vers la verticale et vers
+// la coque pendant que le tronc part en arrière. Direction monde, composante
+// vers la coque pour une composante verticale de 1.
+const CREW_GAZE_INBOARD = 0.95;
 const CREW_TORSO_RECLINE_RAIL = 52;
 const CREW_TORSO_PLANK_ABOVE_POLE = 10;
 
@@ -17913,6 +17923,10 @@ class CrewVisual {
       if (railReachable) this.reclineTorso(CREW_TORSO_RECLINE_RAIL, legAuthority, -versCoque, false);
       else this.reclineTorso(90 - CREW_TORSO_PLANK_ABOVE_POLE, legAuthority, -versCoque, true);
     }
+    // Le tronc part en arrière, le regard reste sur la voile : la nuque se
+    // redresse vers la verticale et vers la coque. Sans ça, l'homme fixe le
+    // ciel — vu sur la planche de poses après le retournement.
+    if (legPose === "bas" || legPose === "bateau") this.gazeAtSail(legAuthority, versCoque);
 
     // ─── LA CIBLE VIT DANS LE REPÈRE DU BWA, PAS DANS CELUI DE L'HOMME ──────
     //
@@ -17952,18 +17966,36 @@ class CrewVisual {
     // — ce qui la différencie de la directrice sans la lâcher.
     const ECART_MAINS = 0.155;
     const mainExterieureDroite = this.root.position.x >= 0;
-    const handDx = mainExterieureDroite ? ECART_MAINS : -ECART_MAINS;
+    // Assis à cheval, dos à la mer : les deux prises passent DERRIÈRE les
+    // hanches, côté large. Allongé ou pieds au plat-bord, l'homme tient le
+    // bois de part et d'autre du bassin comme avant.
+    const versLeLarge = Math.sign(this.root.position.x) || 1;
+    const prisesDerriere = legPose === "bas";
+    const handDx = prisesDerriere
+      ? versLeLarge * CREW_GRIP_BEHIND_FAR
+      : mainExterieureDroite ? ECART_MAINS : -ECART_MAINS;
     const handChain = mainExterieureDroite ? this.ikChains.rightArm : this.ikChains.leftArm;
     // La cible est le DESSUS de la perche (axe + rayon), pas son axe : la paume
     // se pose dessus. Depuis la remontée d'assise (+10,5 cm), viser l'axe
     // demandait 10 cm de portée de trop — la prise échouait à 0,101 m.
+    // ⚠️ ORIENTATION PRÉALABLE, MESURÉE. Après le retournement dos à la mer,
+    // les seeds laissent les bras en avant, vers la coque — là où était la
+    // perche avant. Le CCD, borné par `maxSwing` (1,35 rad), partait de trop
+    // loin et manquait le bois de 30 à 55 cm (mesuré en jeu). On pointe donc
+    // d'abord chaque bras vers sa prise, en monde, puis le CCD affine.
+    this.preOrientArmsTowards(
+      handChain, surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx), rappelContact
+    );
     firmWorst = Math.max(firmWorst, this.solveLimbContact(
       handChain,
       surLeBoisX(handDx), beamY + 0.055, surLeBoisZ(handDx),
       rappelContact, 4
     ));
     const chaineLibre = mainExterieureDroite ? this.ikChains.leftArm : this.ikChains.rightArm;
-    const dxLibre = -handDx * 1.9;
+    const dxLibre = prisesDerriere ? versLeLarge * CREW_GRIP_BEHIND_NEAR : -handDx * 1.9;
+    this.preOrientArmsTowards(
+      chaineLibre, surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre), rappelContact * 0.5
+    );
     this.solveLimbContact(
       chaineLibre,
       surLeBoisX(dxLibre), beamY + 0.06, surLeBoisZ(dxLibre),
@@ -18118,6 +18150,53 @@ class CrewVisual {
     }
     this.legDir.normalize();
     this.alignBoneTowards(this.torsoHips, this.torsoSpine, this.legDir, weight, Math.PI);
+    return true;
+  }
+
+  /**
+   * Oriente un bras (épaule → coude → main) vers une cible donnée dans le
+   * repère de la racine, en monde, bras tendu. Le CCD n'a plus qu'à affiner.
+   */
+  preOrientArmsTowards(chain, localX, localY, localZ, weight) {
+    if (!chain || !this.rigRoot?.updateWorldMatrix || weight <= 0.001) return false;
+    // CrewVisual ne garde pas THREE : on emprunte deux vecteurs de travail de
+    // l'IK, consommes AVANT alignBoneTowards qui les reecrit.
+    for (let index = 0; index < chain.joints.length; index++) {
+      chain.pose[index].copy(chain.joints[index].quaternion);
+    }
+    const [lower, upper] = chain.joints;
+    this.root.updateWorldMatrix(true, true);
+    this.ikEffectorWorld.set(localX, localY, localZ);
+    this.root.localToWorld(this.ikEffectorWorld);
+    upper.getWorldPosition(this.ikJointWorld);
+    this.legDir.subVectors(this.ikEffectorWorld, this.ikJointWorld);
+    if (this.legDir.lengthSq() < 1e-6) return false;
+    this.legDir.normalize();
+    this.alignBoneTowards(upper, lower, this.legDir, weight, Math.PI);
+    this.alignBoneTowards(lower, chain.effector, this.legDir, weight, Math.PI);
+    return true;
+  }
+
+  /**
+   * Le regard sur la voile : la nuque (Neck → Head) vise une direction monde
+   * proche de la verticale, inclinée vers la coque, quel que soit le tronc.
+   */
+  gazeAtSail(weight, versCoque) {
+    if (!this.rigRoot?.updateWorldMatrix || !this.rigJoints || weight <= 0.001) return false;
+    if (this.gazeNeck === undefined) {
+      this.gazeNeck = this.rigJoints.find((entry) => /^neck$/i.test(entry.boneName))?.joint ?? null;
+      this.gazeHead = this.rigJoints.find((entry) => /^head$/i.test(entry.boneName))?.joint ?? null;
+    }
+    if (!this.gazeNeck || !this.gazeHead) return false;
+    const parent = this.root.parent;
+    if (parent?.getWorldQuaternion) parent.getWorldQuaternion(this.legParentWorld);
+    else this.legParentWorld.identity();
+    this.legOutward.set(versCoque, 0, 0).applyQuaternion(this.legParentWorld);
+    this.legOutward.y = 0;
+    if (this.legOutward.lengthSq() < 1e-6) this.legOutward.set(versCoque, 0, 0);
+    this.legOutward.normalize();
+    this.legDir.set(0, 1, 0).addScaledVector(this.legOutward, CREW_GAZE_INBOARD).normalize();
+    this.alignBoneTowards(this.gazeNeck, this.gazeHead, this.legDir, weight * 0.9, 1.3);
     return true;
   }
 
@@ -18352,26 +18431,38 @@ class CrewVisual {
                 ? "rappel"
                 : "pont";
 
-    // LACET — on se tourne vers le large à mesure qu'on sort sur le bois.
+    // LACET — on se tourne DOS À LA MER à mesure qu'on sort sur le bois.
     //
-    // C'est la correction de fond : le corps s'aligne sur l'axe de la perche au
-    // lieu de rester en travers. Une rotation POSITIVE sur Y amène la face de
-    // +Z vers +X, donc `side` suffit à envoyer l'homme du bon bord. À bord
-    // (hike = 0) le lacet retombe à zéro et l'équipier regarde la proue, comme
-    // avant.
+    // ⚠️ RETOURNÉ LE 2 SEPTEMBRE 2026, ET C'ÉTAIT LA CAUSE RACINE DES POSES.
+    // Depuis le 6 août l'homme était tourné FACE AU LARGE (+Z local vers +X du
+    // bord) et « renverser le buste au-dessus de l'eau » était un tangage
+    // positif du bassin : dans ce repère, c'est se plier EN AVANT. Mesuré en
+    // jeu à 24° de gîte : poitrine vers le bas sur cinq hommes sur six
+    // (`poitrineVersHaut` −0,5 à −1,0), et sur la planche de poses isolées un
+    // homme courbé par-dessus sa perche comme s'il touchait ses pieds — tronc
+    // à 42° de la verticale, exactement la valeur du contrat, dans le mauvais
+    // sens. Les angles étaient justes, le corps était à l'envers.
+    //
+    // Un yoleur au rappel tourne le dos à la mer et penche en arrière, poitrine
+    // au ciel, regard sur la voile. Le lacet envoie donc la face vers la COQUE :
+    // pencher vers le large devient pencher en arrière, les mains visées sur la
+    // perche passent naturellement derrière les hanches, et l'homme allongé le
+    // long du bois se retrouve sur le dos. À bord (hike = 0) le lacet retombe à
+    // zéro et l'équipier regarde la proue, comme avant.
     const familyPose = CREW_FAMILY_POSE[this.stagingFamily] ?? CREW_FAMILY_POSE.levier;
-    const yaw = side * hike * CREW_HIKE_YAW * familyPose.yaw;
+    const yaw = -side * hike * CREW_HIKE_YAW * familyPose.yaw;
     this.root.rotation.y = yaw;
     // ⚠️ La bascule N'EST PLUS à la racine. Elle y faisait pivoter l'homme
     // autour de ses pieds, ce qui décollait le bassin du bois. Elle passe au
     // bassin, seul point réellement en appui.
     this.root.rotation.z = 0;
 
-    // Dans ce repère tourné, +Z local pointe vers le large : renverser le buste
-    // au-dessus de l'eau est donc un TANGAGE positif du bassin. Et comme les
-    // jambes sont filles du bassin, elles remontent du même geste vers la
-    // coque — la balance se fait toute seule, avec le bois pour pivot.
-    const recline = hike * CREW_HIKE_RECLINE * this.posture * familyPose.recline;
+    // Dans ce repère retourné, +Z local pointe vers la COQUE : renverser le
+    // buste au-dessus de l'eau est donc un tangage NÉGATIF du bassin. Le signe
+    // est porté ici, une fois : tête et nuque compensent dans l'autre sens
+    // (le regard reste sur la voile), les jambes filles du bassin remontent
+    // toujours vers la coque, la prise de main s'allonge un peu.
+    const recline = -hike * CREW_HIKE_RECLINE * this.posture * familyPose.recline;
 
     // Jambes : elles ne se règlent plus ici. D'après les photos de course, au
     // rappel elles sont TENDUES — vers le bas (assis à cheval sur le bois) ou

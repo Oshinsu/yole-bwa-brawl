@@ -13,6 +13,48 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 85 — dos à la mer : la cause racine des poses de l'équipage
+
+Le propriétaire, planche de poses isolées sous les yeux : « pitoyable ». Il
+avait raison, et la raison n'était dans aucune des deux passes précédentes.
+
+- **La mesure qui manquait.** Les outils d'équipage mesuraient des angles —
+  tronc 42°, genou 8°, main à 1 cm — tous au vert. Aucun ne mesurait un
+  CONTACT ni une DIRECTION DE POITRINE. Nouvel outil
+  `tools/mesure_appuis_equipage.mjs` (dans `npm run test:crew`) : périnée
+  contre le dessus du bois, mains contre le bois, tronc qui traverse ou non, et
+  sa version en jeu (`scratch`) qui lit en plus où regarde la poitrine.
+- **Ce qu'elle a dit.** En jeu à 24° de gîte, `poitrineVersHaut` valait
+  **−0,5 à −1,0 sur cinq hommes sur six** : la poitrine regardait le bas. Le
+  lacet de la racine (−73° à −81°) tournait l'homme **face au large** depuis le
+  6 août, et « renverser le buste au-dessus de l'eau » était un tangage positif
+  du bassin — dans ce repère, **se plier en avant**. Le tronc faisait bien 42°
+  de la verticale, dans le mauvais sens. Les angles étaient justes, le corps
+  était à l'envers.
+- **Le correctif tient en deux signes** : le lacet envoie la face vers la
+  coque (`-side`), le tangage du bassin devient négatif. Un yoleur au rappel
+  tourne le dos à la mer et penche en arrière, poitrine au ciel, regard sur la
+  voile. Mesuré après : poitrine **+0,52 à +0,93** sur les six, regard dorsal
+  +0,58 à +0,88 (contre +0,14 avant), silhouette stricte tenue.
+- **Les mains ont suivi.** Retourné, l'homme a la perche derrière lui et les
+  seeds laissaient les bras en avant : le CCD, borné par `maxSwing`, manquait le
+  bois de **30 à 55 cm**. `preOrientArmsTowards` pointe d'abord chaque bras vers
+  sa prise, en monde (comme les jambes couchées), puis le CCD affine. Assis à
+  cheval, les deux prises passent **derrière les hanches**, côté large
+  (`CREW_GRIP_BEHIND_FAR/NEAR`). Après : **0 à 8 cm** du bois en jeu.
+- **Le regard va à la voile** (`gazeAtSail`) : la nuque se redresse vers la
+  verticale et la coque pendant que le tronc part en arrière, sinon l'homme
+  fixe le ciel — vu sur la planche.
+- **La planche de trois poses isolées** (`scratch/capture_live.py`, un homme,
+  sa yole, trois angles) devient l'instrument de recette : c'est elle qui a
+  montré le défaut et elle qui a validé le correctif. Assis à cheval : dos à la
+  mer, penché en arrière, jambes pendantes, mains derrière sur le bois. Allongé
+  : sur le dos le long de la perche, tête au large, pieds vers la coque. À bord
+  : debout dans la coque, mains sur la perche, regard à la voile.
+- Contrats retournés avec le corps : `crew-seating` attend un lacet OPPOSÉ au
+  bord ; le genou au plat-bord tolère 90° (82-83° mesurés, photo 4 à angle
+  droit). Purement visuel : les quatre checksums sont inchangés.
+
 ## Passe 84 — le sable, l'horizon, les îlets
 
 Retour du propriétaire sur les captures de la passe 83 : « sable dégueu,

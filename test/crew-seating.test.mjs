@@ -217,7 +217,10 @@ for (let frame = 0; frame < 9000 && game.mode === 'playing'; frame++) {
         sortis++;
         // Le lacet doit envoyer la face du BON bord : signe opposé pour un
         // déport négatif, par construction de la rotation autour de Y.
-        if (Math.sign(homme.root.rotation.y || 1) === Math.sign(x || 1)) lacetCorrect++;
+        // Passe 85 : DOS A LA MER. Le lacet envoie la face vers la coque, donc
+        // son signe est OPPOSE au bord. Avant, face au large, le tronc renverse
+        // vers le large se pliait en avant (mesure : poitrine vers le bas).
+        if (Math.sign(homme.root.rotation.y || 1) === -Math.sign(x || 1)) lacetCorrect++;
         if (Math.abs(x) > 2.4) {
           bienSortis++;
           if (Math.abs(homme.root.rotation.y) > 0.9) lacetFranc++;
@@ -348,7 +351,7 @@ assert.ok(
 );
 assert.ok(pctCoteHaut > 75, `equipage du cote haut seulement ${pctCoteHaut.toFixed(1)} % du temps`);
 
-// 4. Sorti sur le bois, le corps est ALIGNE dessus : lacet vers le large, et
+// 4. Sorti sur le bois, le corps est ALIGNE dessus : lacet dos a la mer, et
 //    bassin a hauteur de perche. Sans ces deux-la, l'homme est assis en travers
 //    d'un rondin — ce que montrait le modele avant correction.
 assert.ok(pctLacetCorrect > 99, `lacet du mauvais bord ${(100 - pctLacetCorrect).toFixed(1)} % du temps`);

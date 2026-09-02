@@ -1,5 +1,36 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 85 — dos à la mer
+
+Validation du 2 septembre 2026 (nuit) :
+
+- `npm run verify` : **OK** ; smoke navigateur sans erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : lacet, tangage, mains et regard sont du rendu pur ;
+- mesure en jeu à 24° de gîte, six hommes, avant → après : poitrine vers le
+  haut **−0,5…−1,0 → +0,52…+0,93** ; mains sur le bois **30-55 cm → 0-8 cm**
+  (13 cm pour une main de l'homme du bout) ; périnée à −2…−4 cm du dessus du
+  bois (posé dessus) ; tronc 42° (assis) et 80° (allongé) depuis la verticale
+  du monde, vers le large ;
+- harnais (`tools/mesure_appuis_equipage.mjs --strict`, désormais dans
+  `test:crew`) : cinq scénarios, assise −2…−7 cm, mains ≤ 5 cm, tronc jamais
+  dans le bois ;
+- silhouette stricte tenue, regard dorsal +0,58…+0,88 (contre +0,14 avant) ;
+- `test:crew` complet OK après retournement du contrat de lacet
+  (`crew-seating`) et genou au plat-bord toléré à 90° (82-83° mesurés) ;
+- planche de trois poses isolées régénérée sur le build local et relue : assis
+  dos à la mer penché en arrière, allongé sur le dos tête au large, debout à
+  bord mains sur la perche.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire sur la planche — c'est lui qui corrige ;
+- les genoux de l'homme assis restent tendus (7°), au mot près de la demande
+  (« tendus vers le bas ») ; une légère flexion est à un chiffre de distance ;
+- la pose « à bord » reste debout : la position assise dans la coque est à
+  décrire.
+
+
 ## Passe 84 — le sable, l'horizon, les îlets
 
 Validation du 2 septembre 2026 :

@@ -657,6 +657,35 @@ d'un homme assis tronc en arrière n'atteignait pas le bois derrière sa
 hanche, et la limite anatomique du CCD faisait manquer la cible de 59 cm — le
 harnais mesurait le mannequin, pas le moteur.
 
+### Dos à la mer — la cause racine (2 septembre, nuit)
+
+Planche de poses isolées sous les yeux du propriétaire : « pitoyable ». Les
+trois passes précédentes avaient empilé des directeurs (jambes, tronc, mains)
+validés par des ANGLES ; aucun outil ne mesurait un contact ni la direction de
+la poitrine. `tools/mesure_appuis_equipage.mjs` et sa version en jeu ont dit :
+poitrine vers le bas sur cinq hommes sur six (`poitrineVersHaut` −0,5 à −1,0).
+
+Depuis le 6 août le lacet tournait l'homme FACE AU LARGE, et le tangage positif
+du bassin qui devait « renverser le buste au-dessus de l'eau » le pliait donc en
+avant. Le tronc faisait bien 42° de la verticale — dans le mauvais sens.
+
+Le correctif : `yaw = -side * …` (la face vers la coque) et `recline` négatif.
+Un yoleur au rappel tourne le dos à la mer et penche en arrière. Conséquences
+mesurées et réglées dans la même passe :
+
+- la perche passe derrière l'homme ; les seeds laissent les bras en avant et le
+  CCD manquait le bois de 30-55 cm → `preOrientArmsTowards` pointe le bras vers
+  sa prise avant le CCD ; assis à cheval, les prises passent derrière les
+  hanches (`CREW_GRIP_BEHIND_FAR` 0,32, `CREW_GRIP_BEHIND_NEAR` 0,11) ;
+- le regard suit le tronc vers le ciel → `gazeAtSail` redresse la nuque vers la
+  verticale et la coque (`CREW_GAZE_INBOARD` 0,95) ;
+- `crew-seating` attend désormais un lacet OPPOSÉ au bord.
+
+Règle retenue : **une pose se recette sur la planche isolée et sur ses contacts
+(assise, mains, poitrine), jamais sur ses angles seuls.** La planche :
+`scratch/capture_live.py` (un homme, sa yole, trois angles), à régénérer à
+chaque retouche.
+
 ### Contrats
 
 `npm run test:jambes` (dans `test:crew`) verrouille sur le GLB livré : au
