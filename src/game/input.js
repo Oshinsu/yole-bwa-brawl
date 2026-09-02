@@ -33,6 +33,26 @@ import {
 //
 // La rampe est en unités PAR TICK FIXE, pas par image : l'accélérateur doit
 // donner le même résultat à 30, 60 et 144 Hz, et surtout être rejouable.
+// Cadrages de la pause. 1,18 est le réglage historique ; 1,72 recule pour
+// lire la mêlée ; 0,86 colle à la yole pour l'équipage. Tous dans la plage
+// ZOOM_MIN..ZOOM_MAX de balance.js.
+export const CAMERA_ZOOM_PRESETS = Object.freeze([
+  Object.freeze({ key: "standard", label: "STANDARD", zoom: 1.18 }),
+  Object.freeze({ key: "tactique", label: "TACTIQUE", zoom: 1.72 }),
+  Object.freeze({ key: "proche", label: "PROCHE", zoom: 0.86 })
+]);
+
+/** Libellé du cadrage courant : le preset le plus proche, sinon le pourcentage. */
+export function cameraZoomPresetLabel(zoom) {
+  const value = Number.isFinite(zoom) ? zoom : 1.18;
+  let best = null;
+  for (const preset of CAMERA_ZOOM_PRESETS) {
+    const distance = Math.abs(preset.zoom - value);
+    if (distance < 0.08 && (!best || distance < best.distance)) best = { distance, label: preset.label };
+  }
+  return best ? best.label : `${Math.round(value * 100)} %`;
+}
+
 export const KEYBOARD_TRIM = Object.freeze({
   min: 0.58,
   max: 1.0,
@@ -239,6 +259,8 @@ export const InputSystems = {
       sfxVolume: byId("sfxVolumeSlider"),
       sfxVolumeValue: byId("sfxVolumeValue"),
       pauseStateLabel: byId("pauseStateLabel"),
+      soundToggle: byId("soundToggle"),
+      zoomToggle: byId("zoomToggle"),
       playtestReport: byId("playtestReportBtn"),
       playtestReportStatus: byId("playtestReportStatus"),
       pausePlaytestReport: byId("pausePlaytestReportBtn"),
@@ -549,10 +571,13 @@ export const InputSystems = {
     return true;
   },
 
+  // Le portrait SE JOUE depuis la passe 78 : poste de pilotage empilé
+  // (style.css, V20) et champ de caméra rouvert (camera.js). Cette garde
+  // pilotait la pause forcée « tourne le téléphone » ; elle répond désormais
+  // toujours non, et les trois appelants restent en place pour un éventuel
+  // retour arrière sans réécriture.
   isPortraitCombat() {
-    const width = Number(globalThis.innerWidth) || 0;
-    const height = Number(globalThis.innerHeight) || 0;
-    return width > 0 && height > width * 1.15;
+    return false;
   },
 
   updatePauseDialog() {
@@ -1213,6 +1238,16 @@ export const InputSystems = {
     this.settings.set("cameraZoom", Math.round(this.cameraZoom * 100) / 100);
     if (this.ui.zoomValue) this.ui.zoomValue.textContent = `${Math.round(this.cameraZoom * 100)}%`;
     return this.cameraZoom;
+  },
+
+  // Trois cadrages nommés pour le menu : le rail de course n'a plus de zoom.
+  // Clavier (+/-), molette et croix manette gardent le réglage fin.
+  cycleCameraZoomPreset() {
+    const current = CAMERA_ZOOM_PRESETS.findIndex((preset) => Math.abs(preset.zoom - this.cameraZoom) < 0.08);
+    const next = CAMERA_ZOOM_PRESETS[(current + 1 + CAMERA_ZOOM_PRESETS.length) % CAMERA_ZOOM_PRESETS.length];
+    this.adjustCameraZoom(next.zoom - this.cameraZoom);
+    this.applySettingsUI?.();
+    return next.key;
   },
 
   triggerPlayerShift() {
@@ -1970,13 +2005,18 @@ export const InputSystems = {
       else if (this.tour) this.startTourStage(this.tour.stage);
       else this.startMatch();
     };
-    ui.sound.onclick = () => {
+    // Le son se coupe depuis le menu (SON · ACTIF/COUPÉ). L'ancien bouton du
+    // rail garde son gestionnaire pour un HTML encore en cache.
+    const basculerSon = () => {
       const enabled = this.settings.get("audio") !== false && !this.audio.muted;
       this.audio.setMuted(enabled);
       this.settings.set("audio", !enabled);
       if (!enabled) this.audio.ensure?.();
       this.applySettingsUI();
     };
+    if (ui.sound) ui.sound.onclick = basculerSon;
+    if (ui.soundToggle) ui.soundToggle.onclick = basculerSon;
+    if (ui.zoomToggle) ui.zoomToggle.onclick = () => this.cycleCameraZoomPreset();
     const bindVolume = (control, output, key) => {
       if (!control) return;
       control.oninput = () => {
@@ -1996,7 +2036,7 @@ export const InputSystems = {
     if (ui.playtestReport) ui.playtestReport.onclick = () => this.sharePlaytestReport();
     if (ui.pausePlaytestReport) ui.pausePlaytestReport.onclick = () => this.sharePlaytestReport();
     // AUTO → LQ → MQ → HQ → AUTO. Le palier manuel vit dans la pause : sur
-    // tactile, le bouton du rail de course est retiré (style.css, V19).
+    // tactile, le bouton du rail de course est retiré (style.css, V20).
     if (ui.qualityTierToggle) ui.qualityTierToggle.onclick = () => {
       if (!this.quality.manual) {
         this.quality.setTier(0, true);
@@ -2011,7 +2051,7 @@ export const InputSystems = {
       this.applySettingsUI();
     };
     if (ui.ghostToggle) ui.ghostToggle.onclick = () => this.toggleSetting("ghost");
-    ui.quality.onclick = () => {
+    if (ui.quality) ui.quality.onclick = () => {
       const tier = this.quality.cycleManual();
       this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);
       this.applySettingsUI();

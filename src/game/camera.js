@@ -74,6 +74,15 @@ function finiteOr(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+// Portrait : à aspect 0,5, une caméra à 56° de champ vertical n'ouvre plus
+// que 30° en largeur — les rivaux sortent du cadre et la mer devant se
+// réduit à un couloir. On rouvre le champ VERTICAL avec l'aspect, jusqu'à
+// +22°, pour retrouver de l'eau devant et sur les côtés. Purement rendu.
+export function portraitFovBoost(aspect) {
+  if (!Number.isFinite(aspect) || aspect >= 1) return 0;
+  return Math.min(22, (1 - aspect) * 36);
+}
+
 export const CameraSystems = {
   toggleSpectatorFastForward() {
     const player = this.boats?.[0];
@@ -404,7 +413,7 @@ export const CameraSystems = {
     );
     this.cameraFovBase = damp(
       this.cameraFovBase ?? this.camera.fov,
-      56.5 + speedFactor * 5.8 - (zoom - 1) * 3.8,
+      56.5 + speedFactor * 5.8 - (zoom - 1) * 3.8 + portraitFovBoost(this.camera.aspect),
       2.5,
       dt
     );
@@ -492,10 +501,11 @@ export const CameraSystems = {
     // lecture de J2 instable. Les kicks d'impact restent, eux, communs au duel.
     this.cameraRollBase = damp(this.cameraRollBase ?? 0, 0, 7.5, dt);
     if (this.cameraRollBase) this.camera.rotateZ(this.cameraRollBase);
+    const portraitBoost = portraitFovBoost(this.camera.aspect);
     const targetFov = clamp(
-      62 + speedFactor * 5 + Math.max(0, separation - 10) * 0.20 - (zoom - 1) * 3,
+      62 + speedFactor * 5 + Math.max(0, separation - 10) * 0.20 - (zoom - 1) * 3 + portraitBoost,
       60,
-      79
+      79 + portraitBoost
     );
     this.cameraFovBase = damp(this.cameraFovBase ?? this.camera.fov, targetFov, 3.2, dt);
     this.camera.fov = this.cameraFovBase

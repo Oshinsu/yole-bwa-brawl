@@ -111,11 +111,38 @@ La replayothèque accepte l'**import** d'un fichier replay : celui d'un ami sur
 la même graine devient son fantôme. C'est la version sans serveur du défi
 partagé — le fichier voyage par la feuille de partage, pas par un classement.
 
-### Rail de course allégé sur tactile
+### Un seul bouton en course, portrait jouable, écriteaux brefs
 
-Sur pointeur tactile, la course perd deux boutons du rail droit — qualité et le
-second bouton de réglages — qui vivent déjà dans la pause. Un réglage **PALIER**
-(AUTO · LQ · MQ · HQ) y remplace le cycle manuel du rail. Le clavier garde tout.
+Le rail de huit boutons en haut à droite est remplacé par **un seul bouton ☰**
+qui ouvre le menu de pause. Qualité (**PALIER** AUTO · LQ · MQ · HQ), cadrage
+(**CAMÉRA** STANDARD · TACTIQUE · PROCHE), **SON** et tous les réglages y vivent ;
+le rétro reste au clavier (`C`), le zoom fin au clavier, à la molette et à la
+croix de la manette.
+
+Le **portrait se joue** : plus de pause forcée « tourne le téléphone ». Le
+poste de pilotage s'empile — instruments à gauche au-dessus du pad, contre-gîte
+et armes en 2×2 à droite, colonne centrale libre pour la yole — et la caméra
+rouvre son champ vertical jusqu'à +22° pour retrouver la mer devant et les
+rivaux sur les côtés.
+
+Les **écriteaux** durent 0,7 fois moins longtemps, plafonnés à 1,5 s, ne se
+relancent pas quand le même texte revient, et font moitié moins de hauteur ;
+le fil de combat garde trois lignes au plus, 2,4 s chacune.
+
+### Coup d'envoi sans gel
+
+Le diff des programmes compilés a montré la cause du « ça rame au début » :
+chaque noix de coco portait une **lumière ponctuelle**. Dès qu'une devenait
+visible, le nombre de lumières de la scène changeait et three.js recompilait
+**tous** les matériaux éclairés — +18 programmes au premier coco en vol, +38
+dès qu'un second volait en même temps. Les lumières sont retirées (l'océan les
+ignorait), et les programmes de toute la scène, pools invisibles compris, sont
+compilés **pendant le 3-2-1**, où la simulation est gelée.
+
+```bash
+PORT=8791 python tools/serve.py &
+python tools/check_demarrage.py
+```
 
 ## Atelier Ma Yole
 
@@ -148,10 +175,10 @@ restaure le profil qui était actif à l'ouverture de l'atelier.
 | Changer d'arme | `E` | ramassage / soute | X / □ |
 | Contre-gîte (Bwa Shift) | `Shift` | CONTRE-GÎTE | B / ○ |
 | Turbo avant | `Z` sur AZERTY (`W` physique) ou `F` | double-tap sur l'eau | RB / R1 |
-| **Regarder derrière** (maintenu) | `C` | bouton RÉTRO maintenu | — |
+| **Regarder derrière** (maintenu) | `C` | — | — |
 | **Bwa Dash** (double-tap) | `Q Q` ou `D D` (aussi `X` / `Ctrl`) | deux poussées rapides du joystick | LB / L1 |
-| Zoom | `+` / `-` ou molette | boutons `−` / `+` | croix ↑ / ↓ |
-| Pause/réglages | `P` ou `Échap` | boutons en haut | Start |
+| Zoom | `+` / `-` ou molette | menu ☰ → CAMÉRA | croix ↑ / ↓ |
+| Menu, pause, réglages | `P` ou `Échap` | bouton ☰ en haut à droite | Start |
 
 Le panneau Pause conserve toujours son rail **Reprendre / Recommencer / Menu
 principal** à l'écran. Le retour au menu passe par une confirmation ; à la

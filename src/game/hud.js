@@ -8,8 +8,15 @@ import { routeCenter } from "../render/world.js";
 import { checksumBoats } from "../sim/replay.js";
 import { YOLE_HANDLING } from "../sim/yole-physics.js";
 import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, STORM_RANGE, resolveAiLevel, COUNTDOWN_GO_SECONDS } from "./balance.js";
-import { AIM_MAX_RADIANS } from "./input.js";
+import { AIM_MAX_RADIANS, cameraZoomPresetLabel } from "./input.js";
 import { handlingCue } from "./handling-feedback.js";
+
+// Écriteaux et fil de combat : brefs, bornés. Voir showMessage / addKill.
+const MESSAGE_DURATION_SCALE = 0.7;
+const MESSAGE_MAX_SECONDS = 1.5;
+const MESSAGE_MIN_SECONDS = 0.45;
+const KILLFEED_MAX_ROWS = 3;
+const KILLFEED_LIFETIME_MS = 2400;
 
 // Vivier de chiffres de dégâts. 14 couvre une mêlée à quatre yoles sans jamais
 // allouer en cours de partie.
@@ -346,6 +353,12 @@ export const HudSystems = {
       this.ui.sound.setAttribute?.("aria-pressed", String(soundEnabled));
       this.ui.sound.setAttribute?.("aria-label", soundEnabled ? "Son activé" : "Son coupé");
     }
+    if (this.ui?.soundToggle) {
+      this.ui.soundToggle.classList?.toggle?.("active", soundEnabled);
+      this.ui.soundToggle.setAttribute?.("aria-pressed", String(soundEnabled));
+      const small = this.ui.soundToggle.querySelector?.("small") || this.ui.soundToggle.children?.[2];
+      if (small) small.textContent = soundEnabled ? "ACTIF" : "COUPÉ";
+    }
     return { soundEnabled, musicVolume, sfxVolume };
   },
 
@@ -415,6 +428,9 @@ export const HudSystems = {
     this.ui.quality?.setAttribute?.("aria-label", `Qualité graphique : ${qualityLabel}, activer pour changer`);
     const zoomPercent = Math.round(this.cameraZoom * 100);
     if (this.ui.zoomValue) this.ui.zoomValue.textContent = `${zoomPercent}%`;
+    const zoomLabel = cameraZoomPresetLabel(this.cameraZoom);
+    setToggle(this.ui.zoomToggle, zoomLabel !== "STANDARD", zoomLabel);
+    this.ui.zoomToggle?.setAttribute?.("aria-label", `Cadrage caméra : ${zoomLabel.toLowerCase()}, ${zoomPercent} %. Activer pour changer.`);
     this.ui.zoomReset?.setAttribute?.("aria-label", `Réinitialiser le zoom, actuellement ${zoomPercent} %`);
   },
 
@@ -519,6 +535,24 @@ export const HudSystems = {
   },
 
   showMessage(text, duration = 0.8) {
+    // Écriteaux : 0,7 × la durée demandée, plafonnée à 1,5 s, et jamais le
+    // même texte relancé en rafale. Mesuré au jeu : les annonces
+    // s'enchaînaient si vite que le centre de l'écran restait occupé en
+    // permanence et que la mer devenait illisible.
+    const shown = clamp(
+      (Number.isFinite(duration) ? duration : 0.8) * MESSAGE_DURATION_SCALE,
+      MESSAGE_MIN_SECONDS,
+      MESSAGE_MAX_SECONDS
+    );
+    if (
+      this.lastMessageText === text
+      && this.messageTimer > 0
+      && !this.ui.message.classList.contains("hidden")
+    ) {
+      this.messageTimer = Math.max(this.messageTimer, shown);
+      return;
+    }
+    this.lastMessageText = text;
     this.ui.message.textContent = text;
     const normalized = String(text).toLocaleUpperCase("fr");
     // ⚠️ `GRAIN` -> `BRUME|SABLE`. Cette regex décide du style d'URGENCE d'un
@@ -530,7 +564,7 @@ export const HudSystems = {
     this.ui.message.classList.toggle("message-positive", !critical && positive);
     this.ui.message.setAttribute?.("aria-live", critical ? "assertive" : "polite");
     this.ui.message.classList.remove("hidden");
-    this.messageTimer = duration;
+    this.messageTimer = shown;
   },
 
   addKill(text) {
@@ -545,7 +579,11 @@ export const HudSystems = {
       else if (p2At >= 0) element.classList.add("kill-p2");
     }
     this.ui.killfeed.prepend(element);
-    setTimeout(() => element.remove(), 3800);
+    // Trois lignes au plus, 2,4 s chacune : le fil se lit d'un coup d'œil,
+    // il ne s'empile plus jusqu'à masquer la mer à droite.
+    const rows = Array.from(this.ui.killfeed.children ?? []);
+    for (const old of rows.slice(KILLFEED_MAX_ROWS)) old.remove?.();
+    setTimeout(() => element.remove(), KILLFEED_LIFETIME_MS);
   },
 
   createLeaderboardRows() {

@@ -1,5 +1,40 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 78 — bouton unique, portrait, écriteaux, coup d'envoi sans gel
+
+Validation du 1er septembre 2026 :
+
+- `npm run verify` : **OK** en 147 s sur 111 modules JavaScript et 49 fichiers
+  Python ; cache PWA `c720fe50fd6e`, 182 fichiers précachés ; benchmark
+  145 876 pas bateau/s ;
+- `tools/check_demarrage.py` (Chromium SwiftShader, 260 images) : images ayant
+  compilé un shader **9 → 6**, temps cumulé sur ces images **3 076 → 1 213 ms**,
+  dernière compilation à l'image 104 dans les deux cas, mais les +17/+14
+  programmes du coup d'envoi ont disparu ;
+- diff des programmes (`renderer.info.programs`) : rebours **0 → 31**
+  compilations (déplacées sous le 3-2-1), coup d'envoi **2 → 4**, premier coco
+  **18 → 2**, 400 ticks suivants **38 → 4** ; lumières ponctuelles dans la scène
+  **18 → 0** ;
+- replay de la première étape du Tour : `59947b1d` sur 5 821 ticks, identique
+  à `BUILD_INFO.json` — retirer des lumières et compiler plus tôt ne touche pas
+  la simulation ;
+- suites `test:hud`, `test:input`, `test:ui`, `test:touch`, `test:game`,
+  `test:combat`, `test:fun`, `test:versus`, `test:elimination`,
+  `test:handling-render`, `test:ghost`, `test:playtest` : OK après la refonte
+  du rail et des écriteaux ;
+- après rebasage sur les quatre commits du propriétaire du 14 au 16 août
+  (PWA réseau d'abord, touche 3 pour la caisse, brume reculée à 148 m,
+  plancher de lisibilité V19) : `npm run verify` **OK en 158 s**, cache PWA
+  `2429f9ebf163`, 182 fichiers précachés, 0 erreur navigateur. Le checksum
+  18 000 ticks reste `017e9fdc` ; le replay de la première étape du Tour
+  sort désormais `2b887431` parce que la brume reculée change les
+  trajectoires — c'est l'effet du commit #3 du propriétaire, pas de cette
+  passe, dont aucune ligne ne touche la simulation ;
+- contrôle manuel dans Chromium à **390 × 844** : un seul bouton dans la barre
+  haute, contre-gîte et trois armes en 2×2 à droite, pad à gauche, instruments
+  au-dessus du pad, champ de caméra élargi, aucune pause forcée en portrait.
+
+
 ## Passe 77 — rapport de playtest, fantôme et rail tactile allégé
 
 Validation du 1er septembre 2026 :

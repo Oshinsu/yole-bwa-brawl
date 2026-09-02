@@ -780,6 +780,9 @@ export class Game {
 
     // Chaque manche repart sur un 3 · 2 · 1 · GO.
     this.countdown = COUNTDOWN_SECONDS + COUNTDOWN_GO_SECONDS;
+    // La simulation est gelée pendant le 3-2-1 : c'est le moment de compiler
+    // ce que le coup d'envoi paierait sinon en gel.
+    this.warmUpShaders();
     // ⚠️ Le transitoire de compilation des shaders recommence à chaque manche :
     // on redonne au gestionnaire de qualité sa période de grâce, sinon il juge
     // la machine sur des images bloquées par la compilation. Voir
@@ -1992,7 +1995,35 @@ export class Game {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.postFX.resize(width, height, this.qualityProfile?.pixelRatio ?? 1);
-    this.ui.rotate.classList.toggle("hidden", !(height > width * 1.15 && this.mode !== "menu"));
+    // Le portrait se joue (passe 78) : le carton « tourne le téléphone » ne
+    // s'affiche plus. L'élément reste pour les anciens caches PWA.
+    this.ui.rotate?.classList?.add?.("hidden");
+  }
+
+  /**
+   * Compile les programmes de TOUS les objets de la scène — pools invisibles
+   * compris — pendant le 3-2-1, où la simulation est gelée. Mesuré au harnais
+   * de démarrage : sans ça, le coup d'envoi et les premiers objets rendus
+   * payaient ces compilations en gels de plusieurs centaines de millisecondes.
+   * `compileAsync` s'appuie sur KHR_parallel_shader_compile quand le pilote
+   * l'offre ; sinon il compile en bloc, une fois, sous le rebours.
+   */
+  warmUpShaders() {
+    const renderer = this.renderer;
+    if (!renderer || !this.scene || !this.camera) return false;
+    try {
+      if (typeof renderer.compileAsync === "function") {
+        const pending = renderer.compileAsync(this.scene, this.camera);
+        pending?.catch?.(() => {});
+      } else if (typeof renderer.compile === "function") {
+        renderer.compile(this.scene, this.camera);
+      } else {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+    return true;
   }
 
   debugState() {

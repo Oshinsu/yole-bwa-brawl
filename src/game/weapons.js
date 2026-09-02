@@ -175,8 +175,15 @@ export const WeaponSystems = {
       sproutB.position.set(0.12, 0.55, 0.03);
       sproutA.rotation.z = -0.35;
       sproutB.rotation.z = 0.42;
-      const glow = new THREE.PointLight(0xffb43c, 2.8, 11);
-      group.add(shell, eyeA, eyeB, sproutA, sproutB, glow);
+      // ⚠️ PLUS DE PointLight ICI. Chaque noix portait une lumière ponctuelle.
+      // Dès qu'une devenait visible, le NOMBRE de lumières de la scène changeait
+      // et three.js recompilait TOUS les matériaux éclairés — mesuré au diff des
+      // programmes : +18 au premier coco en vol, +38 dès qu'un second volait en
+      // même temps, et ainsi de suite jusqu'à dix-huit variantes possibles.
+      // C'était la cause des gels de début de course. L'océan est un
+      // ShaderMaterial qui ignorait de toute façon ces lumières : la perte
+      // visuelle est un reflet ambré sur les coques voisines, rien de plus.
+      group.add(shell, eyeA, eyeB, sproutA, sproutB);
       // Le banc de poissons partage ce pool : son mesh est un enfant caché, et
       // la noix se retire quand il sort. Sans ça le PWASON VOLAN était une noix
       // de coco à tête chercheuse.

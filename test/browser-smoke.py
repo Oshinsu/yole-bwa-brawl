@@ -285,7 +285,7 @@ def main() -> None:
             if shortcut_state["activeWeapon"] != "harpoon" or shortcut_state["activeShortcut"] != "harpoon":
                 raise AssertionError(f"Digit2 did not select and expose the harpoon slot: {shortcut_state}")
 
-            game_page.locator("#settingsBtn").click()
+            game_page.locator("#pauseBtn").click()
             game_page.locator("#flashToggle").click()
             game_page.locator("#perfToggle").click()
             game_page.keyboard.press("Escape")
@@ -313,7 +313,7 @@ def main() -> None:
                     return {
                         hudVisible: !document.getElementById('hud').classList.contains('hidden'),
                         integrityVisible: Boolean(document.querySelector('.integrity-grid')),
-                        quality: document.getElementById('qualityBtn').textContent,
+                        quality: document.getElementById('qualityTierToggle')?.querySelector('small')?.textContent || '',
                         perfText: document.getElementById('perfStats').textContent,
                         replayControls: Boolean(document.getElementById('downloadReplayBtn')),
                         telemetryControl: Boolean(document.getElementById('downloadTelemetryBtn')),
@@ -428,7 +428,13 @@ def main() -> None:
             # test/ui-microinteractions.test.mjs, qui exige la presence de
             # JOY_DASH_THRESHOLD dans input.js. Sans ce garde-fou, retirer un
             # bouton tactile sans le remplacer redeviendrait invisible.
-            if touch_state["controls"] < 7 or touch_state["tooSmall"]:
+            # ⚠️ PLANCHER ABAISSE DE 7 A 5 (passe 78). Le rail de huit boutons en
+            # haut a droite est devenu UN bouton MENU : qualite, cadrage, son et
+            # reglages vivent dans la pause, le retro reste au clavier. Il reste
+            # donc menu + contre-gite + trois tuiles d'arme = cinq cibles, toutes
+            # au contrat de 44 px. Un sixieme controle tactile ne peut revenir
+            # que par une decision explicite, pas par un oubli.
+            if touch_state["controls"] < 5 or touch_state["tooSmall"]:
                 raise AssertionError(f"Touch targets below the 44 px contract: {touch_state}")
             if touch_errors:
                 raise AssertionError(f"Touch context page errors: {touch_errors}")

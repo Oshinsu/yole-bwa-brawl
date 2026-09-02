@@ -140,18 +140,10 @@
         <small id="roundSub">KO +1 · DERNIER DEBOUT +2 · CIBLE 5</small>
       </div>
       <div class="top-actions glass" role="group" aria-label="Commandes de bord">
-        <button id="qualityBtn" class="icon-btn quality-control" data-label="QUALITÉ" aria-label="Qualité graphique" type="button">HQ</button>
-        <div class="zoom-cluster" role="group" aria-label="Zoom caméra">
-          <button id="zoomOutBtn" aria-label="Dézoomer" type="button">−</button>
-          <button id="zoomResetBtn" class="zoom-reset" aria-label="Réinitialiser le zoom" type="button"><small id="zoomValue">118%</small></button>
-          <button id="zoomInBtn" aria-label="Zoomer" type="button">+</button>
-        </div>
-        <button id="settingsBtn" class="icon-btn" data-label="RÉGLAGES" aria-label="Réglages" type="button" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">⚙</button>
-        <!-- Rétro. MAINTENU, pas basculé : on regarde derrière le temps de voir
-             sa mine exploser, puis on relâche. Même comportement que la touche C. -->
-        <button id="lookBackBtn" class="icon-btn" data-label="RÉTRO" aria-label="Regarder en arrière" type="button" aria-keyshortcuts="C">👁</button>
-        <button id="soundBtn" class="icon-btn" data-label="SON" aria-label="Son" type="button" aria-pressed="false">🔊</button>
-        <button id="pauseBtn" class="icon-btn" data-label="PAUSE" aria-label="Pause" type="button" aria-keyshortcuts="Escape P" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">Ⅱ</button>
+        <!-- UN SEUL BOUTON EN COURSE. Qualité, cadrage, son et réglages vivent
+             dans le menu de pause ; le rétro reste au clavier (C). Huit boutons
+             en colonne mangeaient le coin d'écran où arrivent les rivaux. -->
+        <button id="pauseBtn" class="icon-btn menu-btn" data-label="MENU" aria-label="Menu, pause et réglages" type="button" aria-keyshortcuts="Escape P" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">☰</button>
       </div>
     </div>
     <div id="versusHud" class="versus-hud hidden" role="group" aria-label="État de la mêlée locale" aria-live="off">
@@ -395,6 +387,7 @@
       <div class="settings-grid">
         <section class="settings-group audio-group" aria-labelledby="audioLabel">
           <h3 id="audioLabel">AUDIO</h3>
+          <div><button id="soundToggle" class="setting-toggle active" type="button" aria-pressed="true"><span class="setting-icon" aria-hidden="true"></span><b>SON</b><small>ACTIF</small></button></div>
           <div class="volume-controls">
              <label for="musicVolumeSlider"><span class="range-icon range-icon-music" aria-hidden="true"></span><b>MUSIQUE</b><output id="musicVolumeValue" for="musicVolumeSlider">80%</output></label>
             <input id="musicVolumeSlider" type="range" min="0" max="100" step="10" value="80" />
@@ -415,6 +408,7 @@
           <div>
              <button id="difficultyToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>ADVERSAIRES</b><small>TOUR</small></button>
              <button id="ghostToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>FANTÔME</b><small>OUI</small></button>
+             <button id="zoomToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>CAMÉRA</b><small>STANDARD</small></button>
           </div>
         </section>
         <section class="settings-group" aria-labelledby="visibiliteLabel">

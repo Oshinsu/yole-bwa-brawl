@@ -13,6 +13,57 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 78 — un seul bouton, portrait jouable, écriteaux brefs, et la cause du gel de départ
+
+Passe déclenchée par quatre retours de jeu du propriétaire : « les icônes en
+haut à droite doivent disparaître, un seul bouton », « jouable en mode
+vertical », « les écriteaux encombrent et deviennent illisibles », « au début
+ça rame ». Le dernier point a été **mesuré avant d'être touché**.
+
+- **La cause du gel de départ, trouvée au diff des programmes.** Le harnais
+  `check_demarrage.py` montrait +31 shaders compilés sur deux images au coup
+  d'envoi, puis +1 à +2 à chaque projectile. Un nouveau relevé
+  (`renderer.info.programs`, nom + `cacheKey`, à quatre instants) a donné la
+  variante exacte : le paramètre `numPointLights` passait de 0 à 1, puis à 2.
+  **Chaque noix de coco du pool portait une `PointLight`** ; dès qu'une
+  devenait visible, le nombre de lumières de la scène changeait et three.js
+  recompilait tous les matériaux éclairés — **+18 programmes au premier coco
+  en vol, +38 dès qu'un second volait en même temps**, jusqu'à dix-huit
+  variantes possibles. C'était la « variante non identifiée » de la passe 45.
+  Les lumières sont retirées : l'océan est un `ShaderMaterial` qui les
+  ignorait, la perte est un reflet ambré sur les coques voisines.
+- **Chauffe des shaders sous le 3-2-1.** `warmUpShaders()` appelle
+  `renderer.compileAsync(scene, camera)` quand le rebours s'arme :
+  `compile()` traverse TOUS les objets, pools invisibles compris, et
+  `KHR_parallel_shader_compile` fait le reste hors du fil principal quand le
+  pilote l'offre. Mesuré après : **31 programmes compilés pendant le rebours,
+  4 au coup d'envoi, 2 au premier coco, 4 dans les 400 ticks suivants** (contre
+  2, 18 et 38) ; temps cumulé des images qui compilent **3 076 → 1 213 ms** en
+  SwiftShader. Le déterminisme est intact : les lumières et la compilation sont
+  du rendu, le replay du Tour sort toujours `59947b1d`.
+- **Un seul bouton en course.** Le rail de huit boutons devient **☰ MENU**, qui
+  ouvre la pause. Y arrivent **SON** (ACTIF/COUPÉ) et **CAMÉRA** (STANDARD ·
+  TACTIQUE · PROCHE, trois cadrages nommés) à côté de **PALIER** ; le rétro reste
+  au clavier (`C`), le zoom fin au clavier, à la molette et à la croix manette.
+  Mini-carte et fil de combat reprennent le bord droit.
+- **Le portrait se joue.** La pause forcée « tourne le téléphone » est retirée
+  (`isPortraitCombat` répond non). Bloc V21 : instruments à gauche au-dessus du
+  pad, contre-gîte et armes en 2×2 à droite (58 px), colonne centrale libre,
+  mini-carte et pastilles resserrées sous une barre haute à trois colonnes. La
+  caméra rouvre son champ vertical avec l'aspect (`portraitFovBoost`, jusqu'à
+  +22°) : à 0,46 d'aspect, 56° de champ vertical n'ouvraient plus que 27° en
+  largeur, les rivaux sortaient du cadre.
+- **Écriteaux brefs.** `showMessage` applique 0,7 × la durée demandée,
+  plafonnée à 1,5 s, plancher 0,45 s, et ne relance pas un texte identique déjà
+  affiché. Hauteur divisée par deux (`clamp(13px,1.9vw,24px)`), plus haut dans
+  l'image, jamais plus large que l'écran. Fil de combat : trois lignes au plus,
+  2,4 s chacune au lieu de 3,8. Alerte de brume et sous-titre du rebours
+  réduits.
+- ⚠️ **Un test aurait masqué la cause.** `test/full-game-smoke.mjs` tourne sur
+  un moteur simulé qui ne compile rien : aucun test Node ne pouvait voir une
+  recompilation. La preuve vient des deux harnais navigateur ; ils restent la
+  seule mesure valable pour ce genre de défaut.
+
 ## Passe 77 — mesurer avant de régler : rapport de playtest, fantôme, rail allégé
 
 Passe déclenchée par un constat de trajectoire, pas par un bug : sur les

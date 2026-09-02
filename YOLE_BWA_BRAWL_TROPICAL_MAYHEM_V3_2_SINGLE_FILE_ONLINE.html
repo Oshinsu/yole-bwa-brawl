@@ -7326,6 +7326,73 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
 }
 /* === END V20 === */
 
+/* === V21 · UN SEUL BOUTON, PORTRAIT JOUABLE, ÉCRITEAUX BREFS (1er sept. 2026) ===
+   Demandes de jeu : « les icônes en haut à droite doivent disparaître, un
+   seul bouton », « jouable en mode vertical », « les écriteaux encombrent ».
+   Ce bloc est le dernier de la feuille : il gagne la cascade partout où il
+   redit une règle plus ancienne. */
+
+/* Rail : un bouton, libellé MENU, glyphe visible sur le fond de bouton. */
+#pauseBtn.menu-btn{color:#fff6dd;font-size:19px;line-height:1;background-image:url("./assets/textures/v5/hud/ui_utility_button.webp");background-size:100% 100%;background-position:center;background-repeat:no-repeat}
+#pauseBtn.menu-btn:after{font-size:5.4px}
+.top-actions{gap:0}
+/* Sans rail, la mini-carte et le fil de combat reprennent le bord droit. */
+.minimap{right:14px}
+@media(max-width:900px){.minimap{right:8px}}
+@media(max-width:900px) and (pointer:coarse),
+       (max-width:900px) and (any-pointer:coarse){
+  .top-actions{width:auto}
+  .minimap,.killfeed{right:8px}
+}
+
+/* Écriteaux : moitié moins hauts, plus haut dans l'image, jamais plus larges
+   que l'écran. La durée est bornée côté code (hud.js, showMessage). */
+.message{top:17%;padding:6px 16px;font-size:clamp(13px,1.9vw,24px);max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:760px){.message{top:15%;font-size:13px;padding:5px 11px}}
+.kill{font-size:8px;padding:5px 9px}
+.killfeed{width:min(210px,30vw);gap:4px}
+.storm-warning{min-width:210px;padding:6px 12px}
+.storm-warning b{font-size:14px}
+.countdown small{font-size:9px;letter-spacing:.18em}
+
+/* Portrait : le poste de pilotage s'empile. Colonne centrale libre pour la
+   yole ; instruments à gauche au-dessus du pad ; contre-gîte et armes en 2×2
+   à droite, toutes au-dessus de 48 px. La caméra rouvre son champ dans
+   camera.js (portraitFovBoost). */
+@media(orientation:portrait){
+  .topbar{grid-template-columns:minmax(118px,1fr) auto 52px;padding:6px 7px;gap:5px}
+  .leaderboard{width:min(150px,38vw)}
+  .round-card{min-width:104px;padding:4px 8px 7px}
+  .round-card>strong{font-size:17px}
+  .round-card>small{display:none}
+  .top-actions{justify-self:end;width:auto}
+  .minimap{top:96px;right:7px;width:108px;padding:5px}
+  .weather-chip{left:7px;top:96px;padding:4px 7px;font-size:5px}
+  .ghost-chip{left:7px;top:118px;padding:4px 7px;font-size:5px}
+  .killfeed{top:214px;right:7px;width:min(180px,44vw)}
+  .storm-warning{top:64px;min-width:170px}
+  #hud .message{top:27%;font-size:12px;padding:5px 10px}
+  .aim-help{bottom:206px;max-width:88vw}
+  .bottom-ui{grid-template-columns:1fr auto;min-height:150px;padding:6px 8px max(8px,env(safe-area-inset-bottom));gap:8px;align-items:end}
+  .joystick{width:116px;height:116px;justify-self:start}
+  .joy-knob{width:52px;height:52px;left:32px;top:32px}
+  #hud .bottom-ui>.status{position:absolute;left:8px;right:auto;bottom:150px;transform:none;width:min(196px,52vw);padding:6px 10px}
+  #hud .status .meter.balance{margin-inline:0}
+  .status .integrity-grid,.status .crew-mini{display:none}
+  .actions{display:grid;grid-template-columns:repeat(2,62px);grid-auto-rows:62px;gap:8px;justify-self:end;padding:0;border-radius:0;background:none}
+  #hud #bwaBtn{display:grid;position:static;left:auto;bottom:auto;transform:none;width:62px;height:62px;grid-template-columns:1fr;column-gap:0;padding:6px 3px}
+  #hud #bwaBtn small{display:none}
+  #hud .action.slot{width:62px;height:62px}
+  #hud .action,#hud .action.pressed,#hud .action:active{height:62px;border-radius:16px}
+  #hud .action>span.ico{width:26px;height:26px}
+  /* Le V19 distant monte ces libellés à 10 px pour le paysage court : dans
+     une tuile de 62 px, CONTRE-GÎTE et SPIDER HARPON ne tiennent qu'à 7. */
+  #hud .action b,#hud #bwaBtn b{font-size:7px;letter-spacing:.02em}
+  #hud .action small{font-size:5px}
+  .weapon-shortcuts{display:none!important}
+}
+/* === END V21 === */
+
 </style>
 
 <script type="importmap">
@@ -7447,18 +7514,10 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
         <small id="roundSub">KO +1 · DERNIER DEBOUT +2 · CIBLE 5</small>
       </div>
       <div class="top-actions glass" role="group" aria-label="Commandes de bord">
-        <button id="qualityBtn" class="icon-btn quality-control" data-label="QUALITÉ" aria-label="Qualité graphique" type="button">HQ</button>
-        <div class="zoom-cluster" role="group" aria-label="Zoom caméra">
-          <button id="zoomOutBtn" aria-label="Dézoomer" type="button">−</button>
-          <button id="zoomResetBtn" class="zoom-reset" aria-label="Réinitialiser le zoom" type="button"><small id="zoomValue">118%</small></button>
-          <button id="zoomInBtn" aria-label="Zoomer" type="button">+</button>
-        </div>
-        <button id="settingsBtn" class="icon-btn" data-label="RÉGLAGES" aria-label="Réglages" type="button" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">⚙</button>
-        <!-- Rétro. MAINTENU, pas basculé : on regarde derrière le temps de voir
-             sa mine exploser, puis on relâche. Même comportement que la touche C. -->
-        <button id="lookBackBtn" class="icon-btn" data-label="RÉTRO" aria-label="Regarder en arrière" type="button" aria-keyshortcuts="C">👁</button>
-        <button id="soundBtn" class="icon-btn" data-label="SON" aria-label="Son" type="button" aria-pressed="false">🔊</button>
-        <button id="pauseBtn" class="icon-btn" data-label="PAUSE" aria-label="Pause" type="button" aria-keyshortcuts="Escape P" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">Ⅱ</button>
+        <!-- UN SEUL BOUTON EN COURSE. Qualité, cadrage, son et réglages vivent
+             dans le menu de pause ; le rétro reste au clavier (C). Huit boutons
+             en colonne mangeaient le coin d'écran où arrivent les rivaux. -->
+        <button id="pauseBtn" class="icon-btn menu-btn" data-label="MENU" aria-label="Menu, pause et réglages" type="button" aria-keyshortcuts="Escape P" aria-haspopup="dialog" aria-controls="pauseScreen" aria-expanded="false">☰</button>
       </div>
     </div>
     <div id="versusHud" class="versus-hud hidden" role="group" aria-label="État de la mêlée locale" aria-live="off">
@@ -7702,6 +7761,7 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
       <div class="settings-grid">
         <section class="settings-group audio-group" aria-labelledby="audioLabel">
           <h3 id="audioLabel">AUDIO</h3>
+          <div><button id="soundToggle" class="setting-toggle active" type="button" aria-pressed="true"><span class="setting-icon" aria-hidden="true"></span><b>SON</b><small>ACTIF</small></button></div>
           <div class="volume-controls">
              <label for="musicVolumeSlider"><span class="range-icon range-icon-music" aria-hidden="true"></span><b>MUSIQUE</b><output id="musicVolumeValue" for="musicVolumeSlider">80%</output></label>
             <input id="musicVolumeSlider" type="range" min="0" max="100" step="10" value="80" />
@@ -7722,6 +7782,7 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
           <div>
              <button id="difficultyToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>ADVERSAIRES</b><small>TOUR</small></button>
              <button id="ghostToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>FANTÔME</b><small>OUI</small></button>
+             <button id="zoomToggle" class="setting-toggle" type="button"><span class="setting-icon" aria-hidden="true"></span><b>CAMÉRA</b><small>STANDARD</small></button>
           </div>
         </section>
         <section class="settings-group" aria-labelledby="visibiliteLabel">
@@ -24037,8 +24098,15 @@ const WeaponSystems = {
       sproutB.position.set(0.12, 0.55, 0.03);
       sproutA.rotation.z = -0.35;
       sproutB.rotation.z = 0.42;
-      const glow = new THREE.PointLight(0xffb43c, 2.8, 11);
-      group.add(shell, eyeA, eyeB, sproutA, sproutB, glow);
+      // ⚠️ PLUS DE PointLight ICI. Chaque noix portait une lumière ponctuelle.
+      // Dès qu'une devenait visible, le NOMBRE de lumières de la scène changeait
+      // et three.js recompilait TOUS les matériaux éclairés — mesuré au diff des
+      // programmes : +18 au premier coco en vol, +38 dès qu'un second volait en
+      // même temps, et ainsi de suite jusqu'à dix-huit variantes possibles.
+      // C'était la cause des gels de début de course. L'océan est un
+      // ShaderMaterial qui ignorait de toute façon ces lumières : la perte
+      // visuelle est un reflet ambré sur les coques voisines, rien de plus.
+      group.add(shell, eyeA, eyeB, sproutA, sproutB);
       // Le banc de poissons partage ce pool : son mesh est un enfant caché, et
       // la noix se retire quand il sort. Sans ça le PWASON VOLAN était une noix
       // de coco à tête chercheuse.
@@ -26742,6 +26810,13 @@ function handlingWaterMix(dynamics, speedValue = 0, sprayValue = 0) {
 
 
 
+// Écriteaux et fil de combat : brefs, bornés. Voir showMessage / addKill.
+const MESSAGE_DURATION_SCALE = 0.7;
+const MESSAGE_MAX_SECONDS = 1.5;
+const MESSAGE_MIN_SECONDS = 0.45;
+const KILLFEED_MAX_ROWS = 3;
+const KILLFEED_LIFETIME_MS = 2400;
+
 // Vivier de chiffres de dégâts. 14 couvre une mêlée à quatre yoles sans jamais
 // allouer en cours de partie.
 const DAMAGE_POOL = 14;
@@ -27077,6 +27152,12 @@ const HudSystems = {
       this.ui.sound.setAttribute?.("aria-pressed", String(soundEnabled));
       this.ui.sound.setAttribute?.("aria-label", soundEnabled ? "Son activé" : "Son coupé");
     }
+    if (this.ui?.soundToggle) {
+      this.ui.soundToggle.classList?.toggle?.("active", soundEnabled);
+      this.ui.soundToggle.setAttribute?.("aria-pressed", String(soundEnabled));
+      const small = this.ui.soundToggle.querySelector?.("small") || this.ui.soundToggle.children?.[2];
+      if (small) small.textContent = soundEnabled ? "ACTIF" : "COUPÉ";
+    }
     return { soundEnabled, musicVolume, sfxVolume };
   },
 
@@ -27146,6 +27227,9 @@ const HudSystems = {
     this.ui.quality?.setAttribute?.("aria-label", `Qualité graphique : ${qualityLabel}, activer pour changer`);
     const zoomPercent = Math.round(this.cameraZoom * 100);
     if (this.ui.zoomValue) this.ui.zoomValue.textContent = `${zoomPercent}%`;
+    const zoomLabel = cameraZoomPresetLabel(this.cameraZoom);
+    setToggle(this.ui.zoomToggle, zoomLabel !== "STANDARD", zoomLabel);
+    this.ui.zoomToggle?.setAttribute?.("aria-label", `Cadrage caméra : ${zoomLabel.toLowerCase()}, ${zoomPercent} %. Activer pour changer.`);
     this.ui.zoomReset?.setAttribute?.("aria-label", `Réinitialiser le zoom, actuellement ${zoomPercent} %`);
   },
 
@@ -27250,6 +27334,24 @@ const HudSystems = {
   },
 
   showMessage(text, duration = 0.8) {
+    // Écriteaux : 0,7 × la durée demandée, plafonnée à 1,5 s, et jamais le
+    // même texte relancé en rafale. Mesuré au jeu : les annonces
+    // s'enchaînaient si vite que le centre de l'écran restait occupé en
+    // permanence et que la mer devenait illisible.
+    const shown = clamp(
+      (Number.isFinite(duration) ? duration : 0.8) * MESSAGE_DURATION_SCALE,
+      MESSAGE_MIN_SECONDS,
+      MESSAGE_MAX_SECONDS
+    );
+    if (
+      this.lastMessageText === text
+      && this.messageTimer > 0
+      && !this.ui.message.classList.contains("hidden")
+    ) {
+      this.messageTimer = Math.max(this.messageTimer, shown);
+      return;
+    }
+    this.lastMessageText = text;
     this.ui.message.textContent = text;
     const normalized = String(text).toLocaleUpperCase("fr");
     // ⚠️ `GRAIN` -> `BRUME|SABLE`. Cette regex décide du style d'URGENCE d'un
@@ -27261,7 +27363,7 @@ const HudSystems = {
     this.ui.message.classList.toggle("message-positive", !critical && positive);
     this.ui.message.setAttribute?.("aria-live", critical ? "assertive" : "polite");
     this.ui.message.classList.remove("hidden");
-    this.messageTimer = duration;
+    this.messageTimer = shown;
   },
 
   addKill(text) {
@@ -27276,7 +27378,11 @@ const HudSystems = {
       else if (p2At >= 0) element.classList.add("kill-p2");
     }
     this.ui.killfeed.prepend(element);
-    setTimeout(() => element.remove(), 3800);
+    // Trois lignes au plus, 2,4 s chacune : le fil se lit d'un coup d'œil,
+    // il ne s'empile plus jusqu'à masquer la mer à droite.
+    const rows = Array.from(this.ui.killfeed.children ?? []);
+    for (const old of rows.slice(KILLFEED_MAX_ROWS)) old.remove?.();
+    setTimeout(() => element.remove(), KILLFEED_LIFETIME_MS);
   },
 
   createLeaderboardRows() {
@@ -28305,6 +28411,26 @@ const HudSystems = {
 //
 // La rampe est en unités PAR TICK FIXE, pas par image : l'accélérateur doit
 // donner le même résultat à 30, 60 et 144 Hz, et surtout être rejouable.
+// Cadrages de la pause. 1,18 est le réglage historique ; 1,72 recule pour
+// lire la mêlée ; 0,86 colle à la yole pour l'équipage. Tous dans la plage
+// ZOOM_MIN..ZOOM_MAX de balance.js.
+const CAMERA_ZOOM_PRESETS = Object.freeze([
+  Object.freeze({ key: "standard", label: "STANDARD", zoom: 1.18 }),
+  Object.freeze({ key: "tactique", label: "TACTIQUE", zoom: 1.72 }),
+  Object.freeze({ key: "proche", label: "PROCHE", zoom: 0.86 })
+]);
+
+/** Libellé du cadrage courant : le preset le plus proche, sinon le pourcentage. */
+function cameraZoomPresetLabel(zoom) {
+  const value = Number.isFinite(zoom) ? zoom : 1.18;
+  let best = null;
+  for (const preset of CAMERA_ZOOM_PRESETS) {
+    const distance = Math.abs(preset.zoom - value);
+    if (distance < 0.08 && (!best || distance < best.distance)) best = { distance, label: preset.label };
+  }
+  return best ? best.label : `${Math.round(value * 100)} %`;
+}
+
 const KEYBOARD_TRIM = Object.freeze({
   min: 0.58,
   max: 1.0,
@@ -28511,6 +28637,8 @@ const InputSystems = {
       sfxVolume: byId("sfxVolumeSlider"),
       sfxVolumeValue: byId("sfxVolumeValue"),
       pauseStateLabel: byId("pauseStateLabel"),
+      soundToggle: byId("soundToggle"),
+      zoomToggle: byId("zoomToggle"),
       playtestReport: byId("playtestReportBtn"),
       playtestReportStatus: byId("playtestReportStatus"),
       pausePlaytestReport: byId("pausePlaytestReportBtn"),
@@ -28821,10 +28949,13 @@ const InputSystems = {
     return true;
   },
 
+  // Le portrait SE JOUE depuis la passe 78 : poste de pilotage empilé
+  // (style.css, V20) et champ de caméra rouvert (camera.js). Cette garde
+  // pilotait la pause forcée « tourne le téléphone » ; elle répond désormais
+  // toujours non, et les trois appelants restent en place pour un éventuel
+  // retour arrière sans réécriture.
   isPortraitCombat() {
-    const width = Number(globalThis.innerWidth) || 0;
-    const height = Number(globalThis.innerHeight) || 0;
-    return width > 0 && height > width * 1.15;
+    return false;
   },
 
   updatePauseDialog() {
@@ -29485,6 +29616,16 @@ const InputSystems = {
     this.settings.set("cameraZoom", Math.round(this.cameraZoom * 100) / 100);
     if (this.ui.zoomValue) this.ui.zoomValue.textContent = `${Math.round(this.cameraZoom * 100)}%`;
     return this.cameraZoom;
+  },
+
+  // Trois cadrages nommés pour le menu : le rail de course n'a plus de zoom.
+  // Clavier (+/-), molette et croix manette gardent le réglage fin.
+  cycleCameraZoomPreset() {
+    const current = CAMERA_ZOOM_PRESETS.findIndex((preset) => Math.abs(preset.zoom - this.cameraZoom) < 0.08);
+    const next = CAMERA_ZOOM_PRESETS[(current + 1 + CAMERA_ZOOM_PRESETS.length) % CAMERA_ZOOM_PRESETS.length];
+    this.adjustCameraZoom(next.zoom - this.cameraZoom);
+    this.applySettingsUI?.();
+    return next.key;
   },
 
   triggerPlayerShift() {
@@ -30242,13 +30383,18 @@ const InputSystems = {
       else if (this.tour) this.startTourStage(this.tour.stage);
       else this.startMatch();
     };
-    ui.sound.onclick = () => {
+    // Le son se coupe depuis le menu (SON · ACTIF/COUPÉ). L'ancien bouton du
+    // rail garde son gestionnaire pour un HTML encore en cache.
+    const basculerSon = () => {
       const enabled = this.settings.get("audio") !== false && !this.audio.muted;
       this.audio.setMuted(enabled);
       this.settings.set("audio", !enabled);
       if (!enabled) this.audio.ensure?.();
       this.applySettingsUI();
     };
+    if (ui.sound) ui.sound.onclick = basculerSon;
+    if (ui.soundToggle) ui.soundToggle.onclick = basculerSon;
+    if (ui.zoomToggle) ui.zoomToggle.onclick = () => this.cycleCameraZoomPreset();
     const bindVolume = (control, output, key) => {
       if (!control) return;
       control.oninput = () => {
@@ -30268,7 +30414,7 @@ const InputSystems = {
     if (ui.playtestReport) ui.playtestReport.onclick = () => this.sharePlaytestReport();
     if (ui.pausePlaytestReport) ui.pausePlaytestReport.onclick = () => this.sharePlaytestReport();
     // AUTO → LQ → MQ → HQ → AUTO. Le palier manuel vit dans la pause : sur
-    // tactile, le bouton du rail de course est retiré (style.css, V19).
+    // tactile, le bouton du rail de course est retiré (style.css, V20).
     if (ui.qualityTierToggle) ui.qualityTierToggle.onclick = () => {
       if (!this.quality.manual) {
         this.quality.setTier(0, true);
@@ -30283,7 +30429,7 @@ const InputSystems = {
       this.applySettingsUI();
     };
     if (ui.ghostToggle) ui.ghostToggle.onclick = () => this.toggleSetting("ghost");
-    ui.quality.onclick = () => {
+    if (ui.quality) ui.quality.onclick = () => {
       const tier = this.quality.cycleManual();
       this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);
       this.applySettingsUI();
@@ -30985,6 +31131,15 @@ function finiteOr(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+// Portrait : à aspect 0,5, une caméra à 56° de champ vertical n'ouvre plus
+// que 30° en largeur — les rivaux sortent du cadre et la mer devant se
+// réduit à un couloir. On rouvre le champ VERTICAL avec l'aspect, jusqu'à
+// +22°, pour retrouver de l'eau devant et sur les côtés. Purement rendu.
+function portraitFovBoost(aspect) {
+  if (!Number.isFinite(aspect) || aspect >= 1) return 0;
+  return Math.min(22, (1 - aspect) * 36);
+}
+
 const CameraSystems = {
   toggleSpectatorFastForward() {
     const player = this.boats?.[0];
@@ -31315,7 +31470,7 @@ const CameraSystems = {
     );
     this.cameraFovBase = damp(
       this.cameraFovBase ?? this.camera.fov,
-      56.5 + speedFactor * 5.8 - (zoom - 1) * 3.8,
+      56.5 + speedFactor * 5.8 - (zoom - 1) * 3.8 + portraitFovBoost(this.camera.aspect),
       2.5,
       dt
     );
@@ -31403,10 +31558,11 @@ const CameraSystems = {
     // lecture de J2 instable. Les kicks d'impact restent, eux, communs au duel.
     this.cameraRollBase = damp(this.cameraRollBase ?? 0, 0, 7.5, dt);
     if (this.cameraRollBase) this.camera.rotateZ(this.cameraRollBase);
+    const portraitBoost = portraitFovBoost(this.camera.aspect);
     const targetFov = clamp(
-      62 + speedFactor * 5 + Math.max(0, separation - 10) * 0.20 - (zoom - 1) * 3,
+      62 + speedFactor * 5 + Math.max(0, separation - 10) * 0.20 - (zoom - 1) * 3 + portraitBoost,
       60,
-      79
+      79 + portraitBoost
     );
     this.cameraFovBase = damp(this.cameraFovBase ?? this.camera.fov, targetFov, 3.2, dt);
     this.camera.fov = this.cameraFovBase
@@ -32838,6 +32994,9 @@ class Game {
 
     // Chaque manche repart sur un 3 · 2 · 1 · GO.
     this.countdown = COUNTDOWN_SECONDS + COUNTDOWN_GO_SECONDS;
+    // La simulation est gelée pendant le 3-2-1 : c'est le moment de compiler
+    // ce que le coup d'envoi paierait sinon en gel.
+    this.warmUpShaders();
     // ⚠️ Le transitoire de compilation des shaders recommence à chaque manche :
     // on redonne au gestionnaire de qualité sa période de grâce, sinon il juge
     // la machine sur des images bloquées par la compilation. Voir
@@ -34050,7 +34209,35 @@ class Game {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.postFX.resize(width, height, this.qualityProfile?.pixelRatio ?? 1);
-    this.ui.rotate.classList.toggle("hidden", !(height > width * 1.15 && this.mode !== "menu"));
+    // Le portrait se joue (passe 78) : le carton « tourne le téléphone » ne
+    // s'affiche plus. L'élément reste pour les anciens caches PWA.
+    this.ui.rotate?.classList?.add?.("hidden");
+  }
+
+  /**
+   * Compile les programmes de TOUS les objets de la scène — pools invisibles
+   * compris — pendant le 3-2-1, où la simulation est gelée. Mesuré au harnais
+   * de démarrage : sans ça, le coup d'envoi et les premiers objets rendus
+   * payaient ces compilations en gels de plusieurs centaines de millisecondes.
+   * `compileAsync` s'appuie sur KHR_parallel_shader_compile quand le pilote
+   * l'offre ; sinon il compile en bloc, une fois, sous le rebours.
+   */
+  warmUpShaders() {
+    const renderer = this.renderer;
+    if (!renderer || !this.scene || !this.camera) return false;
+    try {
+      if (typeof renderer.compileAsync === "function") {
+        const pending = renderer.compileAsync(this.scene, this.camera);
+        pending?.catch?.(() => {});
+      } else if (typeof renderer.compile === "function") {
+        renderer.compile(this.scene, this.camera);
+      } else {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+    return true;
   }
 
   debugState() {
@@ -34253,13 +34440,8 @@ const ui = {
   ghostToggle: byId("ghostToggle"),
   ghostChip: byId("ghostChip"),
   ghostGap: byId("ghostGap"),
-  sound: byId("soundBtn"),
-  quality: byId("qualityBtn"),
-  settingsBtn: byId("settingsBtn"),
-  zoomOut: byId("zoomOutBtn"),
-  zoomIn: byId("zoomInBtn"),
-  zoomReset: byId("zoomResetBtn"),
-  zoomValue: byId("zoomValue"),
+  soundToggle: byId("soundToggle"),
+  zoomToggle: byId("zoomToggle"),
   hapticsToggle: byId("hapticsToggle"),
   stableCameraToggle: byId("stableCameraToggle"),
   flashToggle: byId("flashToggle"),
@@ -34305,7 +34487,6 @@ const ui = {
   stormVignette: byId("stormVignette"),
   joystick: byId("joystick"),
   joyKnob: byId("joyKnob"),
-  lookBack: byId("lookBackBtn"),
   install: byId("installBtn"),
   bwa: byId("bwaBtn"),
   weaponHold2: byId("weaponHold2Btn"),

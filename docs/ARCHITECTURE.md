@@ -358,3 +358,35 @@ Le fantôme n'existe ni en relecture (il recouvrirait la yole rejouée), ni en
 Mêlée locale (deux flux humains), et se coupe par réglage. La replayothèque
 importe un fichier replay : sur la même graine, la trace d'un ami devient son
 fantôme — le défi partagé sans serveur.
+
+## 20. Compilation des shaders
+
+Deux règles, toutes deux nées d'une mesure (passe 78) :
+
+1. **Le nombre de lumières de la scène ne change jamais en course.** Un
+   programme three.js est mis en cache par une clé qui contient le nombre de
+   lumières de chaque type. Une `PointLight` qui devient visible change cette
+   clé pour tous les matériaux éclairés, qui recompilent — mesuré : +18
+   programmes au premier projectile, +38 au second simultané. Les effets
+   lumineux passent donc par des matériaux émissifs ou des sprites additifs,
+   jamais par une lumière dynamique. Si une lumière doit un jour bouger, elle
+   doit exister en permanence, intensité à zéro quand elle est inutile.
+2. **Ce qui doit compiler compile sous le 3-2-1.** `Game.warmUpShaders()`
+   appelle `renderer.compileAsync(scene, camera)` quand le rebours s'arme :
+   la simulation est gelée, le joueur regarde la grille, et `compile()`
+   traverse tous les objets, pools invisibles compris. Avec
+   `KHR_parallel_shader_compile`, le pilote compile hors du fil principal ;
+   sans, le coût tombe une fois, sous le rebours, jamais au coup d'envoi.
+
+Aucun test Node ne peut voir une recompilation : le moteur simulé des tests ne
+compile rien. La mesure est `tools/check_demarrage.py`, et pour l'attribution
+d'une variante, un relevé de `renderer.info.programs` (nom, `cacheKey`) avant
+et après l'événement suspect.
+
+## 21. Portrait
+
+Le portrait se joue depuis la passe 78. La mise en page tient dans le bloc V21
+de `style.css` (`@media(orientation:portrait)`) ; la caméra rouvre son champ
+vertical avec l'aspect (`portraitFovBoost`, `camera.js`), purement rendu. La
+garde `isPortraitCombat()` qui pilotait la pause forcée répond toujours non ;
+ses trois appelants restent en place.

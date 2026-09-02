@@ -7290,3 +7290,70 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
   #hud #qualityBtn,#hud #settingsBtn{display:none!important}
 }
 /* === END V20 === */
+
+/* === V21 · UN SEUL BOUTON, PORTRAIT JOUABLE, ÉCRITEAUX BREFS (1er sept. 2026) ===
+   Demandes de jeu : « les icônes en haut à droite doivent disparaître, un
+   seul bouton », « jouable en mode vertical », « les écriteaux encombrent ».
+   Ce bloc est le dernier de la feuille : il gagne la cascade partout où il
+   redit une règle plus ancienne. */
+
+/* Rail : un bouton, libellé MENU, glyphe visible sur le fond de bouton. */
+#pauseBtn.menu-btn{color:#fff6dd;font-size:19px;line-height:1;background-image:url("./assets/textures/v5/hud/ui_utility_button.webp");background-size:100% 100%;background-position:center;background-repeat:no-repeat}
+#pauseBtn.menu-btn:after{font-size:5.4px}
+.top-actions{gap:0}
+/* Sans rail, la mini-carte et le fil de combat reprennent le bord droit. */
+.minimap{right:14px}
+@media(max-width:900px){.minimap{right:8px}}
+@media(max-width:900px) and (pointer:coarse),
+       (max-width:900px) and (any-pointer:coarse){
+  .top-actions{width:auto}
+  .minimap,.killfeed{right:8px}
+}
+
+/* Écriteaux : moitié moins hauts, plus haut dans l'image, jamais plus larges
+   que l'écran. La durée est bornée côté code (hud.js, showMessage). */
+.message{top:17%;padding:6px 16px;font-size:clamp(13px,1.9vw,24px);max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:760px){.message{top:15%;font-size:13px;padding:5px 11px}}
+.kill{font-size:8px;padding:5px 9px}
+.killfeed{width:min(210px,30vw);gap:4px}
+.storm-warning{min-width:210px;padding:6px 12px}
+.storm-warning b{font-size:14px}
+.countdown small{font-size:9px;letter-spacing:.18em}
+
+/* Portrait : le poste de pilotage s'empile. Colonne centrale libre pour la
+   yole ; instruments à gauche au-dessus du pad ; contre-gîte et armes en 2×2
+   à droite, toutes au-dessus de 48 px. La caméra rouvre son champ dans
+   camera.js (portraitFovBoost). */
+@media(orientation:portrait){
+  .topbar{grid-template-columns:minmax(118px,1fr) auto 52px;padding:6px 7px;gap:5px}
+  .leaderboard{width:min(150px,38vw)}
+  .round-card{min-width:104px;padding:4px 8px 7px}
+  .round-card>strong{font-size:17px}
+  .round-card>small{display:none}
+  .top-actions{justify-self:end;width:auto}
+  .minimap{top:96px;right:7px;width:108px;padding:5px}
+  .weather-chip{left:7px;top:96px;padding:4px 7px;font-size:5px}
+  .ghost-chip{left:7px;top:118px;padding:4px 7px;font-size:5px}
+  .killfeed{top:214px;right:7px;width:min(180px,44vw)}
+  .storm-warning{top:64px;min-width:170px}
+  #hud .message{top:27%;font-size:12px;padding:5px 10px}
+  .aim-help{bottom:206px;max-width:88vw}
+  .bottom-ui{grid-template-columns:1fr auto;min-height:150px;padding:6px 8px max(8px,env(safe-area-inset-bottom));gap:8px;align-items:end}
+  .joystick{width:116px;height:116px;justify-self:start}
+  .joy-knob{width:52px;height:52px;left:32px;top:32px}
+  #hud .bottom-ui>.status{position:absolute;left:8px;right:auto;bottom:150px;transform:none;width:min(196px,52vw);padding:6px 10px}
+  #hud .status .meter.balance{margin-inline:0}
+  .status .integrity-grid,.status .crew-mini{display:none}
+  .actions{display:grid;grid-template-columns:repeat(2,62px);grid-auto-rows:62px;gap:8px;justify-self:end;padding:0;border-radius:0;background:none}
+  #hud #bwaBtn{display:grid;position:static;left:auto;bottom:auto;transform:none;width:62px;height:62px;grid-template-columns:1fr;column-gap:0;padding:6px 3px}
+  #hud #bwaBtn small{display:none}
+  #hud .action.slot{width:62px;height:62px}
+  #hud .action,#hud .action.pressed,#hud .action:active{height:62px;border-radius:16px}
+  #hud .action>span.ico{width:26px;height:26px}
+  /* Le V19 distant monte ces libellés à 10 px pour le paysage court : dans
+     une tuile de 62 px, CONTRE-GÎTE et SPIDER HARPON ne tiennent qu'à 7. */
+  #hud .action b,#hud #bwaBtn b{font-size:7px;letter-spacing:.02em}
+  #hud .action small{font-size:5px}
+  .weapon-shortcuts{display:none!important}
+}
+/* === END V21 === */
