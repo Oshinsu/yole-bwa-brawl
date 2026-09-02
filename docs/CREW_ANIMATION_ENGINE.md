@@ -617,11 +617,51 @@ Et une leçon de géométrie : à 0,95 de la longueur de jambe, un genou fait
 encore 42° (la corde varie au carré près de l'extension). Pour lire « tendu »,
 il faut viser 0,985 — ou aligner directement les deux segments.
 
+### Le tronc suit la grammaire des jambes (1er septembre, soir)
+
+Première livraison de la passe 79, retour du propriétaire : « c'est n'importe
+quoi ». Les jambes étaient justes ; le tronc, composé des couches assise ×
+poste × compression réglées pour l'ancien repli, ne l'était pas. Mesuré en
+jeu à 24° de gîte, bassin → épaules depuis la verticale : 75°, 80°, **117°**,
+33°, 94°, 61° — l'homme du bout pendait tête en bas sous le bois, les autres
+pliés en U sur leur perche.
+
+`reclineTorso(angleDeg, weight, sideSign, alongPole)` s'applique dans
+`applyRigContacts` **avant les mains** : une rotation rigide du bassin
+(`alignBoneTowards(Hips → Spine02)`), tout le haut du corps suit, les jambes
+sont reposées ensuite et les mains re-résolues depuis la bonne épaule.
+
+| pose des jambes | tronc | repère |
+|---|---:|---|
+| `bas` (assis à cheval) | 42° en arrière | verticale et horizontale du MONDE : la gravité fait l'angle |
+| `bateau`, plat-bord à portée | 52° en arrière | monde |
+| `bateau`, allongé sur la perche | 10° au-dessus du bois | repère de la YOLE : la gîte est déjà dedans |
+
+⚠️ Troisième erreur attrapée à la mesure — et seulement en jeu : l'axe « vers
+le large » pris dans le repère de la yole gîtée, mélangé à la verticale du
+monde, donnait 31°/38° au lieu de 42°/52° à 24° de gîte (le facteur ≈ 0,73
+est exactement `atan2(sin a · cos 24°, cos a + sin a · sin 24°) / a`). Le
+harnais, yole à plat, ne pouvait pas le voir : `tools/mesure_jambes_equipage.mjs`
+imprime désormais une table TRONC (bassin → épaules, épaules → tête,
+cassure), et la vérité se lit en jeu — captures Playwright, os du GLB lus
+dans le monde, axe « vers le large » = signe de la position de l'homme.
+
+Mesuré après, en jeu à 24° de gîte : assis 42°, plat-bord 52°, allongé 56°
+(= 90 − 10 − 24), cassure bassin/épaules/tête de 5 à 16°. Harnais : 42/52/80°,
+cassure 3-11°, bassin ↔ bois inchangé, silhouette stricte tenue (buste
+44-51°, regard toujours vers le bateau).
+
+Le mannequin de `test/crew-animation-v2` a pris les bras du GLB (59 cm épaule
+→ main, au repos le long du corps) : avec 42 cm en croix, la main d'appui
+d'un homme assis tronc en arrière n'atteignait pas le bois derrière sa
+hanche, et la limite anatomique du CCD faisait manquer la cible de 59 cm — le
+harnais mesurait le mannequin, pas le moteur.
+
 ### Contrats
 
 `npm run test:jambes` (dans `test:crew`) verrouille sur le GLB livré : au
-rappel, genou ≤ 40° (≤ 80° pied au plat-bord), jambe lue « bas » ou
-« bateau », jamais de pied crocheté au-dessus du bois côté coque.
+rappel, genou ≤ 40° (≤ 80° pied au plat-bord, à 20 cm près), jambe lue
+« bas » ou « bateau », jamais de pied crocheté au-dessus du bois côté coque.
 `test/crew-legs.test.mjs` verrouille la grammaire (`crewLegPoseFor`,
 `crewLegAuthority`, assise constante). Les captures sont dans
 `previews/equipage/` (`tools/capture_crew_pose.py`).

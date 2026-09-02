@@ -254,6 +254,7 @@ export const InputSystems = {
       skipSpectating: byId("skipSpectatingBtn"),
       spectatorCycle: byId("spectateurCycleBtn"),
       spectatorFast: byId("spectateurFastBtn"),
+      spectatorRestart: byId("spectateurRestartBtn"),
       musicVolume: byId("musicVolumeSlider"),
       musicVolumeValue: byId("musicVolumeValue"),
       sfxVolume: byId("sfxVolumeSlider"),
@@ -2000,11 +2001,15 @@ export const InputSystems = {
     if (ui.skipSpectating) ui.skipSpectating.onclick = () => this.skipTourSpectating?.();
     if (ui.spectatorCycle) ui.spectatorCycle.onclick = () => this.cycleSpectatorCamera?.();
     if (ui.spectatorFast) ui.spectatorFast.onclick = () => this.toggleSpectatorFastForward?.();
-    ui.restart.onclick = () => {
+    // RECOMMENCER : depuis la pause, et depuis le panneau spectateur dès qu'on
+    // est éliminé — plus besoin de regarder les rivaux finir la manche.
+    const recommencer = () => {
       if (this.versusLocal) this.startVersusMatch();
       else if (this.tour) this.startTourStage(this.tour.stage);
       else this.startMatch();
     };
+    ui.restart.onclick = recommencer;
+    if (ui.spectatorRestart) ui.spectatorRestart.onclick = recommencer;
     // Le son se coupe depuis le menu (SON · ACTIF/COUPÉ). L'ancien bouton du
     // rail garde son gestionnaire pour un HTML encore en cache.
     const basculerSon = () => {

@@ -7357,3 +7357,7 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
   .weapon-shortcuts{display:none!important}
 }
 /* === END V21 === */
+
+/* Recommencer depuis le mode spectateur : le bouton le plus utile quand on vient
+   de chavirer, donc le plus lisible du panneau. */
+.spectateur-restart{border-color:rgba(255,210,68,.6);background:linear-gradient(135deg,rgba(255,197,49,.34),rgba(201,138,69,.28));color:#fff6dd}

@@ -52,6 +52,41 @@ position est assise ». Il avait raison, et la mesure le dit avant la retouche.
   `test/crew-legs.test.mjs`. Captures : `previews/equipage/`. Présentation
   seule — checksums de simulation identiques.
 
+### Passe 79 bis — le tronc dans le bon repère ; RECOMMENCER dès l'élimination
+
+Retour du propriétaire sur la première livraison : « c'est n'importe quoi ».
+Il avait encore raison. Les jambes étaient justes, le **tronc** ne l'était
+pas : mesuré en jeu à 24° de gîte (captures Playwright, os du GLB lus dans le
+monde), bassin → épaules à 75°, 80°, **117°**, 33°, 94°, 61° depuis la
+verticale — l'homme du bout pendait tête en bas sous le bois, les autres
+pliés en U sur leur perche. Le tronc composé des couches (assise × poste ×
+compression) avait été réglé pour l'ancien repli des jambes.
+
+- **Le tronc suit la grammaire des jambes** (`reclineTorso`, appliqué AVANT
+  les mains dans `applyRigContacts`) : assis à cheval **42°** en arrière
+  depuis la verticale du monde ; pieds au plat-bord **52°** ; allongé sur la
+  perche **10° au-dessus du bois**, dans le repère de la perche — la gîte
+  est déjà dedans. Rotation rigide du bassin ; jambes reposées ensuite, mains
+  re-résolues depuis la bonne épaule.
+- ⚠️ **Une erreur attrapée à la mesure, en jeu seulement** : l'axe « vers le
+  large » pris dans le repère de la yole gîtée donnait 31°/38° au lieu de
+  42°/52° à 24° de gîte. Le harnais (yole à plat) ne pouvait pas le voir ;
+  `tools/mesure_jambes_equipage.mjs` imprime désormais une table TRONC et la
+  vérité se lit en jeu. L'horizontale du monde pour l'homme assis, celle de
+  la perche pour l'homme allongé.
+- **Mesuré après, en jeu à 24° de gîte** : assis 42°, plat-bord 52°, allongé
+  56° (= 90 − 10 − 24), cassure bassin/épaules/tête de 5 à 16°. Harnais :
+  42/52/80°, cassure 3-11°, bassin ↔ bois inchangé, silhouette stricte tenue
+  (buste 44-51°, regard toujours vers le bateau).
+- Le mannequin de `test/crew-animation-v2` prend les bras du GLB (59 cm
+  épaule → main, au repos le long du corps) : avec 42 cm en croix, la main
+  d'appui d'un homme assis tronc en arrière n'atteignait pas le bois derrière
+  sa hanche — le harnais mesurait le mannequin, pas le moteur.
+- **RECOMMENCER dès l'élimination** (`#spectateurRestartBtn`, panneau
+  spectateur) : demande de jeu — « un bouton pour recommencer tout de suite
+  quand c'est fini ». Même effet que RECOMMENCER dans la pause ; en Tour,
+  l'étape courante repart ; masqué en relecture.
+
 ## Passe 78 — un seul bouton, portrait jouable, écriteaux brefs, et la cause du gel de départ
 
 Passe déclenchée par quatre retours de jeu du propriétaire : « les icônes en

@@ -7393,6 +7393,10 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
 }
 /* === END V21 === */
 
+/* Recommencer depuis le mode spectateur : le bouton le plus utile quand on vient
+   de chavirer, donc le plus lisible du panneau. */
+.spectateur-restart{border-color:rgba(255,210,68,.6);background:linear-gradient(135deg,rgba(255,197,49,.34),rgba(201,138,69,.28));color:#fff6dd}
+
 </style>
 
 <script type="importmap">
@@ -7556,6 +7560,10 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
         <button id="spectateurCycleBtn" class="spectateur-cycle" type="button">CAMÉRA SUIVANTE</button>
         <button id="spectateurFastBtn" class="spectateur-skip hidden" type="button">FIN ×4</button>
         <button id="skipSpectatingBtn" class="spectateur-skip hidden" type="button">PASSER AUX RÉSULTATS</button>
+        <!-- Demande de jeu : « un bouton pour recommencer tout de suite quand
+             c'est fini ». Éliminé, on ne regarde plus les autres finir la
+             manche si on ne veut pas : même effet que RECOMMENCER dans la pause. -->
+        <button id="spectateurRestartBtn" class="spectateur-skip spectateur-restart hidden" type="button">RECOMMENCER</button>
       </div>
     </div>
     <div id="damageNumbers" class="damage-numbers" aria-hidden="true"></div>
@@ -16281,6 +16289,18 @@ const CREW_RAIL_FOOT_OFFSET = -0.03;
 const CREW_POLE_FOOT_LIFT = 0.075;
 const CREW_POLE_LEG_REACH = 0.985;
 const CREW_FEET_SPREAD = 0.11;
+// Tronc. Assis à cheval et pieds au plat-bord : degrés depuis la verticale
+// du MONDE, basculé vers le large dans le plan de la perche — c'est la
+// gravité qui tient l'homme, pas le bois. 42° assis (photos 1 et 3, tronc en
+// arrière, pieds pendus), 52° penché au-dessus du plat-bord. Allongé sur la
+// perche : dans le repère DE LA PERCHE, 10° au-dessus du bois — l'homme se
+// couche dessus quelle que soit la gîte. Mesuré avant (captures à 24° de
+// gîte) : tronc composé jusqu'à 117°, l'homme du bout tête en bas sous le
+// bois ; puis, l'axe « vers le large » pris dans le repère gîté, 31°/38°
+// au lieu de 42°/52°.
+const CREW_TORSO_RECLINE_ASTRIDE = 42;
+const CREW_TORSO_RECLINE_RAIL = 52;
+const CREW_TORSO_PLANK_ABOVE_POLE = 10;
 
 /** Autorité de la pose de jambes de rappel : 0 à l'assise, 1 franchement sorti. */
 function crewLegAuthority(hike) {
@@ -17290,6 +17310,36 @@ class CrewVisual {
     let firmWorst = 0;
     let softWorst = 0;
 
+    // ─── LE TRONC SUIT LA GRAMMAIRE DES JAMBES, AVANT LES MAINS ─────────────
+    //
+    // Assis à cheval, tronc en arrière ; pieds au plat-bord, penché au-dessus
+    // du bois ; allongé, tronc dans l'axe de la perche. Toujours depuis la
+    // verticale du monde, jamais au-delà de l'horizontale. Les mains sont
+    // résolues APRÈS, depuis la bonne position d'épaule.
+    const legAuthority = crewLegAuthority(hike);
+    const legPose = crewLegPoseFor({
+      family: this.stagingFamily,
+      hike,
+      x: this.root.position.x,
+      transferCrouch
+    });
+    this.legPose = legPose;
+    const versCoque = -(Math.sign(this.root.position.x) || 1);
+    const hipY = this.root.position.y + (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * scale;
+    const legLength = (this.legLength ?? CREW_TARGET_HEIGHT * 0.47) * scale;
+    const droop = this.beamDroopOffset ?? 0;
+    // Le plat-bord DU BORD DE L'HOMME : le bord de la coque du côté où il est
+    // sorti, donc au signe de sa position, pas dans le sens du retour.
+    const dxRail = Math.sign(this.root.position.x || 1) * CREW_RAIL_X - this.root.position.x;
+    const railFootY = CREW_BEAM_Y - droop + CREW_RAIL_FOOT_OFFSET;
+    const railReachable = Math.hypot(dxRail, railFootY - hipY, CREW_FEET_SPREAD) <= CREW_RAIL_REACH * legLength;
+    if (legPose === "bas") {
+      this.reclineTorso(CREW_TORSO_RECLINE_ASTRIDE, legAuthority, -versCoque, false);
+    } else if (legPose === "bateau") {
+      if (railReachable) this.reclineTorso(CREW_TORSO_RECLINE_RAIL, legAuthority, -versCoque, false);
+      else this.reclineTorso(90 - CREW_TORSO_PLANK_ABOVE_POLE, legAuthority, -versCoque, true);
+    }
+
     // ─── LA CIBLE VIT DANS LE REPÈRE DU BWA, PAS DANS CELUI DE L'HOMME ──────
     //
     // ⚠️ DÉFAUT CORRIGÉ LE 2 AOÛT 2026, TROUVÉ EN MESURANT.
@@ -17353,15 +17403,6 @@ class CrewVisual {
     // ils se posent sur les planchers ; au rappel ils ne crochètent plus rien :
     // soit ils pendent au-dessus de l'eau (aucun contact à résoudre), soit ils
     // se calent au plat-bord ou se couchent sur la perche, vers la coque.
-    const legAuthority = crewLegAuthority(hike);
-    const legPose = crewLegPoseFor({
-      family: this.stagingFamily,
-      hike,
-      x: this.root.position.x,
-      transferCrouch
-    });
-    this.legPose = legPose;
-    const versCoque = -(Math.sign(this.root.position.x) || 1);
     const leadLeft = this.contactLead % 2 === 0;
     const contactMode = crewContactMode(
       this.poseAction, this.overlayAction, this.overlayWeight, this.poseWeight
@@ -17379,21 +17420,13 @@ class CrewVisual {
       // Vers la coque : le plat-bord si la jambe y arrive, sinon couchées sur la
       // perche. Cibles décrites dans le repère de la YOLE puis exprimées dans
       // celui de l'homme (lacet et échelle), exactement comme les mains.
-      const hipY = this.root.position.y + (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * scale;
-      const legLength = (this.legLength ?? CREW_TARGET_HEIGHT * 0.47) * scale;
-      const droop = this.beamDroopOffset ?? 0;
-      // Le plat-bord DU BORD DE L'HOMME : le bord de la coque du cote ou il est
-      // sorti, donc au signe de sa position, pas dans le sens du retour.
-      const dxRail = Math.sign(this.root.position.x || 1) * CREW_RAIL_X - this.root.position.x;
-      const railFootY = CREW_BEAM_Y - droop + CREW_RAIL_FOOT_OFFSET;
-      const railDistance = Math.hypot(dxRail, railFootY - hipY, CREW_FEET_SPREAD);
       // Un pied de chaque côté de la perche, écartés LE LONG DE LA COQUE (axe Z
       // de la yole), le côté gauche de l'homme en premier : deux cibles
       // symétriques par rapport au bois, et des jambes qui ne se croisent sur
       // aucun bord. Le X local de l'homme ne convient pas : à mi-lacet il court
       // en partie le long de la perche et raccourcissait une jambe sur deux.
       const gaucheZ = -(Math.sign(sinYaw) || 1) * CREW_FEET_SPREAD;
-      if (railDistance <= CREW_RAIL_REACH * legLength) {
+      if (railReachable) {
         // Pieds calés au plat-bord : les genoux fléchissent autant que la
         // distance l'impose — c'est l'appui de la quatrième photo. CCD.
         const localY = (railFootY - this.root.position.y) / scale;
@@ -17477,6 +17510,41 @@ class CrewVisual {
       .multiply(this.ikParentWorld);
     joint.quaternion.premultiply(this.ikLocalDelta).normalize();
     return angle * applied;
+  }
+
+  /**
+   * Bascule du tronc vers le large, en degrés depuis la verticale, dans le
+   * plan de la perche. `alongPole` faux : verticale et horizontale du MONDE
+   * (assis, la gravité fait l'angle). `alongPole` vrai : verticale et
+   * horizontale DE LA YOLE, donc de la perche — l'homme se couche sur le
+   * bois, la gîte est déjà dedans. Rotation rigide du bassin : tout le haut
+   * du corps suit, les jambes sont reposées ensuite, les mains re-résolues.
+   */
+  reclineTorso(angleDeg, weight, sideSign, alongPole = false) {
+    if (!this.rigRoot?.updateWorldMatrix || !this.rigJoints || weight <= 0.001) return false;
+    if (this.torsoHips === undefined) {
+      this.torsoHips = this.rigJoints.find((entry) => entry.boneName === "Hips")?.joint ?? null;
+      this.torsoSpine = this.rigJoints.find((entry) => /^Spine0?2$/.test(entry.boneName))?.joint
+        ?? this.rigJoints.find((entry) => /^Spine/.test(entry.boneName))?.joint
+        ?? null;
+    }
+    if (!this.torsoHips || !this.torsoSpine) return false;
+    const parent = this.root.parent;
+    if (parent?.getWorldQuaternion) parent.getWorldQuaternion(this.legParentWorld);
+    else this.legParentWorld.identity();
+    const angle = angleDeg * Math.PI / 180;
+    if (alongPole) {
+      this.legDir.set(sideSign * Math.sin(angle), Math.cos(angle), 0).applyQuaternion(this.legParentWorld);
+    } else {
+      this.legOutward.set(sideSign, 0, 0).applyQuaternion(this.legParentWorld);
+      this.legOutward.y = 0;
+      if (this.legOutward.lengthSq() < 1e-6) this.legOutward.set(sideSign, 0, 0);
+      this.legOutward.normalize();
+      this.legDir.set(0, Math.cos(angle), 0).addScaledVector(this.legOutward, Math.sin(angle));
+    }
+    this.legDir.normalize();
+    this.alignBoneTowards(this.torsoHips, this.torsoSpine, this.legDir, weight, Math.PI);
+    return true;
   }
 
   /**
@@ -28372,6 +28440,9 @@ const HudSystems = {
       for (const boat of this.boats) if (!boat.eliminated) liveRivals++;
       this.ui.spectateur.classList.toggle("hidden", !spectating);
       this.ui.skipSpectating?.classList?.toggle?.("hidden", !tourResultReady);
+      // Recommencer tout de suite : dès l'élimination, hors relecture. En Tour,
+      // c'est l'étape courante qui repart, comme depuis la pause.
+      this.ui.spectatorRestart?.classList?.toggle?.("hidden", !(mort && !this.playback));
       this.ui.spectatorCycle?.classList?.toggle?.("hidden", !(mort && liveRivals > 1));
       this.ui.spectatorFast?.classList?.toggle?.(
         "hidden",
@@ -28848,6 +28919,7 @@ const InputSystems = {
       skipSpectating: byId("skipSpectatingBtn"),
       spectatorCycle: byId("spectateurCycleBtn"),
       spectatorFast: byId("spectateurFastBtn"),
+      spectatorRestart: byId("spectateurRestartBtn"),
       musicVolume: byId("musicVolumeSlider"),
       musicVolumeValue: byId("musicVolumeValue"),
       sfxVolume: byId("sfxVolumeSlider"),
@@ -30594,11 +30666,15 @@ const InputSystems = {
     if (ui.skipSpectating) ui.skipSpectating.onclick = () => this.skipTourSpectating?.();
     if (ui.spectatorCycle) ui.spectatorCycle.onclick = () => this.cycleSpectatorCamera?.();
     if (ui.spectatorFast) ui.spectatorFast.onclick = () => this.toggleSpectatorFastForward?.();
-    ui.restart.onclick = () => {
+    // RECOMMENCER : depuis la pause, et depuis le panneau spectateur dès qu'on
+    // est éliminé — plus besoin de regarder les rivaux finir la manche.
+    const recommencer = () => {
       if (this.versusLocal) this.startVersusMatch();
       else if (this.tour) this.startTourStage(this.tour.stage);
       else this.startMatch();
     };
+    ui.restart.onclick = recommencer;
+    if (ui.spectatorRestart) ui.spectatorRestart.onclick = recommencer;
     // Le son se coupe depuis le menu (SON · ACTIF/COUPÉ). L'ancien bouton du
     // rail garde son gestionnaire pour un HTML encore en cache.
     const basculerSon = () => {

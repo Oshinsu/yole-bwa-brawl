@@ -2,10 +2,12 @@
 
 ## Passe 79 — les jambes de l'équipage
 
-Validation du 2 septembre 2026 :
+Validation du 1er septembre 2026 — deux livraisons, la seconde après le
+retour du propriétaire sur la première (« c'est n'importe quoi ») :
 
-- `npm run verify` : **OK** en 114 s ; 182 fichiers précachés ; smoke navigateur
-  sans erreur console ni page ; benchmark 149 908 pas bateau/s ;
+- `npm run verify` : **OK** en 114 s, les deux fois ; 182 fichiers précachés ;
+  smoke navigateur sans erreur console ni page ; benchmark 149 908 puis
+  136 853 pas bateau/s (bruit de machine, la simulation n'a pas bougé) ;
 - checksums de simulation **identiques** à la passe 78 (`017e9fdc` sur
   18 000 ticks, `2b887431` pour la première étape du Tour, `7617385f` pour la
   cadence) : la passe est purement visuelle ;
@@ -24,12 +26,27 @@ Validation du 2 septembre 2026 :
   ±0,0 cm, les bras et le regard n'ont pas bougé ;
 - captures `previews/equipage/01…06` régénérées (`tools/capture_crew_pose.py`)
   : hommes allongés le long des perches, hommes assis à cheval jambes tendues
-  vers l'eau, plus aucun genou replié ni talon crocheté.
+  vers l'eau, plus aucun genou replié ni talon crocheté ;
+- **tronc (79 bis)** : mesuré en jeu à 24° de gîte par captures Playwright,
+  os du GLB lus dans le monde — avant : bassin → épaules à 75°, 80°, 117°,
+  33°, 94°, 61° depuis la verticale (un homme tête en bas) ; après : assis
+  42°, pieds au plat-bord 52°, allongé 56° (= 90 − 10 − 24), cassure
+  bassin/épaules/tête de 5 à 16°. Harnais à plat (table TRONC de
+  `tools/mesure_jambes_equipage.mjs`) : 42/52/80°, cassure 3-11° ;
+- silhouette stricte tenue après le tronc : buste 44-51°, regard +0,14 à
+  +0,84, bassin ↔ bois ±0,0 cm ; `crew-animation-v2` avec un mannequin aux
+  bras du GLB (59 cm, au repos le long du corps) : erreur de contact 0,001 m ;
+- bouton RECOMMENCER du panneau spectateur : vérifié bout en bout en
+  navigateur headless — caché avant l'élimination, visible dès `eliminated`,
+  un clic relance la partie (compte à rebours à 3,55 s, joueur vivant, bouton
+  à nouveau caché), aucune erreur de page.
 
 ### Ce qui n'est pas vérifié ici
 
 - la lecture à distance de jeu sur téléphone réel ; les captures d'atelier et la
-  vue de jeu du harnais sont les seuls cadrages mesurés.
+  vue de jeu du harnais sont les seuls cadrages mesurés ;
+- le tronc à d'autres gîtes que 24° (captures) et 30° (previews) : la table
+  TRONC du harnais est à plat, la vérité de la gîte se lit en jeu.
 
 
 ## Passe 78 — bouton unique, portrait, écriteaux, coup d'envoi sans gel

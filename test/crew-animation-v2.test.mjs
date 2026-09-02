@@ -33,18 +33,26 @@ function makeCrewRig() {
   spine02.add(neck);
   neck.add(head);
 
+  // Bras aux proportions du GLB livré (épaule → main : 59 cm mesurés par
+  // tools/mesure_jambes_equipage.mjs). Avec 42 cm, la main d'appui d'un
+  // homme assis tronc en arrière n'atteint pas le bois derrière sa hanche.
   const leftArm = bone("LeftArm", -0.16, 0.08, 0);
-  const leftForeArm = bone("LeftForeArm", -0.22, 0, 0);
-  const leftHand = bone("LeftHand", -0.20, 0, 0);
+  const leftForeArm = bone("LeftForeArm", -0.29, 0, 0);
+  const leftHand = bone("LeftHand", -0.28, 0, 0);
   leftArm.add(leftForeArm);
   leftForeArm.add(leftHand);
+  // Comme le GLB : bras au repos le long du corps, pas en croix. Un T-pose
+  // demande plus de course que la limite anatomique du CCD pour atteindre le
+  // bois derrière la hanche, et la mesure ne dirait rien du moteur.
+  leftArm.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2);
   spine02.add(leftArm);
 
   const rightArm = bone("RightArm", 0.16, 0.08, 0);
-  const rightForeArm = bone("RightForeArm", 0.22, 0, 0);
-  const rightHand = bone("RightHand", 0.20, 0, 0);
+  const rightForeArm = bone("RightForeArm", 0.29, 0, 0);
+  const rightHand = bone("RightHand", 0.28, 0, 0);
   rightArm.add(rightForeArm);
   rightForeArm.add(rightHand);
+  rightArm.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
   spine02.add(rightArm);
 
   const leftUpLeg = bone("LeftUpLeg", -0.075, -0.04, 0);

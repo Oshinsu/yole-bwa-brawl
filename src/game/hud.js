@@ -1357,6 +1357,9 @@ export const HudSystems = {
       for (const boat of this.boats) if (!boat.eliminated) liveRivals++;
       this.ui.spectateur.classList.toggle("hidden", !spectating);
       this.ui.skipSpectating?.classList?.toggle?.("hidden", !tourResultReady);
+      // Recommencer tout de suite : dès l'élimination, hors relecture. En Tour,
+      // c'est l'étape courante qui repart, comme depuis la pause.
+      this.ui.spectatorRestart?.classList?.toggle?.("hidden", !(mort && !this.playback));
       this.ui.spectatorCycle?.classList?.toggle?.("hidden", !(mort && liveRivals > 1));
       this.ui.spectatorFast?.classList?.toggle?.(
         "hidden",

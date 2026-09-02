@@ -43,6 +43,9 @@ const DEG = 180 / Math.PI;
 // Bord visible de la coque au maître-bau : demi-largeur de collision × affinage
 // de rendu (voir HULL_VISUAL_WIDTH_SCALE dans yole-visual.js).
 const PLAT_BORD_X = 1.08 * HULL_VISUAL_WIDTH_SCALE;
+// Pied « au plat-bord » : plat-bord et lisse font 10 à 15 cm de large, la
+// pointe du pied déborde d'un côté ou de l'autre selon l'appui.
+const PLAT_BORD_TOLERANCE = 0.20;
 
 // ── LECTURE DU GLB (même méthode que mesure_silhouette_equipage.mjs) ─────────
 
@@ -164,6 +167,42 @@ function mesureJambe(visuel, yole, cote, signe) {
   };
 }
 
+/**
+ * Tronc : bassin → épaules (Spine02) → tête, dans le repère de la yole, côté +X.
+ * Angles depuis la verticale, signés : positif = penché vers le large, négatif =
+ * penché vers le bateau. `pliure` : cassure entre le bas et le haut du tronc.
+ */
+function mesureTronc(visuel, yole, signe) {
+  yole.updateWorldMatrix(true, true);
+  const local = (nom) => {
+    const monde = osMonde(visuel, nom);
+    if (!monde) return null;
+    const p = yole.worldToLocal(monde);
+    p.x *= signe;
+    return p;
+  };
+  const bassin = local("Hips");
+  const epaules = local("Spine02") ?? local("Spine2") ?? local("Spine1");
+  const tete = local("Head");
+  if (!bassin || !epaules || !tete) return null;
+  const bas = new THREE.Vector3().subVectors(epaules, bassin);
+  const haut = new THREE.Vector3().subVectors(tete, epaules);
+  const up = new THREE.Vector3(0, 1, 0);
+  const signeDe = (v) => (v.x >= 0 ? 1 : -1);
+  const brasHaut = local("LeftArm");
+  const avantBras = local("LeftForeArm");
+  const main = local("LeftHand");
+  return {
+    bassinEpaules: signeDe(bas) * angleEntre(bas, up),
+    epaulesTete: signeDe(haut) * angleEntre(haut, up),
+    pliure: angleEntre(bas, haut),
+    hauteurTete: tete.y - bassin.y,
+    longueurBras: brasHaut && avantBras && main
+      ? brasHaut.distanceTo(avantBras) + avantBras.distanceTo(main)
+      : null
+  };
+}
+
 /** Classe une jambe : "bas" (tendue vers l'eau), "bateau" (tendue vers la coque), "repliee". */
 function lecture(jambe) {
   if (!jambe || jambe.flexionGenou === null) return "?";
@@ -172,7 +211,7 @@ function lecture(jambe) {
   // Vers le bateau : cuisse couchée vers la coque et pied JAMAIS crocheté
   // au-dessus du bois. Le genou peut fléchir quand le pied se cale au
   // plat-bord (quatrième photo) ; couché sur la perche il doit être tendu.
-  const piedAuPlatBord = Math.abs(jambe.piedHorsCoque) < 0.15;
+  const piedAuPlatBord = Math.abs(jambe.piedHorsCoque) < PLAT_BORD_TOLERANCE;
   const cuisseVersCoqueMax = piedAuPlatBord ? 70 : 45;
   if (jambe.cuisseVersBateau < cuisseVersCoqueMax && jambe.piedAuDessusDuBois <= 0.16) return "bateau";
   if (jambe.flexionGenou > 45) return "repliee";
@@ -210,7 +249,9 @@ function joue(scenario, rig, bibliotheque) {
   }
   const gauche = mesureJambe(visuel, yole, "Left", 1);
   const droite = mesureJambe(visuel, yole, "Right", 1);
+  const tronc = mesureTronc(visuel, yole, 1);
   return {
+    tronc,
     scenario: scenario.nom,
     famille: profil.family,
     x: +visuel.root.position.x.toFixed(3),
@@ -220,7 +261,9 @@ function joue(scenario, rig, bibliotheque) {
     gauche, droite,
     lectureGauche: lecture(gauche),
     lectureDroite: lecture(droite),
-    contactError: +(visuel.contactError ?? 0).toFixed(3)
+    contactError: +(visuel.contactError ?? 0).toFixed(3),
+    priseFerme: +(visuel.firmContactError ?? 0).toFixed(3),
+    priseSouple: +(visuel.softContactError ?? 0).toFixed(3)
   };
 }
 
@@ -242,12 +285,28 @@ const CONTRATS = {
   lecturesAdmises: ["bas", "bateau"]
 };
 
+if (!process.argv.includes("--json")) {
+  console.log("");
+  console.log("TRONC (depuis la verticale ; + = vers le large, - = vers le bateau)");
+  console.log("  " + "scenario".padEnd(34) + "bassin->epaules".padStart(16) + "epaules->tete".padStart(15) + "pliure".padStart(8) + "tete/bassin".padStart(13) + "bras".padStart(7));
+  for (const r of releves) {
+    const t = r.tronc;
+    if (!t) { console.log("  " + r.scenario.padEnd(34) + "(pas de tronc)"); continue; }
+    console.log("  " + r.scenario.padEnd(34)
+      + `${t.bassinEpaules.toFixed(0)}°`.padStart(16)
+      + `${t.epaulesTete.toFixed(0)}°`.padStart(15)
+      + `${t.pliure.toFixed(0)}°`.padStart(8)
+      + `${(t.hauteurTete * 100).toFixed(0)} cm`.padStart(13)
+      + (t.longueurBras === null ? "" : `${(t.longueurBras * 100).toFixed(0)} cm`.padStart(7)));
+  }
+}
+
 const echecs = [];
 for (const r of releves) {
   if (r.hike < 0.4) continue; // à bord : c'est le repos qui décide, pas le rappel
   for (const [nom, jambe, lect] of [["gauche", r.gauche, r.lectureGauche], ["droite", r.droite, r.lectureDroite]]) {
     if (!jambe) continue;
-    const piedAuPlatBord = lect === "bateau" && Math.abs(jambe.piedHorsCoque) < 0.15;
+    const piedAuPlatBord = lect === "bateau" && Math.abs(jambe.piedHorsCoque) < PLAT_BORD_TOLERANCE;
     const genouMax = piedAuPlatBord ? CONTRATS.flexionGenouMaxPlatBord : CONTRATS.flexionGenouMaxRappel;
     if (jambe.flexionGenou > genouMax) {
       echecs.push(`« ${r.scenario} » : genou ${nom} plié à ${jambe.flexionGenou.toFixed(0)}°, maximum ${genouMax}°${piedAuPlatBord ? " (pied au plat-bord)" : ""}`);
