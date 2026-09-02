@@ -50,7 +50,9 @@ partie du précache.
 
 ## Modes de jeu
 
-- **Combat Box** — l'arène élimination historique : Mur du Grain, Takedowns,
+- **Combat Box** — l'arène élimination historique, sur huit cartes (lagon,
+  passes, mangrove, cayes, Pelée, Diamant, Caravelle, baie de Fort-de-France ;
+  réglage ARÈNE ou rotation à chaque partie) : Mur du Grain, Takedowns,
   premier à 5 points. Une yole chavirée est éliminée jusqu'à la fin de la
   manche : aucun repêchage automatique.
 - **Tour des Yoles 2026** — huit étapes avec littoral, palette, météo et seed

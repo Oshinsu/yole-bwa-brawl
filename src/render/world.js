@@ -75,6 +75,56 @@ const ARCHETYPE_PRESETS = Object.freeze({
     hillHeight: 1.30,
     palms: 0.72,
     rocks: 1.75
+  }),
+  // Passe 80, arènes de la Combat Box. `extraIsletChance` : probabilité d'un
+  // SECOND îlot par bord, plus au large — la densité sans rétrécir le
+  // couloir. Absent (zéro) sur les quatre archétypes du Tour : leur suite de
+  // tirages RNG, donc leurs checksums, ne bougent pas.
+  mangrove: Object.freeze({
+    // Berges basses et touffues, longues le long de la course : le couloir
+    // vert du Robert. Peu de roche, beaucoup de feuillage, presque pas de trou.
+    skipChance: 0.03,
+    lateralMin: 60,
+    lateralMax: 92,
+    rx: [14, 26],
+    rz: [28, 56],
+    sandScale: 1.06,
+    sandLift: 0.03,
+    hillWidth: 1.08,
+    hillHeight: 0.30,
+    palms: 1.8,
+    rocks: 0.15
+  }),
+  cayes: Object.freeze({
+    // Bancs de sable à fleur d'eau : plage large et haute, relief presque
+    // nul, souvent deux rangées.
+    skipChance: 0.06,
+    lateralMin: 58,
+    lateralMax: 118,
+    rx: [10, 26],
+    rz: [10, 30],
+    sandScale: 1.48,
+    sandLift: 0.26,
+    hillWidth: 0.55,
+    hillHeight: 0.24,
+    palms: 0.55,
+    rocks: 0.12,
+    extraIsletChance: 0.30
+  }),
+  cliffs: Object.freeze({
+    // Pitons abrupts de la côte Atlantique : étroits, hauts, roche à nu, peu
+    // de plage et peu de cocotiers.
+    skipChance: 0.20,
+    lateralMin: 66,
+    lateralMax: 128,
+    rx: [9, 18],
+    rz: [12, 24],
+    sandScale: 0.96,
+    sandLift: -0.08,
+    hillWidth: 0.82,
+    hillHeight: 1.95,
+    palms: 0.35,
+    rocks: 2.3
   })
 });
 
@@ -648,6 +698,34 @@ export class WorldStreamer {
       const rx = rng.range(profile.rx[0], profile.rx[1]);
       const rz = rng.range(profile.rz[0], profile.rz[1]);
       const x = center + side * rng.range(profile.lateralMin, profile.lateralMax);
+      const main = this.placeIslet(chunk, rng, profile, x, localZ, rx, rz);
+      // Second îlot, PLUS AU LARGE que le premier : la densité des passes et
+      // des cayes sans rétrécir le couloir de course. Le tirage n'a lieu que
+      // si l'archétype le demande — les côtes du Tour gardent leur suite RNG,
+      // donc leurs checksums. Les deux enveloppes ne se touchent jamais :
+      // l'écart part de la somme des rayons de collision (plage ou relief
+      // tourné, le plus grand des deux).
+      if (profile.extraIsletChance > 0 && rng.chance(profile.extraIsletChance)) {
+        const farRx = rng.range(profile.rx[0] * 0.55, profile.rx[1] * 0.75);
+        const farRz = rng.range(profile.rz[0] * 0.55, profile.rz[1] * 0.75);
+        const farLocalZ = rng.range(-this.chunkLength * 0.14, this.chunkLength * 0.14);
+        const envelope = Math.max(profile.sandScale * 1.01, 1.4 * 0.86 * profile.hillWidth);
+        const gap = (Math.max(main.rx, main.rz) + Math.max(farRx, farRz)) * envelope + rng.range(14, 40);
+        const farX = routeCenter(chunk.z + farLocalZ) + side * (profile.lateralMax + gap);
+        this.placeIslet(chunk, rng, profile, farX, farLocalZ, farRx, farRz);
+      }
+    }
+    // EN DERNIER, sur son RNG dédié : n'importe quel ajout futur au décor
+    // peut s'insérer avant sans déplacer un seul bateau de spectateurs.
+    this.scatterFlottille(chunk, flottilleRng);
+  }
+
+  /**
+   * Un îlot, ses cocotiers et ses roches, dans le tronçon. ⚠️ L'ORDRE DES
+   * TIRAGES EST CONTRACTUEL : la côte alimente `coastPenalty`, donc la
+   * physique, donc les checksums de replay.
+   */
+  placeIslet(chunk, rng, profile, x, localZ, rx, rz) {
       const descriptor = { x, z: chunk.z + localZ, rx, rz };
       const islandVisual = this.createIslandVisual(descriptor, rng);
       islandVisual.position.set(x, -0.3, localZ);
@@ -683,10 +761,7 @@ export class WorldStreamer {
           sz: scale
         });
       }
-    }
-    // EN DERNIER, sur son RNG dédié : n'importe quel ajout futur au décor
-    // peut s'insérer avant sans déplacer un seul bateau de spectateurs.
-    this.scatterFlottille(chunk, flottilleRng);
+      return descriptor;
   }
 
   rebuildInstances() {
@@ -883,6 +958,17 @@ export class WorldStreamer {
           poleX + side * 1.8, 9.4, z - 12, 3.6, 1.5, 1, side * Math.PI * 0.5);
         flag.castShadow = false;
       }
+    } else if (landmark.type === "caravelle") {
+      // Presqu'île de la Caravelle : un gros morne, le phare blanc à lanterne
+      // rouge sur la pointe, un éperon de basalte qui plonge côté course.
+      this.addLandmarkIsland(x, z, 40, 58, rng);
+      this.addLandmarkMesh(this.landmarkTowerGeometry, this.materials.landmarkIvory,
+        x - side * 8, 9.5, z - 10, 2.2, 18, 2.2);
+      this.addLandmarkMesh(this.landmarkConeGeometry, this.materials.landmarkRoof,
+        x - side * 8, 19.6, z - 10, 3.0, 3.4, 3.0);
+      this.addStaticLandmarkCollider(x - side * 30, z + 18, 14, 22, side * 0.3);
+      this.addLandmarkMesh(this.landmarkBoxGeometry, this.materials.basalt,
+        x - side * 30, 5, z + 18, 22, 10, 36, side * 0.3);
     }
   }
 

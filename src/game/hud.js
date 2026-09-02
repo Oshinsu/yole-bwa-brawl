@@ -7,7 +7,7 @@ import { clamp, formatTime } from "../core/math.js";
 import { routeCenter } from "../render/world.js";
 import { checksumBoats } from "../sim/replay.js";
 import { YOLE_HANDLING } from "../sim/yole-physics.js";
-import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, STORM_RANGE, resolveAiLevel, COUNTDOWN_GO_SECONDS } from "./balance.js";
+import { BALANCE, CONFIG, CREW_DOTS, WEAPONS, STORM_RANGE, resolveAiLevel, resolveArena, COUNTDOWN_GO_SECONDS } from "./balance.js";
 import { AIM_MAX_RADIANS, cameraZoomPresetLabel } from "./input.js";
 import { handlingCue } from "./handling-feedback.js";
 
@@ -416,6 +416,12 @@ export const HudSystems = {
     this.ui.ghostToggle?.setAttribute?.(
       "aria-label",
       `Fantôme de ta dernière course sur la même mer : ${ghostOn ? "affiché" : "masqué"}. Prend effet à la prochaine partie.`
+    );
+    const arenaChoice = resolveArena(this.settings.get("arena"));
+    setToggle(this.ui.arenaToggle, Boolean(arenaChoice), arenaChoice ? arenaChoice.short : "AUTO");
+    this.ui.arenaToggle?.setAttribute?.(
+      "aria-label",
+      `Arène de la Combat Box : ${arenaChoice ? `${arenaChoice.name} — ${arenaChoice.tagline}` : "automatique, une carte différente à chaque partie"}. Prend effet à la prochaine partie.`
     );
     document.body?.classList.toggle("left-handed", this.settings.get("leftHanded"));
     document.body?.classList.toggle("hide-perf", !this.settings.get("showPerf"));
@@ -1335,7 +1341,15 @@ export const HudSystems = {
           const gros = this.ui.countdown.querySelector?.("b");
           if (gros) gros.textContent = texte;
           const dessous = this.ui.countdown.querySelector?.("small");
-          if (dessous) dessous.textContent = texte === "GO" ? "" : "TIENS BON LA BARRE";
+          // Sous le chiffre : le nom de l'arène — c'est là que le joueur apprend
+          // sur quelle carte il court. Le Tour garde sa bannière d'étape.
+          if (dessous) {
+            const arene = texte !== "GO" && Boolean(this.matchArena) && !this.tour;
+            dessous.textContent = texte === "GO"
+              ? ""
+              : arene ? this.matchArena.name : "TIENS BON LA BARRE";
+            dessous.classList?.toggle?.("arene", arene);
+          }
           this.ui.countdown.classList.toggle("go", texte === "GO");
           // ⚠️ Le son est relancé À CHAQUE changement de chiffre, pas à chaque
           // image : ce bloc ne s'exécute que sur transition.

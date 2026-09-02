@@ -18,7 +18,7 @@ import {
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, ACTION_RHUM, ACTION_HARPOON,
   ACTION_MINE, ACTION_SHIFT, ACTION_WAVE, ACTION_BARIK,
   ACTION_CHADRON, ACTION_LANBI, ACTION_PWASON, AI_LEVELS, WEAPONS, RIGS,
-  SAIL_LIVERIES, TOUR_STAGES, ZOOM_MAX, ZOOM_MIN, CRATE_WEAPONS,
+  SAIL_LIVERIES, TOUR_STAGES, ZOOM_MAX, ZOOM_MIN, CRATE_WEAPONS, ARENAS,
   LOADOUT_POOL, resolveLoadout, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS,
   trainingActionMask
 } from "./balance.js";
@@ -267,6 +267,7 @@ export const InputSystems = {
       pausePlaytestReport: byId("pausePlaytestReportBtn"),
       qualityTierToggle: byId("qualityTierToggle"),
       ghostToggle: byId("ghostToggle"),
+      arenaToggle: byId("arenaToggle"),
       ghostChip: byId("ghostChip"),
       ghostGap: byId("ghostGap"),
       pauseIcon: byId("pauseIcon"),
@@ -2056,6 +2057,11 @@ export const InputSystems = {
       this.applySettingsUI();
     };
     if (ui.ghostToggle) ui.ghostToggle.onclick = () => this.toggleSetting("ghost");
+    // Arène : AUTO puis chaque carte du catalogue. Prend effet à la prochaine
+    // partie, comme le niveau d'IA — la côte en cours est déjà dans le replay.
+    if (ui.arenaToggle) {
+      ui.arenaToggle.onclick = () => this.toggleSetting("arena", ["auto", ...ARENAS.map((arena) => arena.slug)]);
+    }
     if (ui.quality) ui.quality.onclick = () => {
       const tier = this.quality.cycleManual();
       this.settings.set("quality", ["LQ", "MQ", "HQ"][tier]);

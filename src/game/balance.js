@@ -630,6 +630,185 @@ export const TOUR_STAGES = [
 ];
 export const TOUR_STAGE_POINTS = [4, 3, 2, 1];
 
+// ─── ARÈNES DE LA COMBAT BOX ─────────────────────────────────────────────────
+//
+// Demande de jeu (passe 80) : « d'autres maps, mieux faites, avec plus de
+// diversité ». Mesuré avant : la Combat Box appelait `setStage(seed ^ 0x77ad)`
+// sans profil — archétype `tropical`, palette et eau par défaut, aucun repère —
+// et la graine de session ne changeait JAMAIS entre deux parties (0x0b0a2026
+// hors lien de défi) : même côte à chaque RECOMMENCER, depuis toujours.
+//
+// Une arène est un décor complet (côte, palette, eau, repère) et une signature
+// de mer légère. La côte freine et repousse les yoles (`coastPenalty`,
+// `resolveBoatCollision`) et la houle entre dans la physique : l'arène voyage
+// donc dans le replay comme le gréement, le niveau d'IA et la soute, et dans
+// le lien de défi (`&arena=`). Les étapes du Tour gardent TOUR_STAGES.
+export const ARENA_DISTANCE = 1600;
+export const ARENA_SCHOOL_SLUG = "lagon-de-sainte-anne";
+export const ARENAS = [
+  {
+    slug: "lagon-de-sainte-anne",
+    name: "LAGON DE SAINTE-ANNE",
+    short: "LAGON",
+    tagline: "Eau claire, bancs de sable blanc, vent d'école : la mer où l'on apprend la contre-gîte.",
+    accent: "#38e8c6",
+    gameplay: {
+      windScale: 0.94, swellScale: 0.86, crossSea: 0.00, stormSpeed: 0.94,
+      sargasseSpacing: 1.15, pickupSpacing: 0.94, signature: "LAGON · MER D'ÉCOLE"
+    },
+    palette: { sand: 0xf2e6c6, shallowRock: 0x527a70, green: 0x22a86c, darkGreen: 0x0a6b4a, leaf: 0x3bd074 },
+    environment: {
+      archetype: "lagoon",
+      landmark: { type: "sainte-anne", side: 1, progress: 0.34, offset: 205 },
+      water: { deep: 0x0a5870, mid: 0x158da0, shallow: 0x39ccc4, foam: 0xf8ffff }
+    }
+  },
+  {
+    slug: "passe-des-ilets",
+    name: "PASSE DES ÎLETS DU FRANÇOIS",
+    short: "PASSE DES ÎLETS",
+    tagline: "Des îlets serrés sur deux rangées : la trajectoire vaut plus que la vitesse.",
+    accent: "#5ee6ff",
+    gameplay: {
+      windScale: 1.00, swellScale: 0.98, crossSea: 0.12, stormSpeed: 1.00,
+      sargasseSpacing: 1.00, pickupSpacing: 1.00, signature: "PASSES · DEUX RANGÉES D'ÎLETS"
+    },
+    palette: { sand: 0xece2c4, shallowRock: 0x466f69, green: 0x198d59, darkGreen: 0x07563d, leaf: 0x2cc869 },
+    environment: {
+      archetype: "islets",
+      skipChance: 0.02,
+      extraIsletChance: 0.55,
+      landmark: { type: "ilets-francois", side: -1, progress: 0.36, offset: 290 },
+      water: { deep: 0x0b526d, mid: 0x147f98, shallow: 0x32bfc4, foam: 0xf1ffff }
+    }
+  },
+  {
+    slug: "mangrove-du-robert",
+    name: "MANGROVE DU ROBERT",
+    short: "MANGROVE",
+    tagline: "Des berges basses et touffues qui longent la course : peu de place, eau verte et calme.",
+    accent: "#6fe3a0",
+    gameplay: {
+      windScale: 0.92, swellScale: 0.80, crossSea: 0.05, stormSpeed: 0.96,
+      sargasseSpacing: 0.90, pickupSpacing: 1.02, signature: "MANGROVE · COULOIR VERT"
+    },
+    palette: { sand: 0xc9b893, shallowRock: 0x4d5f52, green: 0x1f7a4a, darkGreen: 0x0b3f2c, leaf: 0x2f9a58 },
+    environment: {
+      archetype: "mangrove",
+      landmark: { type: "baie-robert", side: -1, progress: 0.38, offset: 225 },
+      water: { deep: 0x0c4a48, mid: 0x157d76, shallow: 0x2fb09e, foam: 0xeafff4 }
+    }
+  },
+  {
+    slug: "cayes-du-sud",
+    name: "CAYES DU SUD",
+    short: "CAYES",
+    tagline: "Bancs de sable à fleur d'eau, eau turquoise, vent franc : la carte la plus rapide.",
+    accent: "#7ff7ea",
+    gameplay: {
+      windScale: 1.05, swellScale: 0.90, crossSea: 0.00, stormSpeed: 1.02,
+      sargasseSpacing: 1.20, pickupSpacing: 0.90, signature: "CAYES · PLEINE VITESSE"
+    },
+    palette: { sand: 0xf7edd4, shallowRock: 0x5f8a7e, green: 0x2fae74, darkGreen: 0x117553, leaf: 0x46d47f },
+    environment: {
+      archetype: "cayes",
+      landmark: { type: "pointe-marin", side: -1, progress: 0.35, offset: 320 },
+      water: { deep: 0x0e6a80, mid: 0x1aa0b0, shallow: 0x4fe0d6, foam: 0xffffff }
+    }
+  },
+  {
+    slug: "cote-sous-la-pelee",
+    name: "CÔTE SOUS LA PELÉE",
+    short: "PELÉE",
+    tagline: "Sable noir, mornes sombres, houle lourde sous le volcan.",
+    accent: "#ffbd66",
+    gameplay: {
+      windScale: 1.06, swellScale: 1.10, crossSea: 0.18, stormSpeed: 1.10,
+      sargasseSpacing: 1.08, pickupSpacing: 1.06, signature: "PELÉE · HOULE LOURDE"
+    },
+    palette: { sand: 0xb99a73, shallowRock: 0x3f4b49, green: 0x2f704b, darkGreen: 0x12382e, leaf: 0x3f8552 },
+    environment: {
+      archetype: "volcanic",
+      landmark: { type: "pelee", side: -1, progress: 0.40, offset: 265 },
+      water: { deep: 0x102f44, mid: 0x19536a, shallow: 0x327c82, foam: 0xe3edf0 }
+    }
+  },
+  {
+    slug: "haute-mer-du-diamant",
+    name: "HAUTE MER DU DIAMANT",
+    short: "DIAMANT",
+    tagline: "Presque pas de côte, une grande houle et le Rocher qui monte de l'eau.",
+    accent: "#ff8f70",
+    gameplay: {
+      windScale: 1.08, swellScale: 1.26, crossSea: 0.10, stormSpeed: 1.04,
+      sargasseSpacing: 1.30, pickupSpacing: 1.00, signature: "HAUTE MER · GRANDE HOULE"
+    },
+    palette: { sand: 0xd5bf96, shallowRock: 0x5c5558, green: 0x2b8156, darkGreen: 0x134c38, leaf: 0x3aa25c },
+    environment: {
+      archetype: "volcanic",
+      skipChance: 0.58,
+      lateralMin: 86,
+      lateralMax: 140,
+      landmark: { type: "diamant", side: 1, progress: 0.36, offset: 215 },
+      water: { deep: 0x103d55, mid: 0x176578, shallow: 0x2b929b, foam: 0xeff8f6 }
+    }
+  },
+  {
+    slug: "falaises-de-la-caravelle",
+    name: "FALAISES DE LA CARAVELLE",
+    short: "CARAVELLE",
+    tagline: "Pitons abrupts, roche à nu et mer croisée d'Atlantique : la carte qui punit la gîte.",
+    accent: "#ff718c",
+    gameplay: {
+      windScale: 1.10, swellScale: 1.15, crossSea: 0.28, stormSpeed: 1.08,
+      sargasseSpacing: 0.95, pickupSpacing: 1.04, signature: "CARAVELLE · MER CROISÉE"
+    },
+    palette: { sand: 0xcdb48c, shallowRock: 0x3e4a48, green: 0x2c6e44, darkGreen: 0x143b2c, leaf: 0x3a8a4e },
+    environment: {
+      archetype: "cliffs",
+      landmark: { type: "caravelle", side: 1, progress: 0.37, offset: 225 },
+      water: { deep: 0x0d3550, mid: 0x155f78, shallow: 0x2a8f9a, foam: 0xeef6f8 }
+    }
+  },
+  {
+    slug: "baie-des-flamands",
+    name: "BAIE DES FLAMANDS",
+    short: "FORT-DE-FRANCE",
+    tagline: "La ville au bord de l'eau et la baie animée : la mer du Tour telle que la foule la voit.",
+    accent: "#ffca80",
+    gameplay: {
+      windScale: 1.00, swellScale: 1.00, crossSea: 0.06, stormSpeed: 1.00,
+      sargasseSpacing: 1.00, pickupSpacing: 0.96, signature: "BAIE · COURSE EN VILLE"
+    },
+    palette: { sand: 0xd7c5a3, shallowRock: 0x566c69, green: 0x27865a, darkGreen: 0x0f553b, leaf: 0x38a960 },
+    environment: {
+      archetype: "tropical",
+      landmark: { type: "baie-fdf", side: 1, progress: 0.38, offset: 240 },
+      water: { deep: 0x0e4159, mid: 0x176b7d, shallow: 0x2c9ca1, foam: 0xf0f7f4 }
+    }
+  }
+];
+
+/** Une arène par slug, ou `null` : "auto", une valeur corrompue ou inconnue rendent la main. */
+export function resolveArena(slug) {
+  if (typeof slug !== "string" || !slug) return null;
+  return ARENAS.find((arena) => arena.slug === slug) ?? null;
+}
+
+/**
+ * L'arène d'une graine, plus une rotation de session : même graine, même carte
+ * pour tout le monde (défi du jour, lien de défi) ; RECOMMENCER fait tourner.
+ */
+export function arenaIndexForSeed(seed, rotation = 0) {
+  const hash = Math.imul((seed >>> 0) ^ 0x51a7e5, 0x9e3779b1) >>> 0;
+  const step = Math.max(0, rotation | 0);
+  return ((hash >>> 8) + step) % ARENAS.length;
+}
+
+export function arenaForSeed(seed, rotation = 0) {
+  return ARENAS[arenaIndexForSeed(seed, rotation)];
+}
+
 export function vibrate(pattern) {
   navigator.vibrate?.(pattern);
 }

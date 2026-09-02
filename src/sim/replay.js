@@ -49,7 +49,7 @@ export const SIMULATION_VERSION = "4.1.0";
 // Passe joueur : score explicite, première manche PEYI, profils d'étape,
 // anti-dogpile et spectateur accéléré. Le slug distingue aussi clairement les
 // partages produits avant/après ce rééquilibrage.
-export const GAMEPLAY_VERSION = "tropical-mayhem-v3-14-progressive-onboarding";
+export const GAMEPLAY_VERSION = "tropical-mayhem-v3-15-arenes";
 
 function isReplayChecksum(value) {
   return typeof value === "string" && /^[0-9a-f]{8}$/i.test(value);
@@ -383,6 +383,10 @@ export class ReplayRecorder {
       // Même raison que `rig` et `aiLevel` : la soute décide des munitions de
       // départ, donc des décisions, donc du checksum.
       loadout: this.loadout ?? ["wave", "harpoon"],
+      // Même raison encore : la côte de l'arène freine et repousse les yoles,
+      // sa houle entre dans la physique. `null` pour une étape du Tour, dont
+      // la côte vient de TOUR_STAGES via metadata.tourStage.
+      arena: this.arena ?? null,
       fixedHz: this.fixedHz,
       finalTick: this.finalTick ?? 0,
       finalChecksum: this.finalChecksum ?? null,

@@ -33,7 +33,8 @@ assert.deepEqual(readChallenge(new URL(url).search), {
   mode: "tour",
   stage: 4,
   seed: 0x1234abcd,
-  daily: "2026-07-30"
+  daily: "2026-07-30",
+  arena: ""
 });
 assert.equal(readChallenge("?seed=0x1234abcd"), null);
 

@@ -50,6 +50,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // translucide à côté du joueur. Purement visuel, hors checksum ; désactivable
   // depuis la pause pour qui le trouve distrayant.
   ghost: true,
+  // Arène de la Combat Box : "auto" (la graine et la rotation de session
+  // choisissent, une carte différente à chaque partie) ou le slug d'une
+  // entrée d'ARENAS. Comme `rig` et `aiLevel`, elle touche la SIMULATION :
+  // résolue à la lecture (resolveArena) et figée dans le replay.
+  arena: "auto",
   // Les DEUX armes emportées en soute, choisies au garage. Voir LOADOUT_POOL
   // dans balance.js — un réglage corrompu est rattrapé par `resolveLoadout`,
   // qui garantit toujours deux armes valides.

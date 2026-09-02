@@ -13,6 +13,50 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 80 — huit arènes pour la Combat Box
+
+Demande de jeu : « il faudra d'autres maps aussi, mieux faites, avec plus de
+diversité ». Mesuré avant : la Combat Box appelait `setStage(seed ^ 0x77ad)`
+sans profil — archétype `tropical`, palette et eau par défaut, aucun repère —
+et la graine de session ne changeait **jamais** entre deux parties
+(`0x0b0a2026` hors lien de défi). Même côte à chaque RECOMMENCER, depuis
+toujours ; seul le Tour avait des paysages.
+
+- **Un catalogue `ARENAS`** (`src/game/balance.js`, huit entrées) : Lagon de
+  Sainte-Anne, Passe des Îlets du François, Mangrove du Robert, Cayes du Sud,
+  Côte sous la Pelée, Haute mer du Diamant, Falaises de la Caravelle, Baie des
+  Flamands. Chaque arène est un décor complet — archétype de côte, palette,
+  eau, repère — et une signature de mer légère (vent ±10 %, houle 0,80-1,26,
+  mer croisée jusqu'à 0,28).
+- **Trois archétypes de côte de plus** (`world.js`) : `mangrove` (berges
+  basses et touffues, longues, presque sans trou), `cayes` (bancs de sable à
+  fleur d'eau, relief presque nul) et `cliffs` (pitons étroits et hauts, roche à
+  nu). Un nouveau repère, la presqu'île de la Caravelle (morne, phare, éperon
+  de basalte). Sept familles de côte au total, contre quatre.
+- **Une seconde rangée d'îlots** (`extraIsletChance`) pour les passes et les
+  cayes : la densité sans rétrécir le couloir de course — le second îlot est
+  posé PLUS AU LARGE, à un écart qui part de la somme des deux rayons de
+  collision. Le tirage n'a lieu que si l'archétype le demande : les quatre
+  côtes du Tour gardent leur suite RNG, donc leurs checksums.
+- **L'arène emprunte la même route que le gréement.** La côte freine et
+  repousse les yoles (`coastPenalty`, `resolveBoatCollision`) et sa houle entre
+  dans la physique : l'arène est figée au lancement (`resolveMatchArena`),
+  enregistrée dans le replay (`arena`), restaurée depuis le payload en
+  relecture, et portée par le lien de défi (`&arena=`) — sans quoi l'ami
+  recevrait la carte de SA rotation. `GAMEPLAY_VERSION` passe à
+  `tropical-mayhem-v3-15-arenes` : les anciens replays de Combat Box ne
+  décrivent plus la même mer.
+- **Choix** : relecture > lien de défi > `?arena=` > réglage ARÈNE (pause,
+  groupe COURSE : AUTO puis chaque carte) > manche-école (le lagon) > défi du
+  jour (la graine seule, même mer pour tous) > graine + **rotation de
+  session** — RECOMMENCER change de carte. Le nom de l'arène s'affiche sous le
+  3-2-1 ; le Tour garde sa bannière d'étape. Le fantôme ne court plus que sur
+  la même carte.
+- Contrats : `test/arenas.test.mjs` (catalogue, résolution, rotation qui couvre
+  tout, décor déterministe, seconde rangée présente et absente du Tour, lien de
+  défi, payload) et `test/world-collision.test.mjs` étendu aux huit arènes
+  (121 380 contacts, sept archétypes) — `npm run test:world`.
+
 ## Passe 79 — les jambes de l'équipage, d'après quatre photos de course
 
 Retour du propriétaire, photos à l'appui : « les pieds sont ridicules ; les

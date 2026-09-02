@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import * as THREE from "../vendor/three.module.min.js";
-import { TOUR_STAGES } from "../src/game/balance.js";
+import { ARENAS, ARENA_DISTANCE, TOUR_STAGES } from "../src/game/balance.js";
 import {
   WorldStreamer,
   distanceToIslandCollider,
@@ -42,21 +42,47 @@ function assertVisualInsideCollider(island) {
   }
 }
 
+// Les huit côtes du Tour ET les arènes de la Combat Box (passe 80) passent la
+// même torture : côte peuplée, axe de course libre, aucune pénétration après
+// résolution, caméra qui ne traverse pas le relief, garantie conservée après
+// recyclage des tronçons.
+const COTES = [
+  ...TOUR_STAGES.map((stage, index) => ({
+    label: `stage ${index + 1}`,
+    kind: "tour",
+    palette: stage.palette,
+    environment: stage.environment,
+    distance: stage.distance,
+    seed: (0x91ab + Math.imul(index + 1, 0x9e3779b9)) >>> 0,
+    // Une côte de course est peuplée : au moins douze îlots sur dix tronçons.
+    minIslands: 12
+  })),
+  ...ARENAS.map((arena, index) => ({
+    label: `arène ${arena.slug}`,
+    kind: "arena",
+    palette: arena.palette,
+    environment: arena.environment,
+    distance: ARENA_DISTANCE,
+    seed: (0x0b0a2026 + Math.imul(index + 3, 0x85ebca6b)) >>> 0,
+    // La haute mer du Diamant saute plus d'un bord sur deux, exprès.
+    minIslands: (arena.environment.skipChance ?? 0) > 0.4 ? 4 : 12
+  }))
+];
+
 let collisionSamples = 0;
-const archetypes = new Set();
-for (let stageIndex = 0; stageIndex < TOUR_STAGES.length; stageIndex++) {
-  const stage = TOUR_STAGES[stageIndex];
-  const seed = (0x91ab + Math.imul(stageIndex + 1, 0x9e3779b9)) >>> 0;
-  world.setStage(seed ^ 0x77ad, stage.palette, stage.environment, stage.distance);
-  archetypes.add(world.stageProfile.archetype);
+const tourArchetypes = new Set();
+const arenaArchetypes = new Set();
+for (const cote of COTES) {
+  world.setStage(cote.seed ^ 0x77ad, cote.palette, cote.environment, cote.distance);
+  (cote.kind === "tour" ? tourArchetypes : arenaArchetypes).add(world.stageProfile.archetype);
 
   const islands = allStreamedIslands();
-  assert.ok(islands.length >= 12, `stage ${stageIndex + 1} must stream a populated coast`);
-  assert.ok(world.landmarkIslands.length >= 1, `stage ${stageIndex + 1} must own a landmark`);
-  for (let z = 0; z <= Math.min(stage.distance, 1300); z += 15) {
+  assert.ok(islands.length >= cote.minIslands, `${cote.label} must stream a populated coast (${islands.length})`);
+  assert.ok(world.landmarkIslands.length >= 1, `${cote.label} must own a landmark`);
+  for (let z = 0; z <= Math.min(cote.distance, 1300); z += 15) {
     assert.ok(
       world.nearestSurface(routeCenter(z), z, {}).distance > 8,
-      `stage ${stageIndex + 1}: the racing centerline must stay clear at z=${z}`
+      `${cote.label}: the racing centerline must stay clear at z=${z}`
     );
   }
 
@@ -78,7 +104,7 @@ for (let stageIndex = 0; stageIndex < TOUR_STAGES.length; stageIndex++) {
         const after = world.nearestSurface(boat.x, boat.z, {});
         assert.ok(
           after.distance >= MARGIN - 1e-4,
-          `stage ${stageIndex + 1}: unresolved coast penetration ${after.distance.toFixed(5)}m`
+          `${cote.label}: unresolved coast penetration ${after.distance.toFixed(5)}m`
         );
         assert.ok(Number.isFinite(boat.x) && Number.isFinite(boat.z));
       }
@@ -100,7 +126,7 @@ for (let stageIndex = 0; stageIndex < TOUR_STAGES.length; stageIndex++) {
   const constrained = world.constrainCamera(cameraTarget, cameraDesired, new THREE.Vector3());
   assert.ok(
     world.nearestSurface(constrained.x, constrained.z, {}).distance >= 2.2,
-    `stage ${stageIndex + 1}: chase camera must not cross terrain`
+    `${cote.label}: chase camera must not cross terrain`
   );
 
   // Le streamer doit conserver la même garantie après recyclage des dix chunks.
@@ -113,9 +139,14 @@ for (let stageIndex = 0; stageIndex < TOUR_STAGES.length; stageIndex++) {
 }
 
 assert.deepEqual(
-  [...archetypes].sort(),
+  [...tourArchetypes].sort(),
   ["islets", "lagoon", "volcanic"],
   "the Tour must expose three readable environment families"
 );
+assert.deepEqual(
+  [...arenaArchetypes].sort(),
+  ["cayes", "cliffs", "islets", "lagoon", "mangrove", "tropical", "volcanic"],
+  "the Combat Box arenas must cover the seven coast archetypes"
+);
 
-console.log(`world collision torture ok · ${collisionSamples} contacts · 8 stages · 3 archetypes`);
+console.log(`world collision torture ok · ${collisionSamples} contacts · ${TOUR_STAGES.length} stages · ${ARENAS.length} arènes · ${arenaArchetypes.size} archetypes`);

@@ -140,7 +140,11 @@ Un replay contient :
 - changements de manche ;
 - checkpoints ;
 - checksum final ;
-- métadonnées de résultat.
+- métadonnées de résultat ;
+- les paramètres de partie qui touchent la simulation : `rig`, `aiLevel`,
+  `loadout`, et depuis la passe 80 `arena` (slug de l'arène de Combat Box,
+  `null` pour une étape du Tour). Ils voyagent avec la graine : relus depuis
+  le payload, jamais depuis les réglages, sinon le checksum diverge en silence.
 
 Les trames sans changement ne sont pas répétées. Le player reconstruit l’entrée courante et n’émet les actions qu’au tick exact.
 
@@ -382,6 +386,39 @@ Aucun test Node ne peut voir une recompilation : le moteur simulé des tests ne
 compile rien. La mesure est `tools/check_demarrage.py`, et pour l'attribution
 d'une variante, un relevé de `renderer.info.programs` (nom, `cacheKey`) avant
 et après l'événement suspect.
+
+## 22. Arènes de la Combat Box
+
+Depuis la passe 80, la Combat Box (Mêlée locale et manche-école comprises)
+court sur l'une des huit arènes d'`ARENAS` (`src/game/balance.js`). Une arène
+est un décor complet passé à `WorldStreamer.setStage` — archétype de côte,
+palette, repère — plus l'eau (`OceanSystem.setStagePalette`) et une signature
+de mer légère lue comme celle d'une étape du Tour (`stageGameplay`).
+
+Règles :
+
+1. **L'arène fait partie de la simulation.** La côte alimente `coastPenalty`
+   et `resolveBoatCollision`, la houle de l'arène entre dans la physique.
+   Elle est donc résolue une fois au lancement (`Game.resolveMatchArena`),
+   figée dans le replay (`arena`) et dans le lien de défi (`&arena=`), et
+   restaurée depuis le payload en relecture — même route que `rig`,
+   `aiLevel`, `loadout`.
+2. **Priorités de choix** : relecture > lien de défi > `?arena=` > réglage
+   `arena` > manche-école (`ARENA_SCHOOL_SLUG`, le lagon) > défi du jour (la
+   graine seule : même mer pour tous) > graine + rotation de session, pour que
+   RECOMMENCER change de carte.
+3. **Le Tour n'a pas d'arène.** Ses côtes viennent de `TOUR_STAGES` et leur
+   suite de tirages RNG est contractuelle : tout ajout au générateur de
+   tronçons (`configureChunk`, `placeIslet`) ne tire que si l'archétype le
+   demande (`extraIsletChance`), jamais par défaut.
+4. **Le couloir reste libre.** Un second îlot se pose plus au large que le
+   premier, jamais plus près de l'axe ; `test/world-collision.test.mjs` torture
+   les huit arènes comme les huit étapes (axe libre, aucune pénétration après
+   résolution, caméra hors relief, garantie conservée après recyclage).
+
+Sept archétypes de côte : `tropical`, `lagoon`, `islets`, `volcanic`, et
+depuis la passe 80 `mangrove`, `cayes`, `cliffs`. Neuf repères, dont la
+presqu'île de la Caravelle.
 
 ## 21. Portrait
 

@@ -7361,3 +7361,9 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
 /* Recommencer depuis le mode spectateur : le bouton le plus utile quand on vient
    de chavirer, donc le plus lisible du panneau. */
 .spectateur-restart{border-color:rgba(255,210,68,.6);background:linear-gradient(135deg,rgba(255,197,49,.34),rgba(201,138,69,.28));color:#fff6dd}
+
+/* ── V22 · ARÈNES (passe 80) ─────────────────────────────────────────────────
+   Le nom de la carte sous le 3-2-1 : le joueur apprend ici sur quelle carte il
+   court, lisible tout de suite, pas en 9 px. */
+.countdown small.arene{font-size:16px;letter-spacing:.2em;font-weight:700;color:#fff3d6;text-shadow:0 3px 14px rgba(0,0,0,.65)}
+@media(orientation:portrait){#hud .countdown small.arene{font-size:12px}}

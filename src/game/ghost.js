@@ -28,7 +28,7 @@ function ghostStageOf(replay) {
  * courir : même graine, même étape du Tour (ou aucune), replay compatible et
  * trace valide. La plus récente gagne — c'est « ta dernière course ici ».
  */
-export function selectGhostReplay(entries, { seed, tourStage = null } = {}) {
+export function selectGhostReplay(entries, { seed, tourStage = null, arena = null } = {}) {
   const wantedSeed = seed >>> 0;
   const wantedStage = Number.isInteger(tourStage) && tourStage >= 0 ? tourStage : null;
   for (const item of Array.isArray(entries) ? entries : []) {
@@ -39,6 +39,8 @@ export function selectGhostReplay(entries, { seed, tourStage = null } = {}) {
     if (!compatible) continue;
     if ((replay.seed >>> 0) !== wantedSeed) continue;
     if (ghostStageOf(replay) !== wantedStage) continue;
+    // Même graine mais autre arène : la trace traverserait les îlots.
+    if (arena && replay.arena && replay.arena !== arena) continue;
     if (!normalizeGhostTrace(replay.ghost)) continue;
     return replay;
   }
@@ -82,7 +84,7 @@ export const GhostSystems = {
     if (this.playback || this.versusLocal || !this.ghostEnabled()) return false;
     let entries = [];
     try { entries = this.replayVault?.list?.() ?? []; } catch { entries = []; }
-    const replay = selectGhostReplay(entries, { seed: this.seed, tourStage });
+    const replay = selectGhostReplay(entries, { seed: this.seed, tourStage, arena: this.matchArena?.slug ?? null });
     if (!replay) return false;
     try {
       this.ghost.track = new GhostTrack(replay.ghost);

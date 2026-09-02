@@ -50,7 +50,11 @@ globalThis.document = document;
 globalThis.window = globalThis;
 globalThis.OffscreenCanvas = FakeCanvas;
 Object.defineProperty(globalThis, 'navigator', { value: { vibrate() {} }, configurable: true });
-globalThis.location = { search: '?seed=smoke-v2', reload() {} };
+// Arene fixee (passe 80) : la Combat Box court desormais sur huit cartes dont
+// la signature de mer differe (vent 0,92 a 1,10). Ce test mesure la POSE de
+// l'equipage, pas la meteo d'une carte : il court sur la baie des Flamands,
+// vent 1,0 et houle 1,0, la cote tropicale historique de la Combat Box.
+globalThis.location = { search: '?seed=smoke-v2&arena=baie-des-flamands', reload() {} };
 globalThis.innerWidth = 1280;
 globalThis.innerHeight = 720;
 globalThis.devicePixelRatio = 1;

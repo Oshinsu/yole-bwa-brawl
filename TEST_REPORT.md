@@ -1,5 +1,49 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 80 — huit arènes pour la Combat Box
+
+Validation du 1er septembre 2026 :
+
+- `npm run verify` : **OK** en 138 s ; 182 fichiers précachés ; smoke navigateur
+  sans erreur console ni page ; benchmark 142 472 pas bateau/s ;
+- checksums : scénario de simulation pure **identique** (`017e9fdc`), première
+  étape du Tour **identique** (`2b887431`) — la côte du Tour n'a pas bougé
+  d'un tirage ; scénario Combat Box du smoke complet `3287b0ad` → `05b2f763`,
+  attendu et voulu : la Combat Box court désormais sur une arène (côte, houle,
+  vent), d'où le passage de `GAMEPLAY_VERSION` à `tropical-mayhem-v3-15-arenes` ;
+  même raison pour le scénario de cadence (`7617385f` → `fee31c05`), dont les
+  trois cadences restent d'accord entre elles (`framerateOk: true`) ;
+- `test/world-collision.test.mjs` étendu : 8 étapes + 8 arènes, **121 380
+  contacts** résolus sans pénétration, axe de course libre partout, caméra hors
+  relief, garantie conservée après recyclage, sept archétypes couverts ;
+- `test/arenas.test.mjs` (dans `npm run test:world`) : catalogue (slugs uniques,
+  palettes, eau, repère, signature de mer bornée), résolution (`auto`, vide,
+  inconnu → `null`), rotation qui couvre les huit cartes pour six graines, côte
+  déterministe, seconde rangée présente aux passes et aux cayes et absente des
+  huit étapes du Tour, lien de défi (`&arena=` en Combat Box seulement),
+  payload de replay ;
+- en navigateur headless (Playwright, atelier `scratch`) : les huit arènes se
+  chargent avec leur archétype, leur repère et leur signature (20 à 31 îlots,
+  9 pour la haute mer du Diamant), aucune erreur de page ; réglage ARÈNE de la
+  pause : AUTO → huit libellés → AUTO, CAYES choisi court sur les cayes à la
+  partie suivante, AUTO enchaîne deux cartes différentes ; le nom de l'arène
+  s'affiche sous le 3-2-1 ;
+- captures des huit arènes (vue large et vue de jeu) relues : mangrove verte et
+  basse, cayes blanches sur eau turquoise, pitons sombres de la Caravelle,
+  double rangée d'îlets, mornes noirs sous la Pelée, haute mer autour du Rocher ;
+- `test/crew-seating.test.mjs` court désormais sur une arène fixée (baie des
+  Flamands, vent et houle à 1,0) : il mesure la pose de l'équipage, pas la
+  météo d'une carte — sur le lagon (vent 0,94) l'occupation hors coque tombait à
+  44,4 % pour un plancher à 45 %.
+
+### Ce qui n'est pas vérifié ici
+
+- l'équilibre de jeu carte par carte (durée des manches, taux d'élimination) :
+  les signatures de mer sont bornées à ±10 % de vent, mais seul un playtest les
+  départagera — voir `docs/PLAYTEST_PROTOCOL.md` ;
+- le rendu des nouvelles côtes sur téléphone réel.
+
+
 ## Passe 79 — les jambes de l'équipage
 
 Validation du 1er septembre 2026 — deux livraisons, la seconde après le

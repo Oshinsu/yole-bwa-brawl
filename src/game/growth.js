@@ -44,7 +44,9 @@ export function readChallenge(search = "", stageCount = 8) {
     mode,
     stage: mode === "tour" ? clampStage(params.get("stage"), stageCount) : 0,
     seed: seedFromUrl(params.get("seed")),
-    daily: params.get("daily") || ""
+    daily: params.get("daily") || "",
+    // Arène de Combat Box (passe 80) : validée côté jeu par resolveArena.
+    arena: params.get("arena") || ""
   });
 }
 
@@ -53,7 +55,8 @@ export function buildChallengeUrl({
   seed,
   mode = "combat",
   stage = 0,
-  daily = ""
+  daily = "",
+  arena = ""
 }) {
   const url = new URL(href, "https://example.invalid/");
   url.hash = "";
@@ -63,6 +66,9 @@ export function buildChallengeUrl({
   url.searchParams.set("seed", encodeSeed(seed));
   if (mode === "tour") url.searchParams.set("stage", String(clampStage(stage)));
   if (daily) url.searchParams.set("daily", String(daily));
+  // Même mer, même seed… et même carte : sans le slug, l'ami recevrait
+  // l'arène de SA rotation de session.
+  if (arena && mode !== "tour") url.searchParams.set("arena", String(arena));
   return url.href;
 }
 
@@ -252,7 +258,7 @@ export const GrowthSystems = {
       this.startTourStage(challenge.stage);
     } else {
       this.tour = null;
-      this.startMatch({ challenge: true });
+      this.startMatch({ challenge: true, arena: challenge.arena || null });
     }
     this.telemetry?.track?.("challenge_started", {
       mode: challenge.mode,
@@ -297,7 +303,8 @@ export const GrowthSystems = {
       won: Boolean(won),
       score: this.stats?.takedowns ?? 0,
       speed: this.stats?.maxSpeed ?? 0,
-      daily: this.activeChallenge?.daily || this.tour?.challengeDaily || ""
+      daily: this.activeChallenge?.daily || this.tour?.challengeDaily || "",
+      arena: mode === "combat" ? (this.matchArena?.slug ?? "") : ""
     } : null;
     const growth = this.growthUI();
     growth.share?.classList?.toggle?.("hidden", !this.lastShareableResult);
@@ -322,7 +329,8 @@ export const GrowthSystems = {
       seed: result.seed,
       mode: result.mode,
       stage: result.stage,
-      daily: result.daily
+      daily: result.daily,
+      arena: result.arena ?? ""
     });
   },
 

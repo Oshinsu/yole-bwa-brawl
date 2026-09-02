@@ -42,7 +42,8 @@ import {
   ACTION_BOOST_FORWARD, ACTION_BOOST_LATERAL, RIGS, AI_LEVELS,
   CONFIG, BALANCE, ZOOM_MIN, ZOOM_MAX, CREW_DOTS, TOUR_STAGES, TOUR_STAGE_POINTS,
   FIRST_RUN_TRAINING, advanceFirstRunTraining, createFirstRunTrainingState,
-  vibrate, createBuoyVisual, resolveLoadout, STORM_RANGE, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS } from "./balance.js";
+  vibrate, createBuoyVisual, resolveLoadout, STORM_RANGE, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS,
+  ARENA_DISTANCE, ARENA_SCHOOL_SLUG, resolveArena, arenaForSeed } from "./balance.js";
 
 
 // Assombrissement de la couleur de brouillard par rapport à la couleur
@@ -151,6 +152,11 @@ export class Game {
 
     const params = new URLSearchParams(location.search);
     this.seed = seedFromUrl(params.get("seed"), 0x0b0a2026);
+    // Arène de la Combat Box : `?arena=<slug>` fixe le décor pour la session
+    // (liens de défi) ; sinon le réglage, sinon la graine et la rotation.
+    this.arenaParam = params.get("arena") || null;
+    this.arenaRotation = 0;
+    this.matchArena = null;
     // Vertical slice purement visuel. Aucun état de simulation ni replay ne
     // dépend de cette option : elle peut donc être comparée en A/B avec le même
     // seed sans changer la course.
@@ -615,6 +621,30 @@ export class Game {
 
 
 
+  /**
+   * L'arène d'une partie de Combat Box (Mêlée locale et manche-école
+   * comprises). Priorités : relecture (payload) > lien de défi > `?arena=` >
+   * réglage > manche-école (le lagon, l'arène-école) > défi du jour (la
+   * graine seule : même mer pour tous) > graine + rotation de session, pour
+   * que RECOMMENCER change de carte. Une étape du Tour n'a pas d'arène : sa
+   * côte vient de TOUR_STAGES.
+   */
+  resolveMatchArena(options = {}) {
+    if (options.tourStage) return null;
+    if (options.replay) return resolveArena(options.replay.arena) ?? arenaForSeed(this.seed);
+    const fromChallenge = resolveArena(options.arena);
+    if (fromChallenge) return fromChallenge;
+    const fromUrl = resolveArena(this.arenaParam);
+    if (fromUrl) return fromUrl;
+    const fromSettings = resolveArena(this.settings?.get?.("arena"));
+    if (fromSettings) return fromSettings;
+    if (this.trainingMode) return resolveArena(ARENA_SCHOOL_SLUG) ?? arenaForSeed(this.seed);
+    if (options.challenge) return arenaForSeed(this.seed);
+    const arena = arenaForSeed(this.seed, this.arenaRotation);
+    this.arenaRotation += 1;
+    return arena;
+  }
+
   startMatch(options = {}) {
     // Tout lancement hors startTourStage quitte le mode Tour.
     if (!options.tourStage) {
@@ -639,6 +669,14 @@ export class Game {
     this.audio.ensure();
     this.playback = options.replay ? new ReplayPlayer(options.replay) : null;
     if (options.replay) this.seed = options.replay.seed >>> 0;
+    // L'ARÈNE EMPRUNTE LA MÊME ROUTE QUE LE GRÉEMENT : la côte freine et
+    // repousse les yoles (coastPenalty, resolveBoatCollision) et la houle de
+    // l'arène entre dans la physique — donc dans le checksum. Figée ici,
+    // enregistrée dans le replay, restaurée depuis le payload en relecture.
+    const arena = this.resolveMatchArena(options);
+    this.matchArena = arena;
+    if (this.replay) this.replay.arena = arena?.slug ?? null;
+    if (!options.tourStage) this.stageGameplay = arena?.gameplay ?? null;
     // Le gréement emprunte la MEME route que la graine : enregistre dans le
     // payload, restaure a la relecture. Sans ca, le meme fichier rejoue sur une
     // machine equipee autrement donne un autre checksum — en silence.
@@ -679,6 +717,7 @@ export class Game {
     this.telemetry.clear();
     this.telemetry.track("match_start", {
       seed: this.seed,
+      arena: arena?.slug ?? null,
       replay: Boolean(options.replay),
       tour: Boolean(options.tourStage),
       versus: Boolean(this.versusLocal),
@@ -709,8 +748,15 @@ export class Game {
     this.cameraRollBase = null;
     this.cameraFovBase = null;
     this.atmosphere.resetRng(this.weatherRng, this.visualRng);
-    this.world.setStage(this.seed ^ 0x77ad, null, null);
-    this.ocean.setStagePalette();
+    // Étape du Tour : configureTourStageEnvironment pose la côte juste après.
+    // Combat Box, Mêlée locale, manche-école : l'arène pose la sienne ici.
+    if (arena) {
+      this.world.setStage(this.seed ^ 0x77ad, arena.palette, arena.environment, ARENA_DISTANCE);
+      this.ocean.setStagePalette(arena.environment?.water);
+    } else {
+      this.world.setStage(this.seed ^ 0x77ad, null, null);
+      this.ocean.setStagePalette();
+    }
     this.ocean.setIslands(this.world.nearestIslands(0));
     this.ocean.wake.grid.clear();
     this.particles.clear();
