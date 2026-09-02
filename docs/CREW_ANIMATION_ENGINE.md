@@ -279,6 +279,11 @@ profil, ou quelqu'un qui pratique.
 
 ## ✅ Défaut fermé le 4 août 2026 — les jambes pendantes
 
+> ⚠️ **Dépassé le 2 septembre 2026.** Cette section a fermé le « L » en
+> REPLIANT les genoux (88° puis 120°) et en crochetant les talons sur le
+> bois. Les photos de course fournies par le propriétaire montrent l'inverse :
+> genoux TENDUS. Voir « Passe 79 — les jambes » en fin de document.
+
 Le « L » décrit ci-dessous est corrigé. Le genou ne pliait que de **19°** au
 rappel plein : le seed de station le laissait quasi tendu, et le procédural qui
 devait le replier n'arrive plus qu'à 41 % depuis l'ajout de l'assise. Les seeds
@@ -538,3 +543,88 @@ Le patron, lui, BARRE ASSIS sur le rebord arrière (z −3,30, bassin posé à l
 cote de la lisse) : cuisses relevées, genoux pliés dans la coque, les deux
 mains au manche de l'aviron de gouverne. Références : photos du Tour où le
 patron est assis sur le quartier arrière, jamais debout au milieu de la poupe.
+
+## Passe 79 — les jambes : tendues vers le bas, tendues vers le bateau, ou assises
+
+Retour du propriétaire, quatre photos du Tour à l'appui : « les pieds sont
+ridicules ; les jambes doivent être tendues vers le bas (l'eau) ou tendues vers
+le bateau, et l'autre position est assise ». Mesuré avant de toucher
+(`tools/mesure_jambes_equipage.mjs`, nouveau) :
+
+| Rappel installé, avant | genou | bassin ↔ axe du bois | pied ↔ axe du bois |
+|---|---:|---:|---:|
+| ancrage | 107-127° | −16 cm (dessous) | +8 à +10 cm (crocheté) |
+| levier | 115° / 44° | −21 cm | +7 cm / −62 cm |
+| extension | 120° / 27° | −20 cm | +8 cm / −83 cm |
+
+Trois défauts empilés : la « traction » du 11 août pendait le bassin 20 cm
+SOUS la perche ; le repli procédural (`CREW_LEG_HOOK`, `tractionCuisses`) et
+les seeds de station pliaient les genoux à plus de 100° ; les pieds visaient
+le DESSUS du bois côté coque (`APPUI_PIEDS`, `crochetY`). Aucune des quatre
+photos ne montre ça.
+
+### La grammaire des photos
+
+1. **Tendues vers le bas** — assis à cheval sur le bwa, tronc en arrière,
+   jambes verticales, pieds pendus au-dessus de l'eau (photos 1 et 3).
+2. **Tendues vers le bateau** — allongé sur la perche, les jambes la
+   prolongent vers la coque (photo 2) ; ou penché dessus, pieds calés au
+   plat-bord, genoux fléchis autant que la distance l'impose (photo 4).
+3. **Assis** — sur le plat-bord, jambes dans la coque (inchangé).
+
+### Ce que le code fait
+
+- `crewSeatOffsetForHike` rend une remontée d'assise **constante** : le bassin
+  est posé SUR le bois à toute sortie (`CREW_TRACTION_DROP = 0`).
+- `crewLegPoseFor({ family, hike, x, transferCrouch })` choisit `repos`,
+  `pont`, `bas` ou `bateau`. Le poste décide, comme sur les photos : les
+  **ancrages** vont vers le bateau, les **leviers** pendent, **l'homme du bout**
+  pend puis s'allonge le long du bois à pleine sortie.
+- `bas` : `hangLegs()` oriente cuisse et tibia vers le bas **dans le repère
+  monde** (une yole gîtée n'entraîne pas les jambes), écartés de part et
+  d'autre du bois, genou détendu de 8°, cheville au repos. Une direction, pas
+  un contact.
+- `bateau` : si le plat-bord du bord de l'homme est à portée de jambe
+  (`CREW_RAIL_REACH`), les pieds s'y calent par CCD et les genoux fléchissent ;
+  sinon `layLegsAlongPole()` aligne chaque jambe, depuis sa propre hanche, sur
+  un point posé sur la perche à un pas de jambe vers la coque. Alignement
+  direct : un CCD à deux articulations converge mal près de l'extension
+  complète.
+- Le repli procédural de sortie s'efface avec `crewLegAuthority(hike)`
+  (rampe 0,22 → 0,44 de sortie) ; à bord et en traversée, rien ne change.
+
+Mesuré après, mêmes scénarios :
+
+| Rappel installé, après | pose | genou | cuisse | pied ↔ axe du bois |
+|---|---|---:|---|---:|
+| ancrage (x 2,10) | bateau | 0° | couchée, 10° de l'axe du bois | +8 cm, posé dessus, 67 cm vers la coque |
+| levier (x 2,90) | bas | 8° | 15° de la verticale | −57 cm, pendu |
+| extension (x 3,55) | bateau | 0° | couchée, 10° de l'axe | +7 cm, 67 cm vers la coque |
+| ancrage demi-sorti (x 1,45) | bateau | 68-77° | 45° vers la coque | −3 cm : **pied au plat-bord** |
+
+### ⚠️ Deux erreurs commises en route, toutes deux mesurées
+
+1. **Le plat-bord était cherché du mauvais bord.** `versCoque * CREW_RAIL_X`
+   désigne la coque OPPOSÉE : la distance au plat-bord valait 2,4 m et la
+   branche « pieds au plat-bord » ne se déclenchait jamais. Le bord de l'homme
+   est au signe de sa position, pas dans le sens du retour.
+2. **Le X local de l'homme n'est pas l'axe de la coque.** À mi-lacet il court
+   en partie le long de la perche ; l'écart des pieds posé dessus raccourcissait
+   une jambe sur deux (chordes 0,55 et 0,63 m pour la même jambe). L'écart se
+   pose sur l'axe Z de la yole, côté gauche de l'homme en premier.
+
+Et une leçon de géométrie : à 0,95 de la longueur de jambe, un genou fait
+encore 42° (la corde varie au carré près de l'extension). Pour lire « tendu »,
+il faut viser 0,985 — ou aligner directement les deux segments.
+
+### Contrats
+
+`npm run test:jambes` (dans `test:crew`) verrouille sur le GLB livré : au
+rappel, genou ≤ 40° (≤ 80° pied au plat-bord), jambe lue « bas » ou
+« bateau », jamais de pied crocheté au-dessus du bois côté coque.
+`test/crew-legs.test.mjs` verrouille la grammaire (`crewLegPoseFor`,
+`crewLegAuthority`, assise constante). Les captures sont dans
+`previews/equipage/` (`tools/capture_crew_pose.py`).
+
+Présentation seule : `dynamics`, les checksums de replay et
+`SIMULATION_VERSION` ne bougent pas.

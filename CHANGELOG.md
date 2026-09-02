@@ -13,6 +13,45 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 79 — les jambes de l'équipage, d'après quatre photos de course
+
+Retour du propriétaire, photos à l'appui : « les pieds sont ridicules ; les
+jambes doivent être tendues vers le bas ou tendues vers le bateau, et l'autre
+position est assise ». Il avait raison, et la mesure le dit avant la retouche.
+
+- **Mesuré avant** (`tools/mesure_jambes_equipage.mjs`, nouvel outil qui lit
+  hanche, genou, cheville et pied sur le GLB livré, dans le repère de la yole) :
+  au rappel installé, genoux pliés de **95 à 127°**, bassin **16 à 21 cm sous**
+  l'axe de la perche, pieds crochetés **5 à 16 cm au-dessus** du bois côté
+  coque. Trois passes s'étaient empilées — traction sous la perche (11 août),
+  repli procédural des cuisses, talons sur le bois (2 août) — et aucune des
+  photos ne montre ça.
+- **Le bassin est posé SUR le bois, à toute sortie** : `CREW_TRACTION_DROP`
+  passe à zéro et la remontée d'assise ne s'efface plus avec la sortie.
+- **Trois poses, choisies par le poste** (`crewLegPoseFor`) : les ancrages
+  vont **vers le bateau** — pieds calés au plat-bord s'il est à portée de jambe,
+  sinon jambes couchées le long de la perche —, les leviers pendent **vers le
+  bas**, l'homme du bout pend puis s'allonge le long du bois à pleine sortie.
+  À bord, on reste assis au plat-bord, jambes dans la coque ; en traversée,
+  rien ne change.
+- **Une direction, pas un contact.** Les jambes pendantes suivent la gravité
+  dans le repère MONDE (une yole gîtée n'emporte pas les jambes), écartées de
+  part et d'autre du bois, genou détendu de 8°. Les jambes couchées s'alignent
+  directement sur la perche : un CCD à deux articulations converge mal près de
+  l'extension complète — à 0,95 de la longueur de jambe, le genou lit encore
+  42°.
+- **Mesuré après** : ancrage et extension **genou 0°**, cuisse à 10° de l'axe
+  du bois, pied posé dessus 67 cm vers la coque ; levier **genou 8°**, cuisse à
+  15° de la verticale, pied 57 cm sous la perche ; ancrage à mi-sortie **pied
+  au plat-bord** (−3 cm), genoux à 68-77° en appui — la quatrième photo.
+- ⚠️ **Deux erreurs attrapées à la mesure** : le plat-bord cherché du mauvais
+  bord (`versCoque * CREW_RAIL_X` pointe sur la coque opposée, la branche ne se
+  déclenchait jamais), et l'écart des pieds posé sur le X local de l'homme, qui
+  à mi-lacet court le long de la perche et raccourcissait une jambe sur deux.
+- Contrats : `npm run test:jambes` (dans `test:crew`) et
+  `test/crew-legs.test.mjs`. Captures : `previews/equipage/`. Présentation
+  seule — checksums de simulation identiques.
+
 ## Passe 78 — un seul bouton, portrait jouable, écriteaux brefs, et la cause du gel de départ
 
 Passe déclenchée par quatre retours de jeu du propriétaire : « les icônes en

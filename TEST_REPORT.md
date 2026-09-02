@@ -1,5 +1,37 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 79 — les jambes de l'équipage
+
+Validation du 2 septembre 2026 :
+
+- `npm run verify` : **OK** en 114 s ; 182 fichiers précachés ; smoke navigateur
+  sans erreur console ni page ; benchmark 149 908 pas bateau/s ;
+- checksums de simulation **identiques** à la passe 78 (`017e9fdc` sur
+  18 000 ticks, `2b887431` pour la première étape du Tour, `7617385f` pour la
+  cadence) : la passe est purement visuelle ;
+- nouvel outil `tools/mesure_jambes_equipage.mjs` (mode `--strict` dans
+  `npm run test:crew`), qui lit hanche, genou, cheville et pied sur le GLB livré
+  dans le repère de la yole. Avant : genoux à 95-127° au rappel, bassin 16-21 cm
+  sous l'axe du bois, pieds crochetés 5-16 cm au-dessus. Après : ancrage et
+  extension genou 0° couchés le long de la perche (pied posé dessus, 67 cm vers
+  la coque), levier genou 8° pendu à la verticale (pied 57 cm sous le bois),
+  ancrage à mi-sortie pied au plat-bord (−3 cm) genoux à 68-77° en appui ;
+- `test/crew-legs.test.mjs` : grammaire des quatre poses, autorité de la pose,
+  assise constante — OK ;
+- suites équipage existantes (`crew-staging`, `crew-seating`,
+  `crew-animation-v2`, `crew-pole-target`, `crew-clips`, `crew-weight-spring`,
+  silhouette stricte) : OK sans retouche de seuil — le bassin ↔ bois reste à
+  ±0,0 cm, les bras et le regard n'ont pas bougé ;
+- captures `previews/equipage/01…06` régénérées (`tools/capture_crew_pose.py`)
+  : hommes allongés le long des perches, hommes assis à cheval jambes tendues
+  vers l'eau, plus aucun genou replié ni talon crocheté.
+
+### Ce qui n'est pas vérifié ici
+
+- la lecture à distance de jeu sur téléphone réel ; les captures d'atelier et la
+  vue de jeu du harnais sont les seuls cadrages mesurés.
+
+
 ## Passe 78 — bouton unique, portrait, écriteaux, coup d'envoi sans gel
 
 Validation du 1er septembre 2026 :

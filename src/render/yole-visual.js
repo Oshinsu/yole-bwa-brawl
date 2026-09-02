@@ -118,9 +118,11 @@ const CREW_HIKE_RECLINE = 1.62;
 // Ouverture des cuisses de part et d'autre du bois. C'est ce qui fait lire
 // « à califourchon » plutôt que « posé dessus ».
 const CREW_STRADDLE = 0.34;
-// Repli des jambes vers la coque. Sur une balance, le contrepoids d'un côté
-// implique le repli de l'autre — sans ça, le buste part au large et les jambes
-// suivent, ce qui n'accroche plus rien.
+// Repli des jambes vers la coque, PENDANT LA SORTIE SEULEMENT. Depuis la
+// passe 79 ce repli s'efface avec `crewLegAuthority` : franchement sorti,
+// les jambes sont tendues — vers le bas ou vers le bateau — par
+// `applyRigContacts`, d'après les photos de course. Il ne reste ici que le
+// mouvement de l'homme qui enjambe le plat-bord.
 const CREW_LEG_HOOK = 0.62;
 // Les mains vont chercher le bois EN ARRIÈRE du bassin. C'est le seul point de
 // contact visible autre que l'assise, et c'est lui qui dit « accroché ».
@@ -391,14 +393,24 @@ export const CREW_SEAT_LIFT = 0.105;
 // d'eux-mêmes au-dessus de la poitrine, et le geste de traction émerge sans
 // une ligne de pose en plus. Les talons crochètent par-dessus (`footY` vise
 // déjà au-dessus de l'axe).
-export const CREW_TRACTION_DROP = 0.20;
+// ⚠️ RAMENÉ À ZÉRO LE 2 SEPTEMBRE 2026 (PASSE 79), SUR PHOTOS DE COURSE FOURNIES.
+// Sur les quatre images du propriétaire, personne n'est pendu SOUS sa perche :
+// le bassin est posé DESSUS, à toute sortie — assis à cheval quand le tronc se
+// renverse, allongé dessus quand il se couche. La « traction » ci-dessus venait
+// d'une lecture de silhouette sans photo de profil ; elle mettait le bassin
+// 20 cm sous le bois et forçait les talons à crocheter par-dessus — exactement
+// les jambes signalées comme ridicules en jeu. La constante reste exportée
+// pour les tests ; sa valeur est nulle.
+export const CREW_TRACTION_DROP = 0.0;
 
 // Décalage vertical du bassin par rapport à l'axe du bois, selon la sortie.
 // UNE SEULE VÉRITÉ : le runtime l'applique et `crew-seating.test.mjs` la lit —
 // le dépôt a déjà payé deux fois le prix de formules recopiées qui divergent.
 export function crewSeatOffsetForHike(hike) {
   const h = Math.min(Math.max(Number.isFinite(hike) ? hike : 0, 0), 1);
-  return CREW_SEAT_LIFT * (1 - h) - CREW_TRACTION_DROP * h;
+  // Assis SUR le bois à toute sortie : la remontée d'assise ne s'efface plus
+  // avec la sortie (elle laissait la perche traverser le bassin au bout).
+  return CREW_SEAT_LIFT - CREW_TRACTION_DROP * h;
 }
 
 const CREW_SIDE_DELAYS = [0, 0.07, 0.14, 0.22, 0.32, 0.50];
@@ -448,6 +460,66 @@ const PADDLE_GRIP_DROP = 1.45;
 // C'est la cote d'assise de l'équipage : les deux DOIVENT rester d'accord.
 // Exportée pour le harnais silhouette, qui verrouille le contact bassin ↔ bois.
 export const CREW_BEAM_Y = 0.25;
+
+// ─── JAMBES — d'après les photos de course (passe 79) ────────────────────────
+//
+// Quatre photos du Tour, une seule grammaire : au rappel, le genou est TENDU
+// et la jambe va soit VERS LE BAS — assis à cheval sur le bwa, tronc en
+// arrière, pieds pendus au-dessus de l'eau —, soit VERS LE BATEAU — allongé
+// sur la perche avec les jambes qui la prolongent vers la coque, ou penché
+// dessus avec les pieds calés au plat-bord. La troisième position est l'assise
+// dans la coque. Aucune photo ne montre un genou replié à 100° avec le talon
+// crocheté sur le bois sous le bassin, ce que le jeu faisait depuis le 2 août
+// (mesuré par tools/mesure_jambes_equipage.mjs : genoux à 95-127°, bassin
+// 16-21 cm sous l'axe, pieds 5-16 cm au-dessus du bois côté coque).
+//
+// Le choix par poste suit les images : les ancrages, près de la coque, vont
+// vers le bateau (plat-bord à portée, sinon le long de la perche) ; les leviers,
+// à mi-perche, pendent vers l'eau ; l'homme du bout pend tant qu'il est assis
+// et s'allonge le long du bois à pleine sortie. C'est la grappe mêlée des photos,
+// pas six copies d'un même geste.
+export const CREW_LEG_POSES = Object.freeze(["repos", "pont", "bas", "bateau"]);
+// Bord visible de la coque (demi-largeur de collision × affinage de rendu) :
+// c'est là que les pieds se calent quand la jambe y arrive.
+export const CREW_RAIL_X = 1.08 * HULL_VISUAL_WIDTH_SCALE;
+// Sortie à partir de laquelle les jambes quittent l'assise pour la pose de
+// rappel, et longueur de la rampe. En dessous, l'homme est encore au plat-bord.
+const CREW_LEG_AUTHORITY_START = 0.22;
+const CREW_LEG_AUTHORITY_SPAN = 0.22;
+// Jambes pendantes : écart de part et d'autre du bois (composante latérale pour
+// une cuisse unitaire), légère ouverture vers le large, et détente du genou —
+// tan(8°), le pied revient un peu vers la coque.
+const CREW_HANG_STRADDLE = 0.26;
+const CREW_HANG_LEAN = 0.06;
+const CREW_HANG_KNEE = 0.14;
+// Vers le bateau : part de la jambe qu'on accepte de tendre pour atteindre le
+// plat-bord ; au-delà, la jambe se couche sur la perche. Cote du pied posé au
+// plat-bord (dessus de la lisse sous la perche + épaisseur du pied), cote du
+// pied posé SUR la perche (rayon + cheville), et écart des deux pieds.
+const CREW_RAIL_REACH = 0.985;
+const CREW_RAIL_FOOT_OFFSET = -0.03;
+const CREW_POLE_FOOT_LIFT = 0.075;
+const CREW_POLE_LEG_REACH = 0.985;
+const CREW_FEET_SPREAD = 0.11;
+
+/** Autorité de la pose de jambes de rappel : 0 à l'assise, 1 franchement sorti. */
+export function crewLegAuthority(hike) {
+  const h = Number.isFinite(hike) ? hike : 0;
+  return Math.min(Math.max((h - CREW_LEG_AUTHORITY_START) / CREW_LEG_AUTHORITY_SPAN, 0), 1);
+}
+
+/**
+ * Pose de jambes d'un dresseur : `repos` à bord, `pont` en traversée, `bas`
+ * (tendues vers l'eau) ou `bateau` (tendues vers la coque) au rappel.
+ */
+export function crewLegPoseFor({ family = "levier", hike = 0, x = 0, transferCrouch = 0 } = {}) {
+  if (transferCrouch > 0.3) return "pont";
+  const outboard = Math.abs(Number.isFinite(x) ? x : 0) - CREW_RAIL_X;
+  if (crewLegAuthority(hike) <= 0 || outboard < 0.25) return "repos";
+  if (family === "ancrage") return "bateau";
+  if (family === "extension") return hike > 0.72 ? "bateau" : "bas";
+  return "bas";
+}
 
 // Descente du bassin pour qu'il repose SUR le bois au lieu de flotter au-dessus
 // (mesuré : 0,324 m d'écart au repos). Réservé au rig importé — le corps
@@ -931,9 +1003,15 @@ export class CrewVisual {
     this.poleDesired = new THREE.Vector3();
     this.poleCross = new THREE.Vector3();
     this.poleDelta = new THREE.Quaternion();
+    this.legParentWorld = new THREE.Quaternion();
+    this.legRootWorld = new THREE.Quaternion();
+    this.legOutward = new THREE.Vector3();
+    this.legLeft = new THREE.Vector3();
+    this.legDir = new THREE.Vector3();
     this.captureRestPoles(THREE);
     this.measureBindSplay(THREE);
     this.measureHipHeight(THREE);
+    this.measureLegLength(THREE);
     return true;
   }
 
@@ -998,6 +1076,26 @@ export class CrewVisual {
     const maxHip = CREW_TARGET_HEIGHT * 0.72;
     if (Number.isFinite(local.y) && local.y > minHip && local.y < maxHip) {
       this.hipHeight = local.y;
+    }
+  }
+
+  // Longueur de jambe du corps réellement utilisé (cuisse + tibia), dans le
+  // repère local de la racine. Les cibles « vers le bateau » en dépendent :
+  // un plat-bord hors de portée fait coucher la jambe sur la perche au lieu
+  // de l'étirer dans le vide.
+  measureLegLength(THREE) {
+    this.legLength = CREW_TARGET_HEIGHT * 0.47;
+    const chain = this.ikChains?.leftLeg ?? this.ikChains?.rightLeg;
+    if (!chain || !this.rigRoot?.updateWorldMatrix || !THREE?.Vector3 || !this.root?.worldToLocal) return;
+    const [lower, upper] = chain.joints;
+    if (!upper?.getWorldPosition || !lower?.getWorldPosition || !chain.effector?.getWorldPosition) return;
+    this.root.updateWorldMatrix(true, true);
+    const hanche = this.root.worldToLocal(upper.getWorldPosition(new THREE.Vector3()));
+    const genou = this.root.worldToLocal(lower.getWorldPosition(new THREE.Vector3()));
+    const cheville = this.root.worldToLocal(chain.effector.getWorldPosition(new THREE.Vector3()));
+    const longueur = hanche.distanceTo(genou) + genou.distanceTo(cheville);
+    if (Number.isFinite(longueur) && longueur > CREW_TARGET_HEIGHT * 0.25 && longueur < CREW_TARGET_HEIGHT * 0.65) {
+      this.legLength = longueur;
     }
   }
 
@@ -1468,84 +1566,217 @@ export class CrewVisual {
       rappelContact * 0.5, 3
     );
 
-    // En rappel les pieds referment la pince autour du bois. Pendant la
-    // traversée ils quittent la perche et cherchent deux appuis distincts sur
-    // le pont, ce qui évite la glissade droite et sans poids.
-    // ⚠️ LES PIEDS PRENNENT APPUI SUR LE BOIS, ILS NE PENDENT PAS.
+    // ─── LES JAMBES : TENDUES VERS LE BAS, TENDUES VERS LE BATEAU, OU ASSISES ───
     //
-    // Corrigé le 2 août 2026 d'après images vidéo de course. L'ancienne cible
-    // visait `beamY - 0.08` — donc SOUS la perche — à `z = -0,26` dans le repère
-    // tourné de l'homme, exactement le même défaut de repère que les mains. Les
-    // jambes tombaient donc dans le vide, à 77-83° de l'horizontale, et l'homme
-    // formait un « L » suspendu.
-    //
-    // Les images montrent l'inverse : l'équipier est ASSIS sur le bois, jambes
-    // repliées VERS LA COQUE, pieds calés sur une perche en deçà de son bassin.
-    // Le « L » existe, mais il pointe vers l'intérieur du bateau, pas vers le bas.
-    // 0,34 garde les deux appuis dans l'enveloppe anatomique du rig. La suite
-    // `crew-animation-v2` refuse désormais une prise ferme au-delà de 10 cm.
-    const APPUI_PIEDS = 0.46;
-    // Vers la coque = sens opposé au déport de l'équipier.
+    // Voir les constantes CREW_HANG_* / CREW_RAIL_* et `crewLegPoseFor`. En
+    // traversée les pieds cherchent deux appuis distincts sur le pont ; à bord
+    // ils se posent sur les planchers ; au rappel ils ne crochètent plus rien :
+    // soit ils pendent au-dessus de l'eau (aucun contact à résoudre), soit ils
+    // se calent au plat-bord ou se couchent sur la perche, vers la coque.
+    const legAuthority = crewLegAuthority(hike);
+    const legPose = crewLegPoseFor({
+      family: this.stagingFamily,
+      hike,
+      x: this.root.position.x,
+      transferCrouch
+    });
+    this.legPose = legPose;
     const versCoque = -(Math.sign(this.root.position.x) || 1);
-    const enRappel = rappelContact > deckContact;
-    // Deux pieds légèrement décalés LE LONG du bois : un appui parfaitement
-    // symétrique lit comme une pose de mannequin.
-    // En traction les talons crochètent PRÈS du bassin — suspendu, on
-    // n'écarte pas les appuis à un demi-mètre. C'est aussi ce qui garde la
-    // cible dans la portée d'une jambe : à pleine sortie, l'ancien écart
-    // laissait le gabarit du harnais à 0,45 m de son crochet, hors d'atteinte.
-    // Le gabarit sans clips plie moins bien que le rig seedé : ses cibles se
-    // resserrent davantage. Le rig livré garde les appuis pour lesquels ses
-    // seeds sont pliés — les serrer à 0,74 cassait ses jambes (0,44-0,74 m).
-    const sansClips = !this.clipLibrary?.size;
-    const appuiTraction = 1 - (sansClips ? 0.74 : 0.50) * clamp(hike, 0, 1);
-    const appuiG = versCoque * (APPUI_PIEDS + 0.06) * appuiTraction;
-    const appuiD = versCoque * (APPUI_PIEDS - 0.06) * appuiTraction;
-    // ⚠️ LA CIBLE DU TALON DESCEND AVEC LA TRACTION. Posé SUR la perche, le
-    // pied se calait haut (+0,18 au-dessus de l'axe). Suspendu DESSOUS, le
-    // talon enroule le DESSUS du bois (+0,07 ≈ rayon + cheville) : viser plus
-    // haut demandait à la jambe plus que sa longueur — 0,52 m de raté
-    // incompressible sur le gabarit du harnais.
-    const crochetY = 0.18 - (sansClips ? 0.15 : 0.11) * clamp(hike, 0, 1);
-    const footY = enRappel ? beamY + crochetY : (0.12 - this.root.position.y) / scale;
-    const legStrength = Math.max(
-      rappelContact * 0.82,
-      deckContact * 0.72,
-      reposContact * 0.62
-    );
     const leadLeft = this.contactLead % 2 === 0;
     const contactMode = crewContactMode(
       this.poseAction, this.overlayAction, this.overlayWeight, this.poseWeight
     );
+    const footRest = (chain) => this.rigJoints?.find((entry) => entry.joint === chain?.effector)?.rest ?? null;
     let leftFootError = 0;
     let rightFootError = 0;
-    // La pose extrême de référence a une jambe crochetée et une jambe libre.
-    // Résoudre quand même les deux pieds détruirait précisément cette asymétrie.
-    if (contactMode === CREW_CONTACT_BOTH_FEET || leadLeft) {
-      leftFootError = this.solveLimbContact(
-        this.ikChains.leftLeg,
-        enRappel ? surLeBoisX(appuiG) : -0.15 + versCoque * reposContact * 0.30,
-        footY,
-        enRappel ? surLeBoisZ(appuiG) : 0.02 - deckContact * 0.10 - reposContact * 0.06,
-        legStrength, 6
-      );
-    }
-    if (contactMode === CREW_CONTACT_BOTH_FEET || !leadLeft) {
-      rightFootError = this.solveLimbContact(
-        this.ikChains.rightLeg,
-        enRappel ? surLeBoisX(appuiD) : 0.15 + versCoque * reposContact * 0.30,
-        footY,
-        enRappel ? surLeBoisZ(appuiD) : 0.02 + deckContact * 0.10 + reposContact * 0.06,
-        legStrength, 6
-      );
-    }
-    firmWorst = Math.max(firmWorst, leadLeft ? leftFootError : rightFootError);
-    if (contactMode === CREW_CONTACT_BOTH_FEET) {
-      softWorst = Math.max(softWorst, leadLeft ? rightFootError : leftFootError);
+
+    if (legPose === "bas") {
+      // Pendues : une DIRECTION, pas un contact. La cuisse suit la gravité dans
+      // le repère MONDE — une yole gîtée n'entraîne pas les jambes avec elle —,
+      // écartée de part et d'autre du bois, genou à peine détendu, pied relâché.
+      this.hangLegs(legAuthority, -versCoque);
+    } else if (legPose === "bateau") {
+      // Vers la coque : le plat-bord si la jambe y arrive, sinon couchées sur la
+      // perche. Cibles décrites dans le repère de la YOLE puis exprimées dans
+      // celui de l'homme (lacet et échelle), exactement comme les mains.
+      const hipY = this.root.position.y + (this.hipHeight ?? CREW_PROCEDURAL_HIP_HEIGHT) * scale;
+      const legLength = (this.legLength ?? CREW_TARGET_HEIGHT * 0.47) * scale;
+      const droop = this.beamDroopOffset ?? 0;
+      // Le plat-bord DU BORD DE L'HOMME : le bord de la coque du cote ou il est
+      // sorti, donc au signe de sa position, pas dans le sens du retour.
+      const dxRail = Math.sign(this.root.position.x || 1) * CREW_RAIL_X - this.root.position.x;
+      const railFootY = CREW_BEAM_Y - droop + CREW_RAIL_FOOT_OFFSET;
+      const railDistance = Math.hypot(dxRail, railFootY - hipY, CREW_FEET_SPREAD);
+      // Un pied de chaque côté de la perche, écartés LE LONG DE LA COQUE (axe Z
+      // de la yole), le côté gauche de l'homme en premier : deux cibles
+      // symétriques par rapport au bois, et des jambes qui ne se croisent sur
+      // aucun bord. Le X local de l'homme ne convient pas : à mi-lacet il court
+      // en partie le long de la perche et raccourcissait une jambe sur deux.
+      const gaucheZ = -(Math.sign(sinYaw) || 1) * CREW_FEET_SPREAD;
+      if (railDistance <= CREW_RAIL_REACH * legLength) {
+        // Pieds calés au plat-bord : les genoux fléchissent autant que la
+        // distance l'impose — c'est l'appui de la quatrième photo. CCD.
+        const localY = (railFootY - this.root.position.y) / scale;
+        const strength = Math.max(0.3, rappelContact) * legAuthority * 0.9;
+        const cibleX = (dz) => (dxRail * cosYaw - dz * sinYaw) / scale;
+        const cibleZ = (dz) => (dxRail * sinYaw + dz * cosYaw) / scale;
+        leftFootError = this.solveLimbContact(
+          this.ikChains.leftLeg, cibleX(gaucheZ), localY, cibleZ(gaucheZ), strength, 6
+        );
+        rightFootError = this.solveLimbContact(
+          this.ikChains.rightLeg, cibleX(-gaucheZ), localY, cibleZ(-gaucheZ), strength, 6
+        );
+        firmWorst = Math.max(firmWorst, Math.min(leftFootError, rightFootError));
+        softWorst = Math.max(softWorst, Math.max(leftFootError, rightFootError));
+      } else {
+        // Allongé sur la perche : la jambe TENDUE prolonge le corps vers la
+        // coque, un pied de chaque côté du bois. Une direction, pas un contact
+        // — un CCD à deux articulations converge mal près de l'extension
+        // complète, l'alignement direct y arrive en une passe.
+        const surLaPerche = CREW_BEAM_Y - droop + CREW_POLE_FOOT_LIFT;
+        this.layLegsAlongPole(legAuthority, versCoque, gaucheZ, surLaPerche, legLength);
+      }
+      // Pied à plat sur son appui ou relâché sur la perche : la cheville
+      // revient au repos, la jambe a déjà été réglée.
+      for (const chain of [this.ikChains.leftLeg, this.ikChains.rightLeg]) {
+        const rest = footRest(chain);
+        if (rest && chain?.effector?.quaternion) chain.effector.quaternion.slerp(rest, legAuthority * 0.8).normalize();
+      }
+    } else {
+      // À bord ou en traversée : appuis sur les planchers, inchangés.
+      const footY = (0.12 - this.root.position.y) / scale;
+      const legStrength = Math.max(deckContact * 0.72, reposContact * 0.62);
+      if (contactMode === CREW_CONTACT_BOTH_FEET || leadLeft) {
+        leftFootError = this.solveLimbContact(
+          this.ikChains.leftLeg,
+          -0.15 + versCoque * reposContact * 0.30, footY, 0.02 - deckContact * 0.10 - reposContact * 0.06,
+          legStrength, 6
+        );
+      }
+      if (contactMode === CREW_CONTACT_BOTH_FEET || !leadLeft) {
+        rightFootError = this.solveLimbContact(
+          this.ikChains.rightLeg,
+          0.15 + versCoque * reposContact * 0.30, footY, 0.02 + deckContact * 0.10 + reposContact * 0.06,
+          legStrength, 6
+        );
+      }
+      firmWorst = Math.max(firmWorst, leadLeft ? leftFootError : rightFootError);
+      if (contactMode === CREW_CONTACT_BOTH_FEET) {
+        softWorst = Math.max(softWorst, leadLeft ? rightFootError : leftFootError);
+      }
     }
     this.firmContactError = firmWorst;
     this.softContactError = softWorst;
     this.contactError = Math.max(firmWorst, softWorst);
+  }
+
+  /**
+   * Oriente un os (joint → child) vers une direction MONDE, par la même
+   * rotation de parent que le CCD, bornée en amplitude comme lui.
+   */
+  alignBoneTowards(joint, child, desiredWorld, weight, maxSwing = Math.PI) {
+    if (!joint?.parent || !child?.getWorldPosition || weight <= 0.001) return 0;
+    this.rigRoot.updateWorldMatrix(true, true);
+    joint.getWorldPosition(this.ikJointWorld);
+    child.getWorldPosition(this.ikEffectorWorld);
+    this.ikToEffector.subVectors(this.ikEffectorWorld, this.ikJointWorld);
+    if (this.ikToEffector.lengthSq() < 1e-8 || desiredWorld.lengthSq() < 1e-8) return 0;
+    this.ikToEffector.normalize();
+    this.ikToTarget.copy(desiredWorld).normalize();
+    const angle = Math.acos(clamp(this.ikToEffector.dot(this.ikToTarget), -1, 1));
+    if (angle < 1e-5) return 0;
+    const applied = Math.min(weight * angle, maxSwing) / angle;
+    this.ikWorldDelta
+      .setFromUnitVectors(this.ikToEffector, this.ikToTarget)
+      .slerp(this.ikIdentity, 1 - applied);
+    joint.parent.getWorldQuaternion(this.ikParentWorld);
+    this.ikParentInverse.copy(this.ikParentWorld).invert();
+    this.ikLocalDelta
+      .copy(this.ikParentInverse)
+      .multiply(this.ikWorldDelta)
+      .multiply(this.ikParentWorld);
+    joint.quaternion.premultiply(this.ikLocalDelta).normalize();
+    return angle * applied;
+  }
+
+  /**
+   * Jambes couchées le long de la perche, tendues vers la coque : l'homme du
+   * bout et les ancrages trop loin du plat-bord. Chaque jambe vise, depuis sa
+   * propre hanche, un point posé SUR le bois à un pas de jambe vers la coque,
+   * décalé d'un côté du bwa ; cuisse et tibia s'alignent dessus.
+   */
+  layLegsAlongPole(weight, versCoque, gaucheZ, surLaPerche, legLength) {
+    if (!this.rigRoot?.updateWorldMatrix || !this.ikChains || weight <= 0.001) return false;
+    const parent = this.root.parent;
+    for (const [name, dz] of [["leftLeg", gaucheZ], ["rightLeg", -gaucheZ]]) {
+      const chain = this.ikChains[name];
+      if (!chain) continue;
+      for (let index = 0; index < chain.joints.length; index++) {
+        chain.pose[index].copy(chain.joints[index].quaternion);
+      }
+      const [lower, upper] = chain.joints;
+      this.rigRoot.updateWorldMatrix(true, true);
+      upper.getWorldPosition(this.ikJointWorld);
+      // Hanche dans le repère de la yole (parent de la racine) : la cible se
+      // décrit là, à la cote de la perche.
+      const hanche = parent?.worldToLocal
+        ? parent.worldToLocal(this.legDir.copy(this.ikJointWorld))
+        : this.legDir.copy(this.ikJointWorld);
+      const portee = CREW_POLE_LEG_REACH * legLength;
+      const drop = hanche.y - surLaPerche;
+      const dx = versCoque * Math.sqrt(Math.max(0.04, portee * portee - drop * drop - dz * dz));
+      // Direction hanche → cible, ramenée dans le monde.
+      this.legDir.set(dx, surLaPerche - hanche.y, dz);
+      if (parent?.getWorldQuaternion) {
+        parent.getWorldQuaternion(this.legParentWorld);
+        this.legDir.applyQuaternion(this.legParentWorld);
+      }
+      this.legDir.normalize();
+      this.alignBoneTowards(upper, lower, this.legDir, weight, chain.maxSwing);
+      this.alignBoneTowards(lower, chain.effector, this.legDir, weight, chain.maxSwing);
+    }
+    return true;
+  }
+
+  /**
+   * Jambes pendantes au-dessus de l'eau : assis à cheval sur le bwa, cuisses
+   * verticales dans le MONDE (la gîte de la yole n'entraîne pas les jambes),
+   * écartées de part et d'autre du bois, genou à peine détendu, cheville au
+   * repos. `sideSign` est le bord de l'homme (+1 = côté +X de la yole).
+   */
+  hangLegs(weight, sideSign) {
+    if (!this.rigRoot?.updateWorldMatrix || !this.ikChains || weight <= 0.001) return false;
+    const parent = this.root.parent;
+    if (parent?.getWorldQuaternion) parent.getWorldQuaternion(this.legParentWorld);
+    else this.legParentWorld.identity();
+    this.root.getWorldQuaternion(this.legRootWorld);
+    // Vers le large : l'axe X de la yole du côté de l'homme. Gauche de l'homme :
+    // son axe X local, ce qui interdit aux jambes de se croiser sur l'autre bord.
+    this.legOutward.set(sideSign, 0, 0).applyQuaternion(this.legParentWorld).normalize();
+    this.legLeft.set(1, 0, 0).applyQuaternion(this.legRootWorld);
+    // Sans sa composante le long de la perche : l'écart se fait de part et
+    // d'autre du bois, pas en avant/arrière le long de celui-ci.
+    this.legLeft.addScaledVector(this.legOutward, -this.legLeft.dot(this.legOutward)).normalize();
+    for (const [name, sideOfMan] of [["leftLeg", 1], ["rightLeg", -1]]) {
+      const chain = this.ikChains[name];
+      if (!chain) continue;
+      for (let index = 0; index < chain.joints.length; index++) {
+        chain.pose[index].copy(chain.joints[index].quaternion);
+      }
+      const [lower, upper] = chain.joints;
+      // Cuisse : la gravité d'abord, l'écart de part et d'autre du bois ensuite.
+      this.legDir.set(0, -1, 0)
+        .addScaledVector(this.legLeft, sideOfMan * CREW_HANG_STRADDLE)
+        .addScaledVector(this.legOutward, CREW_HANG_LEAN)
+        .normalize();
+      this.alignBoneTowards(upper, lower, this.legDir, weight, chain.maxSwing);
+      // Tibia : dans le prolongement, le pied à peine ramené vers la coque.
+      this.legDir.addScaledVector(this.legOutward, -CREW_HANG_KNEE).normalize();
+      this.alignBoneTowards(lower, chain.effector, this.legDir, weight, chain.maxSwing);
+      const rest = this.rigJoints?.find((entry) => entry.joint === chain.effector)?.rest;
+      if (rest && chain.effector?.quaternion) chain.effector.quaternion.slerp(rest, weight).normalize();
+    }
+    return true;
   }
 
   update(time, dt, x, z, velocity, roll, impact, active, stumble = 0, boostForward = 0, boostSide = 0, cadence = 0, bail = 0, drink = 0, cohesion = 1, shiftMotion = null) {
@@ -1720,34 +1951,19 @@ export class CrewVisual {
     // coque — la balance se fait toute seule, avec le bois pour pivot.
     const recline = hike * CREW_HIKE_RECLINE * this.posture * familyPose.recline;
 
-    // Jambes : à califourchon de part et d'autre du bois, repliées vers la
-    // coque.
-    //
-    // ⚠️ Le `-recline` n'est pas un réglage, il ANNULE la rotation héritée du
-    // bassin. Sans lui, les cuisses suivaient le buste vers le large et les
-    // hommes finissaient DEBOUT sur la perche, en équilibre comme sur un fil.
-    // On repart donc de la verticale, puis on replie vers la coque.
-    //
-    // ⚠️ TENTATIVE ANNULÉE LE 2 AOÛT 2026, ET POURQUOI ELLE A ÉCHOUÉ.
-    // D'après photos de course, l'écart des cuisses et leur repli devaient
-    // s'EFFACER au taquet (jambes droites et jointes) au lieu de croître. C'est
-    // vrai d'une vraie yole. Appliqué ici, le rendu a EMPIRÉ — captures à
-    // l'appui : les hommes sont passés de « accroupis » à « pendus raides ».
-    //
-    // La mesure a dit pourquoi. Le corps est aujourd'hui à 68-87° de l'axe du
-    // bwa, c'est-à-dire EN TRAVERS, et à seulement 34-38° de la verticale.
-    // Redresser les jambes d'un homme qui pend perpendiculairement ne fait que
-    // mieux montrer qu'il pend. Le défaut est l'ORIENTATION DU CORPS, pas le
-    // détail des cuisses, et tripler `recline` ne le corrige pas non plus :
-    // mesuré, `torseBwa` reste collé à 87-90° quelle que soit son amplitude.
-    // Voir docs/CREW_ANIMATION_ENGINE.md — « Le corps en travers du bwa ».
-    // Le repli de cuisse suit la traction : suspendu, les genoux remontent
-    // vers la perche pour que les talons crochètent par-dessus.
-    const tractionCuisses = 0.50 * hike;
-    this.leftLegPivot.rotation.x = stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook - tractionCuisses;
-    this.rightLegPivot.rotation.x = -stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook - tractionCuisses;
-    this.leftLegPivot.rotation.z = CREW_STRADDLE * hike;
-    this.rightLegPivot.rotation.z = -CREW_STRADDLE * hike;
+    // Jambes : elles ne se règlent plus ici. D'après les photos de course, au
+    // rappel elles sont TENDUES — vers le bas (assis à cheval sur le bois) ou
+    // vers le bateau (allongé sur la perche, pieds au plat-bord) — jamais
+    // repliées avec les talons crochetés sous le bassin. `applyRigContacts`
+    // les pose (voir `hangLegs` et la branche « bateau ») ; le procédural garde
+    // ici la foulée à bord, la traversée et la contre-gîte, et son repli de
+    // rappel (`CREW_LEG_HOOK`) s'efface à mesure que la pose de jambes prend
+    // la main. Le `-recline` annule la rotation héritée du bassin.
+    const hookFade = 1 - crewLegAuthority(hike);
+    this.leftLegPivot.rotation.x = stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook * hookFade;
+    this.rightLegPivot.rotation.x = -stride * settle - recline - hike * CREW_LEG_HOOK * familyPose.hook * hookFade;
+    this.leftLegPivot.rotation.z = CREW_STRADDLE * hike * hookFade;
+    this.rightLegPivot.rotation.z = -CREW_STRADDLE * hike * hookFade;
     this.leftLegPivot.rotation.x -= brace * 0.24 + catchLoad * 0.16 + transferCrouch * 0.42;
     this.rightLegPivot.rotation.x -= brace * 0.24 + catchLoad * 0.16 + transferCrouch * 0.42;
     this.leftLegPivot.rotation.x += transferStep * 0.34;
@@ -2061,8 +2277,8 @@ export class CrewVisual {
     // L'ancien `0.38` du corps procédural souffrait déjà du même défaut, en plus
     // discret (4,6 cm) ; la conversion le corrige aussi.
     const echelleCorps = Math.max(0.001, this.root.scale.y || 1);
-    // Posé sur le bois à faible sortie, PENDU dessous à pleine sortie : la
-    // traction. Voir `crewSeatOffsetForHike` — le contrat d'assise lit la même
+    // Posé SUR le bois à toute sortie (passe 79 : plus de traction sous la
+    // perche). Voir `crewSeatOffsetForHike` — le contrat d'assise lit la même
     // formule.
     this.hikeAmount = hike;
     const seat = CREW_BEAM_Y + crewSeatOffsetForHike(hike)

@@ -549,9 +549,17 @@ lorsque le Grain était à moins de 46 m — jamais pour courir.
 
 ### Équipage — pose de rappel
 
-D'après photo de course. Les six yoleurs sortent **à califourchon sur les bois**,
-corps aligné sur la perche, tête vers le large, jambes repliées vers la coque et
-mains sur le bois en arrière du bassin.
+D'après photos de course. Les six yoleurs sortent **à califourchon sur les
+bois**, bassin posé SUR la perche, corps aligné dessus, tête vers le large,
+mains sur le bois. Les jambes suivent la grammaire des photos (passe 79) : soit
+**tendues vers le bas**, pendues au-dessus de l'eau, soit **tendues vers le
+bateau** — allongées le long de la perche, ou pieds calés au plat-bord quand il
+est à portée —, jamais repliées avec les talons crochetés. À bord, on est assis
+au plat-bord, jambes dans la coque.
+
+```bash
+npm run test:jambes            # mesure sur le GLB livré, contrats de jambes
+```
 
 Le modèle précédent gardait un lacet nul — les hommes regardaient la proue,
 assis en travers de perches qui courent d'un bord à l'autre — et leur bassin
