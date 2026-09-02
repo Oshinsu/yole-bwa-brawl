@@ -211,3 +211,23 @@ simple, une primitive bruitée est plus juste, plus légère et gratuite.
 
 Les crédits vont donc aux **cases créoles, gommiers, pontons et bateaux de
 flottille**, pas aux cailloux ni aux palmes.
+
+## Et la règle a tenu — le bourg, même journée
+
+Trois générations `meshy-7` en texte → 3D, puis `refine` pour la texture, puis
+`shrink_glb_textures.py --size 256` :
+
+| modèle | triangles | poids | rendu |
+|---|---:|---:|---|
+| `case_creole.glb` | 672 | 96 Ko | toit de tôle rouge, murs à planches, volets, galerie |
+| `gommier.glb` | 668 | 101 Ko | coque bleu-blanc-rouge à bancs, double pointe |
+| `ponton.glb` | 533 | 72 Ko | tablier sur pilotis |
+
+Utilisables sans retouche, et **trois fois plus légers** que les bateaux de
+flottille d'août (240-256 Ko) parce qu'ils passent en 256 dès la sortie. La
+texture 2K brute pesait 2,5 à 3,9 Mo : le shrink rend 97 à 98 %.
+
+Différence de traitement avec les rochers : ces trois-là **gardent leur
+texture**, puisqu'ils ne sont pas recolorés par arène. Et comme ils sont
+mono-maillage et mono-matériau, ils sont **instanciés** — trois appels de
+dessin pour 44 objets, là où la flottille dépense un appel par bateau.

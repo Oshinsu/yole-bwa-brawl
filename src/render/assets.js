@@ -32,6 +32,15 @@ export const YOLE_RIGS = Object.freeze({
   // matériau). Statique, aucun squelette.
   flottille_catamaran: "flottille_catamaran.glb",
   flottille_vedette: "flottille_vedette.glb",
+  // ── LE BOURG — Meshy 7, 2 septembre 2026 ────────────────────────────────
+  // La côte habitée que montrent toutes les photos du Tour : case à toit de
+  // tôle, canot tiré sur le sable, ponton de pêche. Mono-maillage et
+  // mono-matériau, donc INSTANCIÉS par `world.js` — un appel de dessin par
+  // famille. Ils gardent leur texture : contrairement aux rochers et aux
+  // palmes, ils ne sont pas recolorés par arène.
+  case_creole: "case_creole.glb",
+  gommier: "gommier.glb",
+  ponton: "ponton.glb",
   barik: "barik.glb",
   chadron: "chadron.glb",
   lanbi: "lanbi.glb",

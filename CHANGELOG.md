@@ -13,6 +13,40 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 83 — le bourg : la côte devient habitée
+
+Suite directe de la passe 82 : les crédits Meshy vont là où la mesure dit qu'il
+gagne, c'est-à-dire l'objet fabriqué à silhouette reconnaissable. Trois modèles,
+et la côte cesse d'être déserte.
+
+- **Trois GLB Meshy 7** (texte → 3D, texture réduite à 256 par
+  `tools/shrink_glb_textures.py`) : `case_creole.glb` (672 triangles, 96 Ko,
+  toit de tôle rouge, murs à planches claires, volets, galerie), `gommier.glb`
+  (668 triangles, 101 Ko, coque bleu-blanc-rouge à bancs) et `ponton.glb`
+  (533 triangles, 72 Ko, tablier sur pilotis). **269 Ko au total**, contre
+  240-256 Ko pour un seul bateau de flottille.
+- **Instanciés, pas clonés.** Mono-maillage et mono-matériau : trois
+  `InstancedMesh`, donc **trois appels de dessin** quel que soit le nombre à
+  l'écran — là où la flottille dépense un appel par bateau. Jusqu'à 24 cases,
+  10 gommiers et 10 pontons.
+- **Un hameau par îlot habité** (`scatterBourg`) : une à trois cases sur la
+  pente qui regarde la course, et six fois sur dix un ponton avec son gommier
+  tiré à côté. Un îlot sur deux reste sauvage, et les cailloux de moins de 15 m
+  n'en portent pas.
+- ⚠️ **Tout tient dans l'enveloppe de plage de l'îlot**, que la physique traite
+  déjà comme de la terre : aucun collider ajouté, et une yole ne peut pas
+  traverser un ponton puisqu'elle ne peut pas l'atteindre. Mesuré sur
+  1 054 pièces : débord maximal **−0,36 m** (donc toujours à l'intérieur), et
+  jamais moins de **38 m** entre une pièce et l'axe de course.
+- **Le semis tourne même sans les modèles.** La suite de tirages ne doit pas
+  dépendre de la présence d'un GLB : la géométrie du placement se mesure donc
+  dans Node, sans chargeur. RNG dédié (`bourgRng`), semis appelé en dernier :
+  aucun élément de décor existant ne bouge.
+- Budget par palier : plein en HQ, 55 % en MQ, **rien en LQ** — c'est du décor
+  pur, et un téléphone au palier de secours a mieux à faire.
+- Contrat : `test/bourg.test.mjs` (dans `npm run test:world`). Purement
+  visuel : les quatre checksums sont inchangés.
+
 ## Passe 82 — Meshy 7 sur le décor : ce qu'il gagne, ce qu'il perd
 
 Question du propriétaire : « les petits éléments de l'environnement, les mini

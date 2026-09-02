@@ -1,5 +1,29 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 83 — le bourg
+
+Validation du 2 septembre 2026 :
+
+- `npm run verify` : **OK** ; **185 fichiers précachés** (182 + les trois
+  modèles) ; smoke navigateur sans erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : le semis tire sur un RNG dédié et n'ajoute aucun collider ;
+- `test/bourg.test.mjs` : 16 côtes × 3 graines, **1 054 pièces** mesurées,
+  débord maximal **−0,36 m** hors de l'enveloppe de plage (donc toutes à
+  l'intérieur, emprise du modèle comprise), distance minimale à l'axe de course
+  **38 m**, autant de pontons que de gommiers, semis déterministe ;
+- poids ajouté : **269 Ko** pour les trois modèles, soit +2,7 % du précache ;
+- captures en jeu sur trois arènes : cases à toit rouge sur la pente, gommier
+  tiré sur le sable, ponton sur la grève ; 19 à 24 cases, 6 à 10 gommiers et
+  pontons affichés, pour **trois appels de dessin**.
+
+### Ce qui n'est pas vérifié ici
+
+- le rendu du bourg sur téléphone réel ;
+- le sable, l'horizon et la silhouette des îlots, jugés insuffisants par le
+  propriétaire sur ces mêmes captures — objet de la passe suivante.
+
+
 ## Passe 82 — Meshy 7 sur le décor, et le rocher procédural
 
 Validation du 2 septembre 2026 :

@@ -14655,10 +14655,34 @@ class CrewFallPool {
 // compte disponible, donc MQ rendait STRICTEMENT autant que HQ et le palier
 // intermédiaire ne servait à rien. Mesuré : 716 instances dans les deux cas.
 const WORLD_QUALITY = [
-  { palmiers: 0.34, rochers: 0.36 },   // LQ
-  { palmiers: 0.52, rochers: 0.56 },   // MQ
-  { palmiers: 1.00, rochers: 1.00 }    // HQ
+  { palmiers: 0.34, rochers: 0.36, bourg: 0.00 },   // LQ
+  { palmiers: 0.52, rochers: 0.56, bourg: 0.55 },   // MQ
+  { palmiers: 1.00, rochers: 1.00, bourg: 1.00 }    // HQ
 ];
+
+// ─── LE BOURG ────────────────────────────────────────────────────────────────
+//
+// Toutes les photos du Tour montrent une côte HABITÉE : cases à toit de tôle,
+// canots tirés sur le sable, pontons de pêche. Le décor n'en avait aucun —
+// l'audit du 12 août l'avait noté comme piste, la mesure du 2 septembre a
+// montré que la bande 60-140 m est justement celle qui rend net (98 % du pixel
+// à 60 m, 86 % à 150 m, contre 50 % à l'endroit des repères).
+//
+// Trois GLB Meshy 7, mono-maillage et mono-matériau, donc INSTANCIÉS : un seul
+// appel de dessin par famille, quel que soit le nombre à l'écran.
+//
+// ⚠️ TOUT EST POSÉ DANS L'ENVELOPPE DE PLAGE DE L'ÎLOT, que la physique traite
+// déjà comme de la terre. Aucun collider n'est ajouté, et une yole ne peut pas
+// traverser un ponton puisqu'elle ne peut pas l'atteindre. `test/bourg.test.mjs`
+// le verrouille, emprise du modèle comprise.
+const BOURG_MAX_CASES = 24;
+const BOURG_MAX_GOMMIERS = 10;
+const BOURG_MAX_PONTONS = 10;
+// Longueurs réelles visées, en mètres : le GLB sort normalisé.
+const BOURG_TAILLES = Object.freeze({ case_creole: 7.0, gommier: 6.4, ponton: 9.0 });
+// Demi-emprise au sol, en mètres, à l'échelle 1 : sert à garantir que le
+// modèle ENTIER reste sur la plage, pas seulement son centre.
+const BOURG_EMPRISES = Object.freeze({ case_creole: 3.6, gommier: 3.3, ponton: 4.6 });
 
 const DEFAULT_PALETTE = Object.freeze({
   sand: 0xcfc8ae,
@@ -15228,6 +15252,9 @@ class WorldStreamer {
     this.palmTrunks = new THREE.InstancedMesh(this.palmTrunkGeometry, this.materials.trunk, this.maxPalms);
     this.palmLeaves = new THREE.InstancedMesh(this.palmLeafGeometry, this.materials.leaf, this.maxPalms * 5);
     this.rocks = new THREE.InstancedMesh(this.rockGeometry, this.materials.shallowRock, this.maxRocks);
+    this.bourgBudget = 1;
+    this.bourgTemplates = undefined;
+    this.bourgMeshes = null;
     this.palmTrunks.castShadow = true;
     this.palmLeaves.castShadow = false;
     this.rocks.castShadow = false;
@@ -15236,6 +15263,7 @@ class WorldStreamer {
     this.rocks.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
     scene.add(this.palmTrunks, this.palmLeaves, this.rocks);
     this.instanceDummy = new THREE.Object3D();
+    this.initBourg(scene);
     this.landmarkRoot = new THREE.Group();
     this.landmarkRoot.name = "stage-landmark";
     scene.add(this.landmarkRoot);
@@ -15246,6 +15274,121 @@ class WorldStreamer {
       scene.add(chunk.group);
     }
     this.rebuildInstances();
+  }
+
+  /**
+   * Gabarits du bourg : géométrie, matériau, échelle et assiette de chaque
+   * famille. Un GLB absent est un cas normal — le semis reste calculé, seul
+   * l'affichage manque.
+   */
+  bourgGabarits() {
+    if (this.bourgTemplates !== undefined) return this.bourgTemplates;
+    this.bourgTemplates = null;
+    if (!this.assets?.hasRig) return null;
+    const THREE = this.THREE;
+    const table = {};
+    for (const [part, longueur] of Object.entries(BOURG_TAILLES)) {
+      if (!this.assets.hasRig(part)) continue;
+      const modele = this.assets.instantiate(part);
+      if (!modele) continue;
+      let maillage = null;
+      modele.traverse((noeud) => { if (!maillage && noeud.isMesh && noeud.geometry) maillage = noeud; });
+      if (!maillage) continue;
+      maillage.updateWorldMatrix(true, false);
+      const geometry = maillage.geometry.clone();
+      geometry.applyMatrix4(maillage.matrixWorld);
+      geometry.computeBoundingBox();
+      const dims = geometry.boundingBox.getSize(new THREE.Vector3());
+      const echelle = longueur / Math.max(dims.x, dims.z, 1e-3);
+      // Origine au sol : Meshy pose ses modèles sur le plan de leur minimum.
+      const assiette = -geometry.boundingBox.min.y * echelle;
+      table[part] = { geometry, material: maillage.material, echelle, assiette };
+    }
+    this.bourgTemplates = Object.keys(table).length ? table : null;
+    return this.bourgTemplates;
+  }
+
+  initBourg(scene) {
+    const THREE = this.THREE;
+    const gabarits = this.bourgGabarits();
+    if (!gabarits || !THREE.InstancedMesh) return;
+    const faire = (gabarit, maximum, ombre) => {
+      if (!gabarit) return null;
+      const maillage = new THREE.InstancedMesh(gabarit.geometry, gabarit.material, maximum);
+      maillage.castShadow = ombre;
+      maillage.receiveShadow = true;
+      maillage.count = 0;
+      maillage.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
+      scene.add(maillage);
+      return maillage;
+    };
+    this.bourgMeshes = {
+      cases: faire(gabarits.case_creole, BOURG_MAX_CASES, true),
+      gommiers: faire(gabarits.gommier, BOURG_MAX_GOMMIERS, true),
+      pontons: faire(gabarits.ponton, BOURG_MAX_PONTONS, false)
+    };
+  }
+
+  /**
+   * Sème un hameau sur les îlots d'un tronçon : des cases sur la pente qui
+   * regarde la course, un ponton au bord de l'eau, son gommier tiré à côté.
+   *
+   * Le semis est calculé MÊME SANS LES MODÈLES : la suite de tirages ne doit
+   * pas dépendre de la présence d'un GLB, et la géométrie du placement se
+   * mesure alors dans Node, sans chargeur.
+   */
+  scatterBourg(chunk, rng) {
+    for (const ile of chunk.islands) {
+      const plageRx = ile.sandRx ?? ile.rx;
+      const plageRz = ile.sandRz ?? ile.rz;
+      const plage = Math.min(plageRx, plageRz);
+      // Un caillou ne porte pas un hameau, et un îlot sur deux reste sauvage.
+      if (!(plage > 15) || !rng.chance(0.5)) continue;
+      const side = Math.sign(ile.x - routeCenter(ile.z)) || 1;
+      const sol = (dx, dz) => Math.max(ile.sandTopY ?? 0, islandSurfaceHeight(ile, dx, dz));
+      const versLeLarge = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+
+      const nombre = rng.int(1, 3);
+      for (let index = 0; index < nombre; index++) {
+        const angle = (rng.next() - 0.5) * 1.35;
+        const part = 0.40 + rng.next() * 0.15;
+        const dx = -side * Math.cos(angle) * (ile.visualRx ?? ile.rx) * part;
+        const dz = Math.sin(angle) * (ile.visualRz ?? ile.rz) * part;
+        const echelle = 0.86 + rng.next() * 0.32;
+        chunk.bourg.cases.push({
+          x: ile.x + dx, y: sol(dx, dz), z: ile.z + dz,
+          rotation: versLeLarge + (rng.next() - 0.5) * 0.6,
+          scale: echelle, emprise: BOURG_EMPRISES.case_creole * echelle, ile
+        });
+      }
+
+      if (!rng.chance(0.6)) continue;
+      // Le ponton pointe vers le large, mais son bout reste sur le sable :
+      // c'est ce qui garantit qu'aucune yole ne peut le rencontrer.
+      const angle = (rng.next() - 0.5) * 0.7;
+      const echellePonton = 0.9 + rng.next() * 0.22;
+      const emprisePonton = BOURG_EMPRISES.ponton * echellePonton;
+      const partPonton = Math.max(0.25, Math.min(0.66, (plage - emprisePonton - 1.5) / plage));
+      const dxP = -side * Math.cos(angle) * plageRx * partPonton;
+      const dzP = Math.sin(angle) * plageRz * partPonton;
+      chunk.bourg.pontons.push({
+        x: ile.x + dxP, y: Math.max(0.18, ile.sandTopY ?? 0), z: ile.z + dzP,
+        rotation: versLeLarge + Math.PI / 2 + (rng.next() - 0.5) * 0.18,
+        scale: echellePonton, emprise: emprisePonton, ile
+      });
+
+      const echelleGommier = 0.9 + rng.next() * 0.2;
+      const empriseGommier = BOURG_EMPRISES.gommier * echelleGommier;
+      const partGommier = Math.max(0.22, Math.min(0.62, (plage - empriseGommier - 1.5) / plage));
+      const ecart = (rng.chance(0.5) ? 1 : -1) * (5 + rng.next() * 3);
+      const dxG = -side * Math.cos(angle) * plageRx * partGommier;
+      const dzG = Math.sin(angle) * plageRz * partGommier + ecart;
+      chunk.bourg.gommiers.push({
+        x: ile.x + dxG, y: sol(dxG, dzG) + 0.1, z: ile.z + dzG,
+        rotation: (rng.next() - 0.5) * 0.5, gite: (rng.next() - 0.5) * 0.16,
+        scale: echelleGommier, emprise: empriseGommier, ile
+      });
+    }
   }
 
   createIslandVisual(descriptor, rng) {
@@ -15328,7 +15471,10 @@ class WorldStreamer {
 
   createChunk(logicalIndex) {
     const group = new this.THREE.Group();
-    const chunk = { group, logicalIndex, z: 0, islands: [], palms: [], rocks: [] };
+    const chunk = {
+      group, logicalIndex, z: 0, islands: [], palms: [], rocks: [],
+      bourg: { cases: [], gommiers: [], pontons: [] }
+    };
     this.configureChunk(chunk, logicalIndex);
     return chunk;
   }
@@ -15403,9 +15549,15 @@ class WorldStreamer {
     chunk.islands.length = 0;
     chunk.palms.length = 0;
     chunk.rocks.length = 0;
+    chunk.bourg.cases.length = 0;
+    chunk.bourg.gommiers.length = 0;
+    chunk.bourg.pontons.length = 0;
     this.islandIndexDirty = true;
     const rng = new RNG((this.seed ^ Math.imul(logicalIndex + 1, 0x9e3779b1)) >>> 0);
     const flottilleRng = new RNG((this.seed ^ Math.imul(logicalIndex + 7, 0x85ebca6b)) >>> 0);
+    // Même principe que la flottille : un flux dédié, donc aucun élément de
+    // décor existant ne bouge et les checksums restent identiques.
+    const bourgRng = new RNG((this.seed ^ Math.imul(logicalIndex + 13, 0xc2b2ae35)) >>> 0);
     const profile = this.stageProfile;
 
     for (let sideIndex = 0; sideIndex < 2; sideIndex++) {
@@ -15437,9 +15589,10 @@ class WorldStreamer {
         this.placeIslet(chunk, rng, profile, farX, farLocalZ, farRx, farRz);
       }
     }
-    // EN DERNIER, sur son RNG dédié : n'importe quel ajout futur au décor
+    // EN DERNIER, sur leurs RNG dédiés : n'importe quel ajout futur au décor
     // peut s'insérer avant sans déplacer un seul bateau de spectateurs.
     this.scatterFlottille(chunk, flottilleRng);
+    this.scatterBourg(chunk, bourgRng);
   }
 
   /**
@@ -15514,6 +15667,31 @@ class WorldStreamer {
         dummy.scale.set(rock.sx, rock.sy, rock.sz);
         dummy.updateMatrix();
         this.rocks.setMatrixAt(rockIndex++, dummy.matrix);
+      }
+    }
+    // Le bourg : une famille, un appel de dessin, quel que soit le nombre.
+    if (this.bourgMeshes && this.bourgTemplates) {
+      const familles = [
+        ["cases", this.bourgMeshes.cases, this.bourgTemplates.case_creole, BOURG_MAX_CASES],
+        ["gommiers", this.bourgMeshes.gommiers, this.bourgTemplates.gommier, BOURG_MAX_GOMMIERS],
+        ["pontons", this.bourgMeshes.pontons, this.bourgTemplates.ponton, BOURG_MAX_PONTONS]
+      ];
+      for (const [cle, maillage, gabarit, maximum] of familles) {
+        if (!maillage || !gabarit) continue;
+        const plafond = Math.round(maximum * (this.bourgBudget ?? 1));
+        let index = 0;
+        for (const chunk of this.chunks) {
+          for (const piece of chunk.bourg[cle]) {
+            if (index >= plafond) break;
+            dummy.position.set(piece.x, piece.y + gabarit.assiette * piece.scale, piece.z);
+            dummy.rotation.set(piece.gite ?? 0, piece.rotation, 0);
+            dummy.scale.setScalar(gabarit.echelle * piece.scale);
+            dummy.updateMatrix();
+            maillage.setMatrixAt(index++, dummy.matrix);
+          }
+        }
+        maillage.count = index;
+        maillage.instanceMatrix.needsUpdate = true;
       }
     }
     this.palmTrunks.count = trunkIndex;
@@ -15812,6 +15990,9 @@ class WorldStreamer {
     // recyclage de chunk — la flottille est loin du couloir, personne ne voit
     // la transition.
     this.flottilleBudget = palier >= 2 ? 2 : palier === 1 ? 1 : 0;
+    // Le bourg disparaît en LQ : c'est du décor pur, et un téléphone qui
+    // tombe au palier de secours a mieux à faire que d'afficher des cases.
+    this.bourgBudget = part.bourg;
     this.palmTrunks.visible = true;
     this.palmLeaves.visible = true;
     this.rocks.visible = true;
@@ -20104,6 +20285,15 @@ const YOLE_RIGS = Object.freeze({
   // matériau). Statique, aucun squelette.
   flottille_catamaran: "flottille_catamaran.glb",
   flottille_vedette: "flottille_vedette.glb",
+  // ── LE BOURG — Meshy 7, 2 septembre 2026 ────────────────────────────────
+  // La côte habitée que montrent toutes les photos du Tour : case à toit de
+  // tôle, canot tiré sur le sable, ponton de pêche. Mono-maillage et
+  // mono-matériau, donc INSTANCIÉS par `world.js` — un appel de dessin par
+  // famille. Ils gardent leur texture : contrairement aux rochers et aux
+  // palmes, ils ne sont pas recolorés par arène.
+  case_creole: "case_creole.glb",
+  gommier: "gommier.glb",
+  ponton: "ponton.glb",
   barik: "barik.glb",
   chadron: "chadron.glb",
   lanbi: "lanbi.glb",
