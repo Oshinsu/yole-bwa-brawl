@@ -1,5 +1,33 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 84 — le sable, l'horizon, les îlets
+
+Validation du 2 septembre 2026 :
+
+- `npm run verify` : **OK** ; 185 fichiers précachés ; smoke navigateur sans
+  erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : aucune forme de collision n'a bougé ;
+- mesure qui a déclenché la passe : emprise horizontale du morne contre disque
+  de sable, par archétype — tropical 1,20 contre 1,015, volcanique 1,25 contre
+  1,025, mangrove 1,30 contre 1,06, falaises 0,99 contre 0,96. **Quatre
+  archétypes sur sept n'avaient aucune plage visible** ;
+- `test/bourg.test.mjs` a attrapé l'effet de bord d'un premier correctif : en
+  élargissant `sandRx`, un gommier se retrouvait à 1,42 m hors de l'enveloppe de
+  collision. Le semis garde donc le rayon sûr, seul le sable visible s'élargit ;
+- `npm run test:world` (collision, arènes, repères, bourg) : OK — 121 380
+  contacts, 172 bâtis, 1 054 pièces de bourg ;
+- captures avant/après sur trois arènes et une vue de dessus : bande de sable
+  visible sur les sept archétypes, moutonnement de canopée présent en jeu pour
+  la première fois, horizon noyé dans la brume.
+
+### Ce qui n'est pas vérifié ici
+
+- le rendu sur téléphone réel ;
+- les îlets générés par Meshy, écartés sur pièce (troués, incompatibles avec
+  l'ellipse de collision) et non intégrés.
+
+
 ## Passe 83 — le bourg
 
 Validation du 2 septembre 2026 :

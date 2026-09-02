@@ -448,9 +448,16 @@ export class AtmosphereSystem {
     texture.needsUpdate = true;
     const height = radius * (this.graphicStyle ? 0.285 : 0.20);
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 64, 1, true);
-    const backdropOpacity = this.graphicStyle ? 0.96 : 0.25;
+    // ⚠️ CES DEUX BANDES SONT RENDUES SANS BROUILLARD (`fog: false`), et il le
+    // faut : une texture posée à 2 600 m serait entièrement mangée par le
+    // FogExp2. Mais du coup elles ne reculent PAS — elles sortaient à pleine
+    // couleur, et l'horizon lisait « autocollant » (retour du 2 septembre). La
+    // perspective aérienne est donc refaite à la main : moins d'opacité, donc
+    // plus de ciel au travers, et une teinte froide qui désature le vert.
+    const backdropOpacity = this.graphicStyle ? 0.96 : 0.19;
     const material = new THREE.MeshBasicMaterial({
       map: texture,
+      color: this.graphicStyle ? 0xffffff : 0xe2f2f6,
       transparent: true,
       opacity: backdropOpacity,
       alphaTest: 0.025,
@@ -483,10 +490,13 @@ export class AtmosphereSystem {
     texture.needsUpdate = true;
     const height = radius * 0.27;
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 48, 1, true);
+    // Même raison que la bande lointaine : à 620 m le brouillard de la scène ne
+    // laisserait passer que 7 % du pixel. On s'en approche par l'opacité.
     const material = new THREE.MeshBasicMaterial({
       map: texture,
+      color: 0xd9edf2,
       transparent: true,
-      opacity: 0.52,
+      opacity: 0.33,
       // alphaTest : la bande est detouree, et 72 % de son quad est vide. Sans
       // lui ces texels sont tries et rasterises pour rien, devant la mer.
       alphaTest: 0.08,
@@ -494,7 +504,7 @@ export class AtmosphereSystem {
       side: THREE.BackSide,
       fog: false
     });
-    material.clearOpacity = 0.52;
+    material.clearOpacity = 0.33;
     this.nearBackdrop = new THREE.Mesh(geometry, material);
     // Le pied doit passer SOUS l'horizon pour que la mer le recouvre, sinon on
     // voit la coupure nette du bas de la texture.
@@ -517,7 +527,8 @@ export class AtmosphereSystem {
     this.graphicStyle = Boolean(enabled);
     this.uniforms.uGraphicStyle.value = this.graphicStyle ? 1 : 0;
     if (this.backdrop?.material) {
-      const opacity = this.graphicStyle ? 0.96 : 0.25;
+      const opacity = this.graphicStyle ? 0.96 : 0.19;
+      this.backdrop.material.color.setHex(this.graphicStyle ? 0xffffff : 0xe2f2f6);
       this.backdrop.material.clearOpacity = opacity;
       this.backdrop.material.opacity = opacity;
     }

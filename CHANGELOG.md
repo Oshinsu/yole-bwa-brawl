@@ -13,6 +13,47 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 84 — le sable, l'horizon, les îlets
+
+Retour du propriétaire sur les captures de la passe 83 : « sable dégueu,
+horizon dégueu, les îlets sont dégueu ». Trois défauts distincts, dont deux
+étaient des bugs.
+
+- **La canopée était effacée à chaque partie.** Le moutonnement des mornes était
+  calculé à la CONSTRUCTION de la géométrie, puis `applyStagePalette` réécrivait
+  les couleurs de sommet **sans le refaire** — et cette méthode tourne à chaque
+  `setStage`, donc à chaque match. Le moutonnement n'a donc jamais été visible en
+  jeu : les îlots sortaient en dégradés lisses. Les deux rampes avaient divergé.
+  Elles sont désormais **une seule fonction** (`peindreSommetDIle`), et le
+  moutonnement prend ses deux teintes dans la palette de l'arène.
+- **Il n'y avait pas de plage sur quatre archétypes sur sept.** Mesuré :
+  l'emprise horizontale réelle d'un morne vaut 1,20 à 1,30 fois le rayon de
+  l'îlot, contre 0,96 à 1,06 pour le disque de sable en tropical, volcanique,
+  mangrove et falaises. Le relief **recouvrait entièrement** le sable. Élargir
+  le disque n'était pas possible — il coïncide avec l'enveloppe de collision, et
+  le pousser plus loin laisserait une yole naviguer sur du sable. La plage est
+  donc **peinte sur le premier quart de la hauteur du morne** : elle apparaît sur
+  les sept archétypes, garde la palette d'arène, et ne touche à aucune collision.
+- **La plage n'était plus une assiette.** `CylinderGeometry(1, 1.08, 1, 24)`
+  devient `makeBeachGeometry` : disque radial à 44 côtés, bord irrégulier,
+  centre relevé de 13 %, et un **liseré mouillé** porté par les couleurs de
+  sommet, qui modulent la teinte de la palette au lieu de la remplacer.
+  ⚠️ Le bord tient exactement la ligne d'eau de l'ancien cylindre — un premier
+  essai bombait vers le bas et noyait la plage, vu en capture.
+- **L'horizon ne reculait pas.** Les deux bandes de fond sont rendues sans
+  brouillard, et il le faut : posées à 620 et 2 600 m, le `FogExp2` de la scène
+  ne laisserait passer que 7 % et 0,1 % du pixel. Mais elles sortaient donc à
+  pleine couleur, et lisaient « autocollant ». La perspective aérienne est
+  refaite à la main : opacité 0,52 → **0,33** pour la bande proche, 0,25 →
+  **0,19** pour la lointaine, plus une teinte froide qui désature le vert.
+- **Îlets générés par Meshy : essayés, non retenus.** Un `ilet_rocheux.glb`
+  (727 triangles) a été généré et rendu à côté de l'îlot du jeu, même dégradé
+  d'altitude appliqué pour ne comparer que la forme : plus de caractère, mais
+  troué (faces inversées) et surtout impossible à faire tenir dans l'ellipse de
+  collision, que `test/world-collision.test.mjs` vérifie sommet par sommet. La
+  cause réelle du « dégueu » était ailleurs, et elle est corrigée ci-dessus.
+- Purement visuel : les quatre checksums sont inchangés.
+
 ## Passe 83 — le bourg : la côte devient habitée
 
 Suite directe de la passe 82 : les crédits Meshy vont là où la mesure dit qu'il

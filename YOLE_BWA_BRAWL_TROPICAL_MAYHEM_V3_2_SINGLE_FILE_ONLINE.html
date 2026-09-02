@@ -12996,9 +12996,16 @@ class AtmosphereSystem {
     texture.needsUpdate = true;
     const height = radius * (this.graphicStyle ? 0.285 : 0.20);
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 64, 1, true);
-    const backdropOpacity = this.graphicStyle ? 0.96 : 0.25;
+    // ⚠️ CES DEUX BANDES SONT RENDUES SANS BROUILLARD (`fog: false`), et il le
+    // faut : une texture posée à 2 600 m serait entièrement mangée par le
+    // FogExp2. Mais du coup elles ne reculent PAS — elles sortaient à pleine
+    // couleur, et l'horizon lisait « autocollant » (retour du 2 septembre). La
+    // perspective aérienne est donc refaite à la main : moins d'opacité, donc
+    // plus de ciel au travers, et une teinte froide qui désature le vert.
+    const backdropOpacity = this.graphicStyle ? 0.96 : 0.19;
     const material = new THREE.MeshBasicMaterial({
       map: texture,
+      color: this.graphicStyle ? 0xffffff : 0xe2f2f6,
       transparent: true,
       opacity: backdropOpacity,
       alphaTest: 0.025,
@@ -13031,10 +13038,13 @@ class AtmosphereSystem {
     texture.needsUpdate = true;
     const height = radius * 0.27;
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 48, 1, true);
+    // Même raison que la bande lointaine : à 620 m le brouillard de la scène ne
+    // laisserait passer que 7 % du pixel. On s'en approche par l'opacité.
     const material = new THREE.MeshBasicMaterial({
       map: texture,
+      color: 0xd9edf2,
       transparent: true,
-      opacity: 0.52,
+      opacity: 0.33,
       // alphaTest : la bande est detouree, et 72 % de son quad est vide. Sans
       // lui ces texels sont tries et rasterises pour rien, devant la mer.
       alphaTest: 0.08,
@@ -13042,7 +13052,7 @@ class AtmosphereSystem {
       side: THREE.BackSide,
       fog: false
     });
-    material.clearOpacity = 0.52;
+    material.clearOpacity = 0.33;
     this.nearBackdrop = new THREE.Mesh(geometry, material);
     // Le pied doit passer SOUS l'horizon pour que la mer le recouvre, sinon on
     // voit la coupure nette du bas de la texture.
@@ -13065,7 +13075,8 @@ class AtmosphereSystem {
     this.graphicStyle = Boolean(enabled);
     this.uniforms.uGraphicStyle.value = this.graphicStyle ? 1 : 0;
     if (this.backdrop?.material) {
-      const opacity = this.graphicStyle ? 0.96 : 0.25;
+      const opacity = this.graphicStyle ? 0.96 : 0.19;
+      this.backdrop.material.color.setHex(this.graphicStyle ? 0xffffff : 0xe2f2f6);
       this.backdrop.material.clearOpacity = opacity;
       this.backdrop.material.opacity = opacity;
     }
@@ -14979,6 +14990,122 @@ function makePalmFrondGeometry(THREE) {
   return geometrie;
 }
 
+/**
+ * La couleur d'un sommet de morne : étagement plage → végétation → roche,
+ * plus le moutonnement de canopée.
+ *
+ * ⚠️ CE PARTAGE EST LE CORRECTIF DE LA PASSE 84. Le moutonnement était calculé
+ * à la CONSTRUCTION de la géométrie, puis `applyStagePalette` réécrivait les
+ * couleurs de sommet sans le refaire — et cette méthode tourne à CHAQUE
+ * `setStage`, donc à chaque partie. Autrement dit le moutonnement n'était
+ * jamais visible en jeu : les îlots sortaient en dégradés lisses, et le seul
+ * relief apparent venait de la carte de roche. Vu en capture le 2 septembre,
+ * confirmé en lisant les deux rampes, qui avaient divergé.
+ *
+ * Le bruit est accroché à la POSITION du sommet, jamais au flux RNG partagé.
+ */
+function peindreSommetDIle(scratch, teintes, t, px, pz) {
+  // ⚠️ LA PLAGE EST PEINTE SUR LE PIED DU MORNE, et c'est le correctif de la
+  // passe 84. Mesuré : sur QUATRE archétypes sur sept (tropical, volcanique,
+  // mangrove, falaises), l'emprise horizontale du relief — 1,20 à 1,30 fois le
+  // rayon de l'îlot — DÉPASSE le disque de sable (0,96 à 1,06). Le morne
+  // recouvrait donc entièrement la plage : les cocotiers avaient les pieds dans
+  // l'eau et l'îlot lisait « motte verte jetée à la mer ».
+  //
+  // Élargir le disque n'est pas une option : il coïncide déjà avec l'enveloppe
+  // de collision, et le pousser plus loin laisserait une yole naviguer sur du
+  // sable. On peint donc le sable sur le premier quart de la hauteur, ce qui
+  // marche sur les sept archétypes, garde la palette d'arène, et ne touche à
+  // aucune forme de collision.
+  const SABLE_JUSQUA = 0.23;
+  const HERBE_DES = 0.32;
+  if (t < SABLE_JUSQUA) {
+    // Une vraie bande de sable, à peine réchauffée vers le haut.
+    scratch.copy(teintes.sand).lerp(teintes.jungle, Math.pow(t / SABLE_JUSQUA, 2.2) * 0.35);
+  } else if (t < HERBE_DES) {
+    scratch.copy(teintes.sand).lerp(teintes.jungle, 0.35 + 0.65 * (t - SABLE_JUSQUA) / (HERBE_DES - SABLE_JUSQUA));
+  } else if (t < 0.88) {
+    scratch.copy(teintes.jungle).lerp(teintes.deepJungle, (t - HERBE_DES) / (0.88 - HERBE_DES));
+  } else {
+    scratch.copy(teintes.deepJungle).lerp(teintes.rock, Math.pow((t - 0.88) / 0.12, 1.5));
+  }
+  if (t >= SABLE_JUSQUA && t < 0.92) {
+    // Fréquences À L'ÉCHELLE DES FACETTES (26×9 sommets) : plus fin, le bruit
+    // se replie en bandes diagonales sur les grands triangles du pied.
+    const bosquet = Math.sin(px * 2.9 + pz * 2.1) * Math.sin(px * 1.7 - pz * 3.3)
+      + Math.sin(px * 6.1 + pz * 4.7) * 0.35;
+    // Le moutonnement s'éteint sur la bande de sable et au sommet rocheux.
+    const feuillu = Math.sin(Math.min(1, (t - SABLE_JUSQUA) / (1 - SABLE_JUSQUA)) * Math.PI);
+    if (bosquet > 0) scratch.lerp(teintes.canopyLight, Math.min(1, bosquet) * 0.34 * feuillu);
+    else scratch.lerp(teintes.canopyShade, Math.min(1, -bosquet) * 0.42 * feuillu);
+  }
+  return scratch;
+}
+
+/**
+ * La plage : un disque radial bombé, bord irrégulier, et un LISERÉ MOUILLÉ.
+ *
+ * ⚠️ C'était un `CylinderGeometry(1, 1.08, 1, 24)` — une assiette à 24 côtés,
+ * d'un crème uniforme, tranchée net par le plan d'eau. Aucun sable ne fait ça.
+ * Les couleurs de sommet MODULENT la teinte du matériau (sombre et mouillé au
+ * rivage, clair et sec au centre) : la palette d'arène continue donc de
+ * s'appliquer, elle est simplement nuancée.
+ *
+ * Le sommet du disque reste à y = +0,5 comme le cylindre : `sandTopY`, dont
+ * dépend le placement du bourg, ne bouge pas. Le bord ne dépasse JAMAIS le
+ * rayon 1 — c'est l'enveloppe de collision de plage.
+ */
+function makeBeachGeometry(THREE, { radialSegments = 44, rings = 6 } = {}) {
+  const positions = [];
+  const colors = [];
+  const indices = [];
+  // Bord irrégulier : deux harmoniques, jamais au-delà du rayon 1.
+  const decoupe = (angle) => 1
+    - 0.055 * (1 + Math.sin(angle * 3.0 + 0.7))
+    - 0.028 * (1 + Math.sin(angle * 5.0 - 1.9));
+  for (let ring = 0; ring <= rings; ring++) {
+    const t = ring / rings;
+    // ⚠️ LE BORD RESTE À +0,5, EXACTEMENT LÀ OÙ ÉTAIT LE DESSUS DU CYLINDRE :
+    // c'est lui qui fixe la ligne d'eau. Un premier essai bombait vers le BAS —
+    // le bord passait 9 cm sous la flottaison et la plage disparaissait, vue en
+    // capture. On relève donc le CENTRE, jamais on n'abaisse le bord.
+    const dessus = 0.5 + 0.13 * (1 - t * t);
+    for (let segment = 0; segment <= radialSegments; segment++) {
+      const angle = (segment % radialSegments) / radialSegments * Math.PI * 2;
+      const r = t * decoupe(angle);
+      positions.push(Math.cos(angle) * r, dessus, Math.sin(angle) * r);
+      // Sec au centre, mouillé sur le dernier quart : c'est la laisse de mer.
+      const mouille = Math.max(0, (t - 0.72) / 0.28);
+      const clair = 1.06 - 0.10 * t * t;
+      const nuance = clair - mouille * mouille * 0.34;
+      colors.push(nuance, nuance * 0.995, nuance * 0.965);
+    }
+  }
+  // La jupe : un anneau vertical qui descend sous l'eau au bord du disque.
+  const anneauJupe = rings + 1;
+  for (let segment = 0; segment <= radialSegments; segment++) {
+    const angle = (segment % radialSegments) / radialSegments * Math.PI * 2;
+    const r = decoupe(angle);
+    positions.push(Math.cos(angle) * r, -0.5, Math.sin(angle) * r);
+    colors.push(0.56, 0.56, 0.55);
+  }
+  const stride = radialSegments + 1;
+  for (let ring = 0; ring < rings + 1; ring++) {
+    for (let segment = 0; segment < radialSegments; segment++) {
+      const a = ring * stride + segment;
+      const b = a + stride;
+      indices.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  }
+  void anneauJupe;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {}) {
   const positions = [];
   const colors = [];
@@ -15042,25 +15169,7 @@ function makeIslandGeometry(THREE, rng, { radialSegments = 26, rings = 9 } = {})
       altitudes.push(t);
       collisionScale = Math.max(collisionScale, Math.hypot(px, pz));
 
-      // Etagement : plage, vegetation dense, puis roche a decouvert au sommet.
-      if (t < 0.16) scratch.copy(sand).lerp(jungle, t / 0.16);
-      else if (t < 0.88) scratch.copy(jungle).lerp(deepJungle, (t - 0.16) / 0.72);
-      else scratch.copy(deepJungle).lerp(rock, Math.pow((t - 0.88) / 0.12, 1.5));
-      // Moutonnement de canopée : le dégradé lisse lisait « cône peint », pas
-      // « morne boisé » (photo de référence : couronne broccoli, taches
-      // claires/sombres par bouquet d'arbres). Bruit accroché à la POSITION du
-      // sommet, jamais au flux RNG partagé — le nombre d'appels rng.next()
-      // est contractuel pour le déterminisme des silhouettes.
-      if (t >= 0.16 && t < 0.92) {
-        // Fréquences À L'ÉCHELLE DES FACETTES (26×9 sommets) : plus fin, le
-        // bruit se replie en bandes diagonales sur les grands triangles du
-        // pied — mesuré sur capture, pas une hypothèse.
-        const bosquet = Math.sin(px * 2.9 + pz * 2.1) * Math.sin(px * 1.7 - pz * 3.3)
-          + Math.sin(px * 6.1 + pz * 4.7) * 0.35;
-        const feuillu = Math.sin(t * Math.PI);
-        if (bosquet > 0) scratch.lerp(canopyLight, Math.min(1, bosquet) * 0.34 * feuillu);
-        else scratch.lerp(canopyShade, Math.min(1, -bosquet) * 0.42 * feuillu);
-      }
+      peindreSommetDIle(scratch, { sand, jungle, deepJungle, rock, canopyLight, canopyShade }, t, px, pz);
       colors.push(scratch.r, scratch.g, scratch.b);
       // UV cylindriques : l'angle donne u, la hauteur donne v. Le facteur 3 sur
       // u répète la texture autour du morne — sans lui, une planche de 512²
@@ -15199,7 +15308,11 @@ class WorldStreamer {
     this.materials = {
       // Slightly neutral pre-exposed ivory: the scene's strong golden key light
       // brings it back toward #e8d7a2 instead of clipping it to fluorescent yellow.
-      sand: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.sand, roughness: 0.98, flatShading: true }),
+      // `vertexColors` : les couleurs du disque MODULENT cette teinte, elles ne
+      // la remplacent pas — la palette d'arène continue de commander.
+      sand: new THREE.MeshStandardMaterial({
+        color: DEFAULT_PALETTE.sand, roughness: 0.98, flatShading: true, vertexColors: true
+      }),
       shallowRock: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.shallowRock, roughness: 0.96 }),
       green: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.green, roughness: 0.90 }),
       darkGreen: new THREE.MeshStandardMaterial({ color: DEFAULT_PALETTE.darkGreen, roughness: 0.93 }),
@@ -15229,7 +15342,7 @@ class WorldStreamer {
     const islandRng = new RNG((seed ^ 0x51ad9e) >>> 0);
     this.islandGeometries = Array.from({ length: 5 }, () => makeIslandGeometry(THREE, islandRng));
 
-    this.baseGeometry = new THREE.CylinderGeometry(1, 1.08, 1, 24);
+    this.baseGeometry = makeBeachGeometry(THREE);
     this.hillGeometry = new THREE.ConeGeometry(1, 1, 22);
     this.rockGeometry = makeRockGeometry(THREE);
     this.landmarkConeGeometry = new THREE.ConeGeometry(1, 1, 22);
@@ -15396,11 +15509,9 @@ class WorldStreamer {
     const profile = this.stageProfile;
     const group = new THREE.Group();
     const base = new THREE.Mesh(this.baseGeometry, this.materials.sand);
-    base.scale.set(
-      descriptor.rx * profile.sandScale,
-      0.42 + descriptor.rx * 0.003,
-      descriptor.rz * profile.sandScale
-    );
+    // L'échelle est posée PLUS BAS, une fois connue l'emprise du morne : la
+    // plage doit être au moins aussi large que lui, sinon il la recouvre.
+    const epaisseurPlage = 0.42 + descriptor.rx * 0.003;
     // Le lagon assume une vraie plage blanche émergée ; la côte volcanique
     // conserve au contraire un filet sombre et bas.
     base.position.y = profile.sandLift;
@@ -15435,9 +15546,7 @@ class WorldStreamer {
     // bord de l'eau, pas à mi-pente. `islandSurfaceHeight` ne décrit que le
     // relief et repasse sous l'eau au-delà de 0,75 de rayon — sans la plage,
     // rien ne peut être posé sur le rivage.
-    descriptor.sandTopY = -0.3 + profile.sandLift + (0.42 + descriptor.rx * 0.003) * 0.5;
-    descriptor.sandRx = descriptor.rx * profile.sandScale;
-    descriptor.sandRz = descriptor.rz * profile.sandScale;
+    descriptor.sandTopY = -0.3 + profile.sandLift + epaisseurPlage * 0.5;
     descriptor.visualHeight = hillHeight;
     descriptor.visualBaseY = -0.95;
     descriptor.visualRx = descriptor.rx * 0.86 * profile.hillWidth;
@@ -15445,6 +15554,28 @@ class WorldStreamer {
     descriptor.visualRotation = hillRotation;
     descriptor.visualShape = geometry.userData;
     const terrainEnvelope = geometry.userData.collisionScale ?? 1.35;
+    // ⚠️ MESURÉ LE 2 SEPTEMBRE : SUR QUATRE ARCHÉTYPES SUR SEPT, IL N'Y AVAIT
+    // AUCUNE PLAGE VISIBLE. Le disque de sable valait `rx * sandScale` (1,015
+    // en tropical, 1,025 en volcanique, 1,06 en mangrove, 0,96 en falaises)
+    // alors que l'emprise horizontale réelle du morne atteint 1,20 à 1,30 fois
+    // le rayon — le relief débordait le sable et le mangeait entièrement. La
+    // plage suit donc désormais l'emprise du morne, avec 6 % de marge.
+    //
+    // Purement visuel : les deux formes de collision plus bas ne changent pas,
+    // et l'enveloppe de terrain (elle aussi en `terrainEnvelope`) couvrait déjà
+    // cette largeur — la plage coïncide maintenant avec l'endroit où la yole
+    // est réellement arrêtée, au lieu de s'arrêter bien avant.
+    const plageX = Math.max(profile.sandScale, 0.86 * profile.hillWidth * terrainEnvelope * 1.06);
+    const plageZ = Math.max(profile.sandScale, 0.83 * profile.hillWidth * terrainEnvelope * 1.06);
+    base.scale.set(descriptor.rx * plageX, epaisseurPlage, descriptor.rz * plageZ);
+    // ⚠️ LE BOURG NE SUIT PAS LA PLAGE ÉLARGIE. Le sable visible déborde
+    // maintenant la forme de collision de plage — il coïncide avec l'enveloppe
+    // de TERRAIN, qui est une ellipse TOURNÉE : selon l'angle, elle est plus
+    // étroite que le disque. Poser une case sur ce débord la ferait sortir de
+    // l'enveloppe, ce que `test/bourg.test.mjs` a immédiatement attrapé
+    // (gommier à 1,42 m dehors). Le semis garde donc le rayon sûr.
+    descriptor.sandRx = descriptor.rx * profile.sandScale;
+    descriptor.sandRz = descriptor.rz * profile.sandScale;
     descriptor.collisionShapes = [
       {
         offsetX: 0,
@@ -15721,20 +15852,28 @@ class WorldStreamer {
     // Les mornes utilisent des couleurs de sommet. Modifier uniquement les
     // matériaux `green` et `darkGreen` ne changeait donc pas leur rendu.
     const THREE = this.THREE;
-    const sand = new THREE.Color(this.stagePalette.sand);
-    const green = new THREE.Color(this.stagePalette.green);
-    const dark = new THREE.Color(this.stagePalette.darkGreen);
-    const rock = new THREE.Color(this.stagePalette.shallowRock);
+    // Les six teintes de l'étagement, tirées de la palette de l'arène. Le
+    // moutonnement en fait partie : sans lui, ce repeint EFFACE le relief de
+    // canopée à chaque partie — c'était le défaut de la passe 84.
+    const teintes = {
+      sand: new THREE.Color(this.stagePalette.sand),
+      jungle: new THREE.Color(this.stagePalette.green),
+      deepJungle: new THREE.Color(this.stagePalette.darkGreen),
+      rock: new THREE.Color(this.stagePalette.shallowRock),
+      canopyLight: new THREE.Color(this.stagePalette.leaf),
+      canopyShade: new THREE.Color(this.stagePalette.darkGreen).multiplyScalar(0.52)
+    };
     const scratch = new THREE.Color();
     for (const geometry of this.islandGeometries) {
       const altitudes = geometry.userData.altitudes;
       const attribute = geometry.attributes?.color;
-      if (!altitudes || !attribute?.array) continue;
+      const sommets = geometry.attributes?.position?.array;
+      if (!altitudes || !attribute?.array || !sommets) continue;
       for (let index = 0; index < altitudes.length; index++) {
-        const t = altitudes[index];
-        if (t < 0.16) scratch.copy(sand).lerp(green, t / 0.16);
-        else if (t < 0.88) scratch.copy(green).lerp(dark, (t - 0.16) / 0.72);
-        else scratch.copy(dark).lerp(rock, Math.pow((t - 0.88) / 0.12, 1.5));
+        peindreSommetDIle(
+          scratch, teintes, altitudes[index],
+          sommets[index * 3], sommets[index * 3 + 2]
+        );
         attribute.array[index * 3] = scratch.r;
         attribute.array[index * 3 + 1] = scratch.g;
         attribute.array[index * 3 + 2] = scratch.b;
