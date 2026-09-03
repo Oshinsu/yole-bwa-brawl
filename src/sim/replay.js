@@ -45,7 +45,12 @@ export const REPLAY_SCHEMA_VERSION = 2;
 // 4.1.0 — profils météo par étape, pénalité d'équipage plafonnée et vraie
 // manœuvre d'urgence à zéro équipier. Ces trois changements modifient les
 // trajectoires : les replays 4.0 doivent être refusés plutôt que diverger.
-export const SIMULATION_VERSION = "4.1.0";
+// ⚠️ 4.2.0 (passe 92) : les bancs de sargasses ne sont plus des disques mais
+// six formes orientées (barre, traînée, diagonales, pavé), et le test de
+// pénétration suit leur contour. La trajectoire d'une course en dépend, donc
+// les enregistrements antérieurs sont REFUSÉS plutôt que rejoués faux — même
+// règle que le recalage des stations de coque au 2 août.
+export const SIMULATION_VERSION = "4.2.0";
 // Passe joueur : score explicite, première manche PEYI, profils d'étape,
 // anti-dogpile et spectateur accéléré. Le slug distingue aussi clairement les
 // partages produits avant/après ce rééquilibrage.

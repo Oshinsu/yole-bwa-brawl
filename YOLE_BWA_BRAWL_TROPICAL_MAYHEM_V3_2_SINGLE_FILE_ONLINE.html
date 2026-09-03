@@ -9487,7 +9487,12 @@ const REPLAY_SCHEMA_VERSION = 2;
 // 4.1.0 — profils météo par étape, pénalité d'équipage plafonnée et vraie
 // manœuvre d'urgence à zéro équipier. Ces trois changements modifient les
 // trajectoires : les replays 4.0 doivent être refusés plutôt que diverger.
-const SIMULATION_VERSION = "4.1.0";
+// ⚠️ 4.2.0 (passe 92) : les bancs de sargasses ne sont plus des disques mais
+// six formes orientées (barre, traînée, diagonales, pavé), et le test de
+// pénétration suit leur contour. La trajectoire d'une course en dépend, donc
+// les enregistrements antérieurs sont REFUSÉS plutôt que rejoués faux — même
+// règle que le recalage des stations de coque au 2 août.
+const SIMULATION_VERSION = "4.2.0";
 // Passe joueur : score explicite, première manche PEYI, profils d'étape,
 // anti-dogpile et spectateur accéléré. Le slug distingue aussi clairement les
 // partages produits avant/après ce rééquilibrage.
@@ -28321,14 +28326,76 @@ const PickupSystems = {
 // épais qu'un grand, seule son emprise change.
 const SARGASSE_SUBDIVISIONS = 14;
 const SARGASSE_RELIEF = 0.62;
-const SARGASSE_CLUMPS = 6;
+const SARGASSE_CLUMPS = 9;
 const SARGASSE_COLORS = [0x9f7b22, 0x697128, 0xc08a24, 0x4f6126];
+
+// ─── SIX FORMES DE BANC ───────────────────────────────────────────────────────
+//
+// Les radeaux étaient tous des DISQUES de rayon `size`, et la collision un
+// simple `distance < size`. Sur l'eau les sargasses ne font jamais ça : elles
+// s'alignent en longues traînées dans le sens du courant, ou barrent en
+// travers sur la ligne d'un front. Six formes, tirées de (rangée, créneau),
+// donc parfaitement déterministes :
+//
+//   rond        un amas, comme avant
+//   barre       en TRAVERS du parcours — il faut le contourner ou le percer
+//   trainee     dans l'AXE — on peut longer, ou s'y engluer sur toute sa longueur
+//   diagonale   et sa symétrique : obligent à choisir un bord
+//   carre       un pavé franc, presque à angles droits
+//
+// `a` et `b` sont les demi-axes en fraction de `size` (a le long de l'axe du
+// banc, b en travers), `angle` l'orientation en radians — 0 = le grand axe
+// suit X, donc EN TRAVERS d'un parcours qui court selon Z.
+//
+// ⚠️ LES AIRES SONT VOLONTAIREMENT COMPARABLES (a×b entre 0,74 et 1,00) : les
+// formes changent la façon de négocier un banc, pas la quantité d'algues sur
+// le parcours. Une barre deux fois plus longue aurait été un mur.
+const SARGASSE_FORMS = Object.freeze([
+  Object.freeze({ key: "rond", a: 1.00, b: 1.00, angle: 0.00 }),
+  Object.freeze({ key: "barre", a: 1.62, b: 0.55, angle: 0.00 }),
+  Object.freeze({ key: "trainee", a: 1.55, b: 0.56, angle: Math.PI / 2 }),
+  Object.freeze({ key: "diagonale", a: 1.58, b: 0.55, angle: 0.66 }),
+  Object.freeze({ key: "contre", a: 1.58, b: 0.55, angle: -0.66 }),
+  Object.freeze({ key: "carre", a: 0.88, b: 0.88, angle: 0.38 })
+]);
+
+// ⚠️ SUPERELLIPSE, ET LE MÊME EXPOSANT DES DEUX CÔTÉS. Le contour d'un banc
+// obéit à |u/a|^n + |v/b|^n = 1. À n = 2 c'est une ellipse, à n grand un
+// rectangle ; n = 4 donne un galet à bouts francs — ce que montrent les nappes
+// de sargasses, larges et tronquées, jamais en amande pointue. Cet exposant
+// sert À LA FOIS au relief de la géométrie et au test de pénétration : le
+// joueur s'englue exactement là où il voit des algues. Les séparer serait
+// rouvrir le défaut que la passe 90 a corrigé sur la mer — un dessin qui ment
+// sur la géométrie.
+const SARGASSE_EXPOSANT = 4;
+
+/** Pénétration normalisée dans un banc : 0 au bord, 1 au centre, négatif dehors. */
+function sargassePenetration(patch, x, z) {
+  const dx = x - patch.x;
+  const dz = z - patch.z;
+  // Dans le repère du banc.
+  const u = dx * patch.cos + dz * patch.sin;
+  const v = -dx * patch.sin + dz * patch.cos;
+  const p = (u / patch.demiLongueur) ** 2;
+  const q = (v / patch.demiLargeur) ** 2;
+  // p² + q² = (u/a)⁴ + (v/b)⁴ : au-delà de 1 on est hors du banc, et on sort
+  // sans la double racine.
+  const puissance = p * p + q * q;
+  if (puissance >= 1) return 0;
+  return 1 - Math.sqrt(Math.sqrt(puissance));
+}
 
 const SARGASSE = {
   spacing: 137,       // décalé du pas des caisses (88) pour éviter la répétition
   slots: [-31, 4, 27],
   rows: 5,
-  radius: 7.4,
+  // ⚠️ RAMENÉ DE 7,4 À 7,2 AVEC LES FORMES. Une superellipse d'exposant 4 couvre
+  // ~18 % de plus qu'un disque de mêmes demi-axes ; les six formes réunies font
+  // 3,26 unités d'aire par size² contre 3,14 pour l'ancien disque. Le retrait de
+  // rayon (7,2² / 7,4² = 0,947) ramène le total à 3,09 — soit 2 % près de
+  // l'équilibre d'avant. Sans lui, passer du disque aux formes aurait
+  // discrètement augmenté la surface d'algues du parcours.
+  radius: 7.2,
   // Coup de frein immédiat demandé au franchissement : 65 % de l'erre part au
   // premier contact. La traînée continue évite ensuite de retrouver aussitôt la
   // pleine vitesse au milieu de la nappe.
@@ -28376,8 +28443,14 @@ const ObstacleSystems = {
                      + Math.sin(x * 37.1 - z * 29.5) * 0.30
                      + Math.sin(x * 11.2 + z * 43.9) * 0.20;
         // Le bord RETOMBE à zéro : un amas posé sur l'eau, pas une dalle
-        // flottante dont on verrait la tranche.
-        const rayon = Math.min(1, Math.hypot(x, z) * 2);
+        // flottante dont on verrait la tranche. Le contour est la MÊME
+        // superellipse que le test de pénétration (`SARGASSE_EXPOSANT`), sur un
+        // plan unité étiré ensuite aux demi-axes du banc : les coins du plan
+        // retombent à zéro et la silhouette dessinée est exactement celle où
+        // l'on s'englue.
+        const u = Math.abs(x * 2) ** SARGASSE_EXPOSANT;
+        const v = Math.abs(z * 2) ** SARGASSE_EXPOSANT;
+        const rayon = Math.min(1, (u + v) ** (1 / SARGASSE_EXPOSANT));
         const retombee = 1 - rayon * rayon;
         sommets.setY(index, Math.max(0, bosses * 0.5 + 0.42) * retombee * SARGASSE_RELIEF);
       }
@@ -28438,6 +28511,19 @@ const ObstacleSystems = {
     // Taille dérivée de l'indice : variée mais totalement déterministe.
     patch.size = SARGASSE.radius * (0.78 + ((row * 3 + slot) % 5) * 0.11);
     patch.phase = ((row * 7 + slot * 3) % 12) * 0.5236;
+    // La forme aussi : (row * 5 + slot * 2) balaie les six formes sur six
+    // rangées pour un créneau donné, et deux créneaux voisins n'ont jamais la
+    // même — sinon les trois bancs d'une rangée se liraient comme un peigne.
+    const forme = SARGASSE_FORMS[(row * 5 + slot * 2) % SARGASSE_FORMS.length];
+    patch.forme = forme.key;
+    patch.demiLongueur = patch.size * forme.a;
+    patch.demiLargeur = patch.size * forme.b;
+    // Un soupçon de gîte sur l'orientation, pour que deux bancs de même forme
+    // ne soient pas deux copies. Bornée à 0,14 rad : au-delà, une « barre »
+    // cesserait de se lire comme un travers franc.
+    patch.angle = forme.angle + (((row * 11 + slot * 5) % 7) - 3) * 0.047;
+    patch.cos = Math.cos(patch.angle);
+    patch.sin = Math.sin(patch.angle);
     if (this.sargasseClumps?.setColorAt && this.sargasseColorScratch) {
       for (let clump = 0; clump < SARGASSE_CLUMPS; clump++) {
         const color = SARGASSE_COLORS[(row + slot * 2 + clump) % SARGASSE_COLORS.length];
@@ -28463,12 +28549,14 @@ const ObstacleSystems = {
         this.sargasseWaterScratch
       ) ?? { height: 0, slopeX: 0, slopeZ: 0 };
       dummy.position.set(patch.x, water.height + 0.035, patch.z);
+      // Le lacet est celui de la FORME, plus celui d'un tirage : c'est lui qui
+      // fait lire une barre en travers ou une traînée dans l'axe.
       dummy.rotation.set(
         (water.slopeZ ?? 0) * 0.24,
-        patch.phase,
+        patch.angle,
         -(water.slopeX ?? 0) * 0.24
       );
-      dummy.scale.set(patch.size * 2, 1, patch.size * 2);
+      dummy.scale.set(patch.demiLongueur * 2, 1, patch.demiLargeur * 2);
       dummy.updateMatrix();
       this.sargasseMesh.setMatrixAt(patch.index, dummy.matrix);
 
@@ -28476,9 +28564,14 @@ const ObstacleSystems = {
       for (let clump = 0; clump < SARGASSE_CLUMPS; clump++) {
         const hash = patch.row * 17 + patch.slot * 11 + clump * 7;
         const angle = patch.phase + hash * 1.618;
-        const radius = patch.size * (0.14 + (hash % 5) * 0.085);
-        const x = patch.x + Math.cos(angle) * radius;
-        const z = patch.z + Math.sin(angle) * radius;
+        // Les touffes se répartissent DANS LE REPÈRE DU BANC : une traînée a ses
+        // amas alignés sur sa longueur, pas dispersés dans un cercle qui
+        // déborderait de la nappe.
+        const part = 0.16 + (hash % 5) * 0.155;
+        const local = Math.cos(angle) * part * patch.demiLongueur;
+        const travers = Math.sin(angle) * part * patch.demiLargeur;
+        const x = patch.x + local * patch.cos - travers * patch.sin;
+        const z = patch.z + local * patch.sin + travers * patch.cos;
         dummy.position.set(
           x,
           water.height + 0.10 + (hash % 3) * 0.035,
@@ -28486,7 +28579,7 @@ const ObstacleSystems = {
         );
         dummy.rotation.set(
           hash * 0.17,
-          angle,
+          angle + patch.angle,
           (hash % 4 - 1.5) * 0.12
         );
         dummy.scale.set(
@@ -28537,11 +28630,7 @@ const ObstacleSystems = {
     for (const boat of alive) {
       let deepest = 0;
       for (const patch of this.sargasses) {
-        const dx = boat.x - patch.x;
-        const dz = boat.z - patch.z;
-        const distance = Math.hypot(dx, dz);
-        if (distance >= patch.size) continue;
-        deepest = Math.max(deepest, 1 - distance / patch.size);
+        deepest = Math.max(deepest, sargassePenetration(patch, boat.x, boat.z));
       }
       if (deepest <= 0) {
         boat.inSargasse = 0;

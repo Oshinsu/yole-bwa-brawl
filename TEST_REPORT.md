@@ -1,5 +1,46 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 92 — six formes de bancs de sargasses
+
+Validation du 2 septembre 2026 (nuit) :
+
+- `npm run verify` : **OK** ; smoke navigateur et shaders générés sans erreur ;
+- **la simulation change, et c'est assumé** : `SIMULATION_VERSION` 4.1.0 →
+  **4.2.0**, les enregistrements antérieurs sont refusés. Checksums relevés et
+  reportés dans `BUILD_INFO.json` :
+
+  | checksum | avant | après |
+  |---|---|---|
+  | deterministic | `017e9fdc` | `017e9fdc` (inchangé) |
+  | scenario | `ae8f228d` | `d5ec7f7d` |
+  | integrated (Combat Box) | `cf78738f` | `38b36ee7` |
+  | replay | `8929cb04` | `ef1ec2e0` |
+  | tourReplay | `59947b1d` | `85b03e9f` |
+  | framerate | `4976b6a4` | `0127bfc6` |
+
+- aire des bancs calculée, pas estimée : six formes à 2,87-3,71 unités par
+  `size²`, moyenne 3,26 contre 3,14 pour l'ancien disque ; rayon 7,4 → 7,2 m
+  ramène le total à 3,09, soit **2 %** de l'équilibre précédent ;
+- mesure en jeu (graine `0x0b0a2026`, quinze bancs) : chaque rangée porte trois
+  formes distinctes, demi-longueurs 4,9 à 13,9 m, orientations −46° à +93° ;
+- captures plongeantes de trois rangées : traînée dans l'axe, barre en travers,
+  diagonales et pavé se lisent séparément ;
+- `test:sim`, `test:tour`, `test:combat`, `test:replay`, `test:playtest` OK ;
+  `test/sound-and-chaos.test.mjs` corrigé — il fabriquait un radeau sans champs
+  de forme et mesurait donc l'absence du frein d'entrée.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire ;
+- le « pavé » est une superellipse d'exposant 4, pas un vrai carré : à demi-axes
+  égaux il se lit comme un galet à angles adoucis. Un carré franc demanderait un
+  second maillage instancié (un appel de dessin de plus) ;
+- l'équilibre de course n'a pas été rejoué à la main : l'aire totale est
+  conservée à 2 %, mais une barre en travers se négocie autrement qu'un disque
+  et peut changer le ressenti d'une étape ;
+- les nappes ne dérivent toujours pas : elles sont posées, recyclées par rangée.
+
+
 ## Passe 91 — une flotte de dix livrées
 
 Validation du 2 septembre 2026 (nuit) :

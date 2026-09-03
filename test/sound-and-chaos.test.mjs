@@ -82,8 +82,18 @@ assert.deepEqual(
       addWater() {}
     }
   };
+  // ⚠️ LE BANC EST CONSTRUIT PAR LE JEU, PAS À LA MAIN. Depuis la passe 92 un
+  // radeau porte sa FORME (demi-axes, orientation) et la pénétration est une
+  // superellipse. Un objet littéral bricolé ici rendait `undefined` sur ces
+  // champs, donc une pénétration nulle : le test passait pour de mauvaises
+  // raisons — il ne mesurait plus le frein d'entrée mais son absence.
+  const banc = { index: 0, row: 2, slot: 0, x: 0, z: 0, size: 1 };
+  ObstacleSystems.placeSargasse.call({}, banc, 2, 0);
+  // Le bateau est posé au CENTRE du banc : pénétration 1, quelle que soit la forme.
+  boat.x = banc.x;
+  boat.z = banc.z;
   const harness = {
-    sargasses: [{ row: 2, slot: 0, x: boat.x, z: boat.z, size: SARGASSE.radius }],
+    sargasses: [banc],
     sargasseFirstRow: 2,
     time: 0,
     collectAlive: () => [boat],

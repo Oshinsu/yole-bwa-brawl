@@ -13,6 +13,50 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 92 — six formes de bancs de sargasses
+
+Le propriétaire : « on peut mieux faire les sargasses et avoir plusieurs types
+de banc ? genre carré, vertical, diagonale ». Oui — et contrairement aux passes
+85 à 91, celle-ci **touche la simulation**.
+
+- **Ce qu'ils étaient.** Quinze DISQUES de rayon `size`, et une collision
+  `distance < size`. Sur l'eau, les sargasses ne font jamais ça : elles
+  s'alignent en longues traînées dans le sens du courant, ou barrent en travers
+  sur la ligne d'un front.
+- **Six formes** (`SARGASSE_FORMS`), tirées de (rangée, créneau) donc
+  parfaitement déterministes : **rond**, **barre** (en travers du parcours),
+  **traînée** (dans l'axe), **diagonale** et sa symétrique, **pavé**. Chaque banc
+  porte ses deux demi-axes et son orientation, avec un soupçon de gîte (± 0,14
+  rad) pour que deux bancs de même forme ne soient pas deux copies. Mesuré en
+  jeu : chaque rangée de trois bancs porte trois formes différentes, demi-longueurs
+  de 4,9 à 13,9 m.
+- **Une superellipse, et le même exposant des deux côtés.** Le contour obéit à
+  |u/a|ⁿ + |v/b|ⁿ = 1 avec n = 4 : un galet à bouts francs, ce que montrent les
+  nappes de sargasses, larges et tronquées, jamais en amande pointue. Cet
+  exposant sert **à la fois** au relief de la géométrie et au test de pénétration
+  — le joueur s'englue exactement là où il voit des algues. Les séparer aurait
+  rouvert le défaut que la passe 90 a corrigé sur la mer : un dessin qui ment sur
+  la géométrie.
+- **L'encombrement du parcours est conservé, et c'est calculé.** Les six formes
+  réunies font 3,26 unités d'aire par `size²` contre 3,14 pour l'ancien disque ;
+  le rayon de base passe de 7,4 à 7,2 m (7,2²/7,4² = 0,947), ce qui ramène le
+  total à 3,09 — à 2 % de l'équilibre d'avant. Sans ce retrait, changer la forme
+  aurait discrètement augmenté la surface d'algues.
+- **Le rendu suit** : la nappe est orientée et étirée sur ses demi-axes, les
+  touffes passent de six à neuf et se répartissent **dans le repère du banc** —
+  une traînée a ses amas alignés sur sa longueur au lieu d'être dispersés dans un
+  cercle qui débordait de la nappe. Toujours deux appels de dessin pour toute la
+  famille.
+- **⚠️ LA SIMULATION CHANGE : `SIMULATION_VERSION` passe à 4.2.0.** Les
+  enregistrements antérieurs sont refusés plutôt que rejoués faux — même règle
+  que le recalage des stations de coque au 2 août. Quatre des cinq checksums
+  bougent (`scenarioChecksum`, `integratedChecksum`, `replayChecksum`,
+  `tourReplayChecksum`, `framerateChecksum`) ; le `deterministicChecksum`
+  (`017e9fdc`) ne bouge pas, son scénario ne touchant aucun banc.
+- `test/sound-and-chaos.test.mjs` construisait son radeau à la main, sans les
+  champs de forme : la pénétration ressortait nulle et le test mesurait
+  l'ABSENCE du frein d'entrée. Il appelle désormais `placeSargasse`.
+
 ## Passe 91 — une flotte de dix livrées, et du matériel sur le pont
 
 Le propriétaire : « il faudrait plusieurs designs de yole, une dizaine, avec de
