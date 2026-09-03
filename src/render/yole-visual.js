@@ -463,6 +463,19 @@ const motionPulse = (value, enterStart, enterEnd, leaveStart, leaveEnd) =>
 // décalage depuis la longueur propre à chaque bwa évite qu'un bois court et un
 // bois long aient des débords opposés incohérents.
 const BEAM_INBOARD_REACH = 0.76;
+// ⚠️ PASSE 88 : UN BWA SE LIT COMME UN FAISCEAU. Sur toutes les photos de
+// course (Sainte-Luce, bout des bois, yole jaune), les hommes sont assis sur
+// quatre à six bois côte à côte, larges de 30-40 cm, pas sur une perche de six
+// centimètres : l'allongé y tenait en équilibre sur un fil, l'assis avait l'air
+// posé sur une barre de gymnastique. Visuel pur — la simulation, les contacts
+// et les mains visent toujours l'axe du bois central ; deux bois
+// d'accompagnement l'encadrent le long de la coque (dz), un peu plus bas (dy),
+// un peu plus courts (bouts décalés, comme des bois lashés à la main).
+export const BWA_BUNDLE = Object.freeze([
+  Object.freeze({ dz: 0, dy: 0, longueur: 1 }),
+  Object.freeze({ dz: 0.115, dy: -0.016, longueur: 0.94 }),
+  Object.freeze({ dz: -0.115, dy: -0.011, longueur: 0.97 })
+]);
 
 // Où la main du patron prend le manche, compté depuis le centre du cylindre.
 // Le manche fait 3,55 m, donc sa poignée est à 1,775 m : la main tombe ainsi à
@@ -570,7 +583,9 @@ const CREW_GAZE_INBOARD = 0.95;
 // composante horizontale de 1. Mesuré avant : aligner la nuque sur la
 // verticale laissait le visage au ciel (+0,55 à +0,82), parce que l'os de
 // tête de ce rig pointe haut et en avant (33°) et que le clip le renverse.
-const CREW_GAZE_AHEAD_DOWN = -0.12;
+// Passe 88 : relevé de −0,12 à +0,06 — l'assis regardait ses pieds ; sur les
+// photos il regarde l'horizon ou le patron.
+const CREW_GAZE_AHEAD_DOWN = 0.06;
 const CREW_TORSO_RECLINE_RAIL = 52;
 const CREW_TORSO_PLANK_ABOVE_POLE = 10;
 
@@ -635,8 +650,16 @@ const CREW_VARIANT_HAS_HEADGEAR = Object.freeze({
   crew: false, crew_locks: true, crew_casquette: true, crew_bakoua: true
 });
 
+// Ordre d'attribution par équipier. Sur les photos du Tour, la casquette est
+// la coiffe d'un homme sur deux ; le reste se partage entre tête nue, bakoua
+// et locks. La liste des variantes (`CREW_VARIANT_PARTS`) reste unique pour le
+// chargement ; seule la séquence d'attribution pèse la casquette.
+const CREW_VARIANT_SEQUENCE = Object.freeze([
+  "crew_casquette", "crew", "crew_casquette", "crew_bakoua", "crew_casquette", "crew_locks"
+]);
+
 export function crewVariantForMember(boatIndex, crewIndex) {
-  return CREW_VARIANT_PARTS[(crewIndex + boatIndex) % CREW_VARIANT_PARTS.length];
+  return CREW_VARIANT_SEQUENCE[(crewIndex + boatIndex) % CREW_VARIANT_SEQUENCE.length];
 }
 
 // Le pool d'hommes à l'eau (debris.js) applique la même garde anti
@@ -646,6 +669,10 @@ export function crewVariantCarriesHeadgear(part) {
 }
 
 export const CREW_SKINS = [0x5d3328, 0x78442f, 0x955b3e, 0xb87852, 0x6c3a2c, 0x8b4e36];
+// Baskets (passe 88). Les dresseurs courent chaussés — baskets, chaussons
+// d'eau — jamais pieds nus sur les photos. Un corps coloré et une semelle
+// contrastée, une paire par homme, déterministe par rang.
+const CREW_SHOE_COLORS = [0x1b1d24, 0xf4f4f0, 0xc9302c, 0x2450b8, 0x1b1d24, 0xf4f4f0];
 const CREW_BUILD = [1.0, 0.96, 1.04, 0.98, 1.02, 0.95];
 
 // Trois coiffes partagées par les six équipiers d'une yole. Casquette claire,
@@ -1090,6 +1117,7 @@ export class CrewVisual {
     this.legDir = new THREE.Vector3();
     this.captureRestPoles(THREE);
     this.measureHandedness(THREE);
+    this.dressFeet(THREE);
     this.measureBindSplay(THREE);
     this.measureHipHeight(THREE);
     this.measureLegLength(THREE);
@@ -1202,6 +1230,77 @@ export class CrewVisual {
   //
   // Stocké dans le repère du PARENT de la racine de chaîne : le pole suit alors
   // l'épaule et la hanche quand le corps tourne, sans recalcul.
+  /**
+   * Chaussures. Les dresseurs courent en baskets (photos du Tour), pas pieds
+   * nus : un corps de couleur et une semelle contrastée, posés sur l'os du
+   * pied, dimensionnés sur la longueur cheville → orteils DU RIG (unités de
+   * l'os, l'échelle de l'armature fait le reste). Le dessous du pied est la
+   * verticale descendante du monde au bind, ramenée dans l'os. Visuel pur ;
+   * un rig sans orteils (rigs de test) reste pieds nus.
+   */
+  dressFeet(THREE) {
+    if (!this.rigRoot?.getObjectByName || !THREE?.BoxGeometry || !THREE?.MeshStandardMaterial
+      || !THREE?.Vector3 || !THREE?.Quaternion || !THREE?.Matrix4) return;
+    const rang = Math.round((this.phase ?? 0) / CREW_LAG);
+    const teinte = CREW_SHOE_COLORS[((rang % CREW_SHOE_COLORS.length) + CREW_SHOE_COLORS.length) % CREW_SHOE_COLORS.length];
+    const claire = ((teinte >> 16) & 255) + ((teinte >> 8) & 255) + (teinte & 255) > 384;
+    const corpsMateriau = new THREE.MeshStandardMaterial({ color: teinte, roughness: 0.82, metalness: 0 });
+    const semelleMateriau = new THREE.MeshStandardMaterial({ color: claire ? 0x2a2d33 : 0xf1f1ec, roughness: 0.9, metalness: 0 });
+    const monde = new THREE.Quaternion();
+    const avant = new THREE.Vector3();
+    const bas = new THREE.Vector3();
+    const haut = new THREE.Vector3();
+    const cote = new THREE.Vector3();
+    const base = new THREE.Matrix4();
+    this.shoes = [];
+    for (const side of ["Left", "Right"]) {
+      const foot = this.rigRoot.getObjectByName(`${side}Foot`) ?? this.rigRoot.getObjectByName(`mixamorig${side}Foot`);
+      const toe = foot?.children?.find((child) => /toe/i.test(child.name ?? ""));
+      if (!foot || !toe?.position) continue;
+      const longueur = toe.position.length();
+      if (!(longueur > 1e-4)) continue;
+      // L os du pied va de la cheville a la base des orteils, donc PLONGE vers
+      // le sol (45-60 deg). Une chaussure, elle, est a plat : son axe est la
+      // projection de l os sur le sol, sa semelle au niveau des orteils, son
+      // talon derriere la cheville. Mesure au bind : le bas du monde ramene
+      // dans l os, la chute cheville -> orteils donne la hauteur de semelle.
+      avant.copy(toe.position).normalize();
+      foot.getWorldQuaternion(monde);
+      bas.set(0, -1, 0).applyQuaternion(monde.invert()).normalize();
+      const chute = Math.max(0, toe.position.dot(bas));
+      avant.addScaledVector(bas, -avant.dot(bas));
+      if (avant.lengthSq() < 1e-6) continue;
+      avant.normalize();
+      haut.copy(bas).negate();
+      cote.crossVectors(haut, avant).normalize();
+      const orientation = new THREE.Quaternion();
+      if (typeof base.makeBasis === "function") {
+        base.makeBasis(cote, haut, avant);
+        orientation.setFromRotationMatrix(base);
+      } else {
+        orientation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), avant);
+      }
+      const semelleY = chute + longueur * 0.10;
+      const hauteurCorps = longueur * 0.50;
+      const corps = new THREE.Mesh(
+        new THREE.BoxGeometry(longueur * 0.62, hauteurCorps, longueur * 1.55),
+        corpsMateriau
+      );
+      corps.position.copy(avant).multiplyScalar(longueur * 0.42).addScaledVector(bas, semelleY - hauteurCorps * 0.5);
+      corps.quaternion.copy(orientation);
+      const semelle = new THREE.Mesh(
+        new THREE.BoxGeometry(longueur * 0.70, longueur * 0.12, longueur * 1.66),
+        semelleMateriau
+      );
+      semelle.position.copy(avant).multiplyScalar(longueur * 0.42).addScaledVector(bas, semelleY + longueur * 0.04);
+      semelle.quaternion.copy(orientation);
+      corps.castShadow = false;
+      semelle.castShadow = false;
+      foot.add(corps, semelle);
+      this.shoes.push(corps, semelle);
+    }
+  }
+
   /** De quel cote du rig est la main gauche : +1 si a +X local, -1 sinon. */
   measureHandedness(THREE) {
     this.leftSign = 1;
@@ -1944,7 +2043,7 @@ export class CrewVisual {
       // et s'arrêtent juste en deçà du plat-bord : un homme posé au bord garde
       // les pieds dans la coque, genoux pliés, pas au-dessus de l'eau.
       const avance = clamp(
-        CREW_RAIL_X - CREW_ABOARD_FEET_MARGIN - Math.abs(this.root.position.x), 0.06, 0.32
+        CREW_RAIL_X - CREW_ABOARD_FEET_MARGIN - Math.abs(this.root.position.x), 0.06, 0.40
       );
       if (contactMode === CREW_CONTACT_BOTH_FEET || leadLeft) {
         leftFootError = this.solveTwoBone(
@@ -3067,7 +3166,7 @@ varying vec3 vHullWorld;`)
       THREE.InstancedMesh && THREE.Object3D && THREE.Matrix4
     );
     this.beamInstances = canInstanceBeams
-      ? new THREE.InstancedMesh(beamGeometry, this.bwaMaterial, BEAM_LAYOUT.length)
+      ? new THREE.InstancedMesh(beamGeometry, this.bwaMaterial, BEAM_LAYOUT.length * BWA_BUNDLE.length)
       : null;
     if (this.beamInstances) {
       this.beamInstances.castShadow = true;
@@ -3076,6 +3175,8 @@ varying vec3 vHullWorld;`)
       this.beamInstances.frustumCulled = false;
       this.beamInstances.instanceMatrix.setUsage?.(THREE.DynamicDrawUsage);
       this.beamInstanceMatrix = new THREE.Matrix4();
+      this.beamBundleOffset = new THREE.Matrix4();
+      this.beamBundleScale = new THREE.Matrix4();
       this.beamHiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
       this.tiltRoot.add(this.beamInstances);
     }
@@ -3394,19 +3495,28 @@ varying vec3 vHullWorld;`)
 
   syncBeamInstances() {
     if (!this.beamInstances) return;
+    const brins = BWA_BUNDLE.length;
     for (let index = 0; index < this.beams.length; index++) {
       const entry = this.beams[index];
       if (!entry.beam.visible) {
-        this.beamInstances.setMatrixAt(index, this.beamHiddenMatrix);
+        for (let k = 0; k < brins; k++) this.beamInstances.setMatrixAt(index * brins + k, this.beamHiddenMatrix);
         continue;
       }
       entry.root.updateMatrix();
       entry.beam.updateMatrix();
-      this.beamInstanceMatrix.multiplyMatrices(
-        entry.root.matrix,
-        entry.beam.matrix
-      );
-      this.beamInstances.setMatrixAt(index, this.beamInstanceMatrix);
+      // Chaque brin du faisceau : décalé dans le repère de la racine du bois
+      // (le long de la coque, un peu plus bas), puis la perche elle-même, puis
+      // sa longueur propre — la matrice du bois central reste celle d'avant.
+      for (let k = 0; k < brins; k++) {
+        const brin = BWA_BUNDLE[k];
+        this.beamBundleOffset.makeTranslation(0, brin.dy, brin.dz);
+        this.beamBundleScale.makeScale(1, brin.longueur, 1);
+        this.beamInstanceMatrix
+          .multiplyMatrices(entry.root.matrix, this.beamBundleOffset)
+          .multiply(entry.beam.matrix)
+          .multiply(this.beamBundleScale);
+        this.beamInstances.setMatrixAt(index * brins + k, this.beamInstanceMatrix);
+      }
     }
     this.beamInstances.instanceMatrix.needsUpdate = true;
   }

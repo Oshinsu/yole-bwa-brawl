@@ -657,6 +657,19 @@ d'un homme assis tronc en arrière n'atteignait pas le bois derrière sa
 hanche, et la limite anatomique du CCD faisait manquer la cible de 59 cm — le
 harnais mesurait le mannequin, pas le moteur.
 
+### Le faisceau et la tenue (2 septembre, passe 88)
+
+Le geste juste ne suffit pas si le décor du corps ment. Chaque bwa est rendu
+par trois brins instanciés (`BWA_BUNDLE` : dz ±0,115, dy −0,011/−0,016,
+longueurs 0,94/0,97) autour du bois de la simulation ; les contacts visent
+toujours le brin central. `dressFeet` chausse chaque pied d'une basket posée
+sur l'os du pied, à plat au sol (projection de l'os sur le sol, semelle au
+niveau des orteils, talon derrière la cheville), dimensionnée sur le rig ;
+`CREW_VARIANT_SEQUENCE` donne la casquette à un homme sur deux ; l'assis regarde
+l'horizon (`CREW_GAZE_AHEAD_DOWN` +0,06). La planche gagne une vue « patron » :
+sa pagaie est attachée à la main droite et sort du cadre serré, elle n'a
+jamais manqué.
+
 ### L'assis regarde le large — les poses recalées sur les photos (2 septembre, passe 87)
 
 Quarante photos du Tour des yoles (Wikimedia Commons) et la fiche d'inventaire du

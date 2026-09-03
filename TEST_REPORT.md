@@ -1,5 +1,34 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 88 — les bois en faisceau, des baskets aux pieds
+
+Validation du 2 septembre 2026 (soir) :
+
+- `npm run verify` : **OK** ; smoke navigateur sans erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : faisceau, baskets, casquettes et regard sont du rendu pur ;
+- harnais silhouette strict OK (bras en croix 13-32°, regard assis
+  +0,19…+0,34), jambes strict OK, appuis strict OK, `crew-seating` lacet 100 % ;
+  `handling-render-feedback` recalé sur 21 instances de bois ;
+- planche de quatre poses (assis, allongé, à bord, patron) régénérée et relue
+  sur le build local : les hommes sont posés sur un faisceau de trois bois, les
+  baskets sont à plat au sol, la casquette sur un homme sur deux ; la pagaie du
+  patron, sondée en jeu (visible, dans le champ, attachée à la main droite),
+  sort du cadre serré et apparaît en vue large ;
+- une première version des baskets suivait l'axe de l'os du pied (palmes à
+  45°) : vue sur la planche, corrigée avant livraison.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire sur la planche ;
+- l'assise à bord reste basse (profondeur de coque du jeu) ;
+- pas de gilet ni de maillot d'équipe : la texture Meshy a des îlots UV
+  éparpillés sur tout le carré, un gilet peint déborderait sur les bras ;
+- le coût des 96 petits maillages de chaussures (24 hommes × 2 pieds × 2) n'a
+  pas été chiffré en images par seconde ; ils sont enfants des os et suivent le
+  niveau de détail des équipiers.
+
+
 ## Passe 87 — l'assis regarde le large
 
 Validation du 2 septembre 2026 (soir) :

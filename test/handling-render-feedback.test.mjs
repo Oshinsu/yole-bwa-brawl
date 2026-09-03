@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import * as THREE from "./mock-three.module.js";
 import * as REAL_THREE from "../vendor/three.module.min.js";
 import { CameraSystems } from "../src/game/camera.js";
-import { YoleVisual } from "../src/render/yole-visual.js";
+import { YoleVisual, BWA_BUNDLE } from "../src/render/yole-visual.js";
 import {
   HANDLING_MOTION,
   sampleHandlingMotion
@@ -353,11 +353,12 @@ assert.equal(JSON.stringify(visualState), stateBeforeRender, "le rendu a mute l'
 // son fallback à sept Mesh. Le navigateur réel couvre le chemin instancié.
 if (THREE.Matrix4) {
   assert.ok(visual.beamInstances, "les sept bwa ne sont plus instancies");
-  assert.equal(visual.beamInstances.count, visual.beams.length);
+  // Passe 88 : chaque bwa est un FAISCEAU de BWA_BUNDLE.length brins instancies.
+  assert.equal(visual.beamInstances.count, visual.beams.length * BWA_BUNDLE.length);
 }
 const realVisual = new YoleVisual(REAL_THREE, 0xffb000, 0x25e0ff, 3);
 assert.ok(realVisual.beamInstances?.isInstancedMesh, "le vrai moteur ne groupe pas les bwa");
-assert.equal(realVisual.beamInstances.count, realVisual.beams.length);
+assert.equal(realVisual.beamInstances.count, realVisual.beams.length * BWA_BUNDLE.length);
 visual.setCrewDetail(1);
 assert.equal(
   visual.crew.filter((entry) => entry.visual.root.visible).length,

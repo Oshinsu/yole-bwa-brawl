@@ -13,6 +13,43 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 88 — les bois en faisceau, des baskets aux pieds
+
+Verdict porté sur la planche de la passe 87 : le geste était juste, l'image
+non. Ce qui restait faux tenait au décor du corps, pas au corps.
+
+- **Un bwa se lit comme un faisceau.** Sur toutes les photos de course les
+  hommes sont assis sur quatre à six bois côte à côte, larges de 30-40 cm ; dans
+  le jeu l'allongé tenait en équilibre sur un cylindre de six centimètres et
+  l'assis avait l'air posé sur une barre de gymnastique. Chaque bwa est
+  désormais rendu par trois brins instanciés (`BWA_BUNDLE`) : le bois central
+  reste celui de la simulation et des contacts, deux bois d'accompagnement
+  l'encadrent le long de la coque, un peu plus bas et un peu plus courts (bouts
+  décalés, comme des bois lashés). 21 instances au lieu de 7, une seule matrice
+  de plus par brin dans `syncBeamInstances`. Visuel pur.
+- **Des baskets.** Les dresseurs courent chaussés ; le rig était pieds nus.
+  `dressFeet` pose sur l'os du pied un corps coloré et une semelle contrastée,
+  dimensionnés sur la longueur cheville → orteils du rig lui-même, **à plat au
+  sol** : l'os du pied plonge de 45-60° vers la base des orteils, la chaussure
+  suit sa projection sur le sol et sa semelle se pose au niveau des orteils.
+  Une première version suivait l'os : des palmes plongeantes, vues sur la
+  planche, corrigées avant livraison. Une paire par homme, déterministe.
+- **Des casquettes une fois sur deux** (`CREW_VARIANT_SEQUENCE`), comme sur les
+  photos ; la liste des variantes chargées ne change pas.
+- **Le regard à l'horizon** : l'assis regardait ses pieds (`CREW_GAZE_AHEAD_DOWN`
+  −0,12 → +0,06 ; regard mesuré +0,19…+0,34 au harnais silhouette).
+- **La pagaie du patron n'était pas perdue.** Sondée en jeu dans la capture
+  isolée : visible, dans le champ, attachée à la main droite ; elle sortait
+  simplement du cadre serré de la planche. Une quatrième vue « patron » est
+  ajoutée à la planche.
+- Contrat : `handling-render-feedback` compte désormais `beams × BWA_BUNDLE`
+  instances. Purement visuel : les quatre checksums sont inchangés.
+- Ce qui reste et pourquoi : l'assise à bord est basse (le bois est à la cote
+  de la lisse, 0,235 m au-dessus du plancher : genoux hauts) — c'est la
+  profondeur de coque du jeu, pas la pose ; pas de gilet (la texture Meshy a des
+  îlots UV éparpillés, un gilet peint déborderait sur les bras) ; le poing reste
+  une rotation rigide des doigts.
+
 ## Passe 87 — l'assis regarde le large : les poses recalées sur les photos de course
 
 Le propriétaire : « analyse tes neuf vues, regarde où c'est pas bon, va chercher
