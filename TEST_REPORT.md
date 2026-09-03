@@ -1,5 +1,30 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 89 — franc-bord visuel
+
+Validation du 2 septembre 2026 (soir) :
+
+- `npm run verify` : **OK** ; smoke navigateur sans erreur console ni page ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : la hauteur de flottaison de la simulation n'a pas bougé, seul le
+  dessin monte de 0,14 m ;
+- géométrie : bord de coque +0,04, lisses +0,25, quille −0,62 sous la racine ;
+  racine ~0,15 au-dessus de l'eau ; à 24° de gîte la lisse sous le vent
+  descendait de 0,44 m (sous l'eau), elle reste désormais ~0,10 m au-dessus ;
+- captures des mêmes instants de course avant/après : flanc de coque visible,
+  lisses hors de l'eau, sillage et écume de gîte toujours au ras de la surface ;
+- `handling-render-feedback`, `crew-seating` OK (le bassin des équipiers se
+  mesure par rapport à la racine, il suit).
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire ; 0,14 m est un choix de lecture, la vraie yole
+  ronde a un franc-bord bas et embarque réellement de l'eau (les videurs ne
+  s'arrêtent jamais) ;
+- l'homme à l'eau (débris) et les bouées ne sont pas concernés : ils suivent la
+  hauteur de la simulation.
+
+
 ## Passe 88 — les bois en faisceau, des baskets aux pieds
 
 Validation du 2 septembre 2026 (soir) :

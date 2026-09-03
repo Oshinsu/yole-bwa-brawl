@@ -13,6 +13,24 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 89 — franc-bord visuel : la coque ne prend plus l'eau à chaque gîte
+
+Retour du propriétaire sur les captures de course : « le bateau prend un peu
+trop l'eau ». Visuel seulement — la simulation flotte à sa hauteur.
+
+- **Mesuré sur la géométrie.** Le bord de la coque est à +0,04 de la racine, les
+  lisses à +0,25, et la racine flotte ~0,15 au-dessus de l'eau. Gîtée de 24°, la
+  lisse sous le vent (x = 1,08) descendait de 0,44 m et passait **sous la
+  flottaison** avant même la houle : chaque bordée mettait l'eau dans le bateau.
+- **Correctif.** Toute la yole dessinée monte de `HULL_VISUAL_FREEBOARD` (0,14 m)
+  au-dessus de la hauteur de la simulation ; sillage, écume de gîte et ligne de
+  flottaison (uniforme monde) restent au ras de l'eau, la quille reste immergée
+  (−0,48 sous la racine). Équipage, bois et voile suivent : les bwa passent à
+  ~0,54 m au-dessus de l'eau à la coque, dans l'ordre de grandeur des photos.
+- Comparatif avant/après sur les mêmes instants de course envoyé au
+  propriétaire : le flanc de la coque réapparaît, les lisses restent hors de
+  l'eau à la gîte. Purement visuel : les quatre checksums sont inchangés.
+
 ## Passe 88 — les bois en faisceau, des baskets aux pieds
 
 Verdict porté sur la planche de la passe 87 : le geste était juste, l'image

@@ -16825,6 +16825,16 @@ const motionPulse = (value, enterStart, enterEnd, leaveStart, leaveEnd) =>
 // décalage depuis la longueur propre à chaque bwa évite qu'un bois court et un
 // bois long aient des débords opposés incohérents.
 const BEAM_INBOARD_REACH = 0.76;
+// ⚠️ PASSE 89 : FRANC-BORD VISUEL. La coque « prenait l eau » a chaque gite
+// (retour du proprietaire, captures de course) : le bord de la coque est a
+// +0,04 de la racine, les lisses a +0,25, et la racine flotte ~0,15 au-dessus
+// de l eau — gitee de 24 deg, la lisse sous le vent (x = 1,08) descendait de
+// 0,44 m et passait SOUS la flottaison avant meme la houle. On releve toute la
+// yole visuelle de cette hauteur, simulation intacte : la flottabilite reste
+// celle de yole-physics, seul le dessin monte. Les reperes qui se calculent
+// depuis l eau (sillage, ecume de gite, ligne de flottaison) retirent le
+// meme decalage, la quille reste immergee (-0,62 + 0,14 = -0,48 sous la racine).
+const HULL_VISUAL_FREEBOARD = 0.14;
 // ⚠️ PASSE 88 : UN BWA SE LIT COMME UN FAISCEAU. Sur toutes les photos de
 // course (Sainte-Luce, bout des bois, yole jaune), les hommes sont assis sur
 // quatre à six bois côte à côte, larges de 30-40 cm, pas sur une perche de six
@@ -20095,7 +20105,7 @@ varying vec3 vHullWorld;`)
   }
 
   update(state, time, dt, weather) {
-    this.root.position.set(state.x, state.y, state.z);
+    this.root.position.set(state.x, state.y + HULL_VISUAL_FREEBOARD, state.z);
     this.root.rotation.y = state.heading;
     // Frontière exacte de YoleDynamics.reset(). Le latch de prise de charge ne
     // doit surtout pas être réarmé par le reset générique de feedback : le
@@ -20195,7 +20205,7 @@ varying vec3 vHullWorld;`)
       - this.handlingSurf * HANDLING_MOTION.hullSurfPitch * hullMotion
       + this.wavePitch;
 
-    this.handlingWakeRoot.position.y = waterHeight - state.y + 0.025;
+    this.handlingWakeRoot.position.y = waterHeight - (state.y + HULL_VISUAL_FREEBOARD) + 0.025;
     this.handlingWakeRoot.rotation.y = this.handlingSlipAngle * 0.82;
     this.handlingWakeRoot.scale.x = 0.72 + this.handlingWakeStrength * 0.82;
     this.handlingWakeRoot.scale.z = 0.72 + this.handlingSurf * 0.52;
@@ -20210,7 +20220,7 @@ varying vec3 vHullWorld;`)
     const heelWash = heelDanger * clamp(0.22 + (state.speed ?? 0) / 23, 0.22, 1.2);
     this.heelFoam.position.set(
       heelSide * (1.02 + heelDanger * 0.20),
-      waterHeight - state.y + 0.035,
+      waterHeight - (state.y + HULL_VISUAL_FREEBOARD) + 0.035,
       -0.18
     );
     this.heelFoam.scale.set(0.72 + heelDanger * 0.58, 1 + heelWash * 0.34, 1);
