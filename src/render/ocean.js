@@ -749,7 +749,13 @@ export class OceanSystem {
       const mesh = new THREE.Mesh(createRingGeometry(THREE, level.size, level.inner, level.segments), this.material);
       mesh.frustumCulled = false;
       mesh.receiveShadow = true;
-      mesh.renderOrder = -10 + index;
+      // ⚠️ PASSE 90 : LA MER SE DESSINE APRÈS LES BATEAUX (ordre 10+, les
+      // yoles sont à 0, leur masque de cale à 5). Opaque, elle reste testée
+      // en profondeur comme avant ; mais dessinée après le masque de cale
+      // (profondeur seule, en forme de coque), elle ne peut plus apparaître
+      // À L'INTÉRIEUR d'une yole quand la houle passe au-dessus du plancher.
+      // Dessinée avant (−10), rien ne pouvait plus l'effacer là.
+      mesh.renderOrder = 10 + index;
       scene.add(mesh);
       this.rings.push({ mesh, ...level });
     }

@@ -1,5 +1,31 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 90 — la mer ne se dessine plus dans la coque
+
+Validation du 2 septembre 2026 (soir) :
+
+- `npm run verify` : **OK** ; smoke navigateur et shaders générés sans erreur ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : masque de cale, bordé et ordre de rendu sont du rendu pur ;
+- sondage en jeu (Playwright, boat 0, quatre instants) : eau embarquée 0 → 25 →
+  16 kg, opacité de la nappe 0 → 0,09 ; racine à 0,71 / 1,04 / **0,05** / 0,42 m
+  au-dessus de l'eau locale — c'est ce 0,05 qui faisait entrer la mer dans le
+  dessin ;
+- captures des mêmes instants de course avant/après : l'intérieur de la coque
+  montre ses planches, plus la surface de la mer ; sillage et écume inchangés ;
+- `hull-contract`, `handling-render-feedback`, `world-collision`, `crew-seating`
+  OK.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire ;
+- la mer passe désormais après les îles et les yoles dans l'ordre de rendu : le
+  test de profondeur la range au même endroit, mais le coût du remplissage n'a
+  pas été chiffré en images par seconde ;
+- les effets transparents qui entreraient DANS la coque (embruns) sont masqués
+  avec la mer — voulu, non recetté.
+
+
 ## Passe 89 — franc-bord visuel
 
 Validation du 2 septembre 2026 (soir) :

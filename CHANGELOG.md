@@ -13,6 +13,35 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 90 — la mer ne se dessine plus dans la coque
+
+Le propriétaire, captures sous les yeux après la passe 89 : « il y a toujours
+trop d'eau dans le bateau ». Sondé en jeu avant de toucher quoi que ce soit.
+
+- **Ce que c'était.** Pas l'eau embarquée du jeu (15-25 kg, opacité 0,06-0,09,
+  à peine visible) : la **surface de la mer** elle-même, dessinée à l'intérieur
+  de la coque. La racine du bateau suit la houle avec du retard (ressort de
+  flottabilité) — mesurée à **5 cm** au-dessus de l'eau locale à t = 4,9 s, 42 cm
+  à t = 7,3 s — et la vague passe au-dessus du plancher. Rehausser (passe 89)
+  aide mais ne peut pas suffire.
+- **Le masque de cale.** Un maillage en forme de coque (flancs + couvercle
+  jusqu'au dessus des lisses, contour resserré à 0,97) qui n'écrit que la
+  profondeur, dessiné après la coque et l'équipage (ordre 0) et **avant la mer**,
+  qui passe de l'ordre −10 à 10. Tout ce qui se dessine ensuite à l'intérieur de
+  la coque échoue au test de profondeur : la mer d'abord. Opaque, elle reste
+  testée en profondeur partout ailleurs exactement comme avant.
+- **Le bordé.** Le GLB de coque s'arrête à +0,04 et la lisse commence à +0,095 :
+  par ce jour, on voyait l'intérieur. Une bande de planches claires suit le
+  contour de +0,02 à +0,12 et ferme le flanc.
+- **L'eau embarquée reste visible.** Transparente, elle passait après tous les
+  opaques, donc après le masque, et disparaissait sous son couvercle. Elle est
+  désormais opaque à l'ordre 1, son intensité devient une couleur qui va des
+  planches à l'eau. Le masque se lève quand la yole sombre ou est éliminée
+  (sinon un trou en forme de coque dans la mer au-dessus de l'épave).
+- Comparatif avant/après sur les mêmes instants de course : l'intérieur montre
+  ses planches, plus la mer. Purement visuel : les quatre checksums sont
+  inchangés.
+
 ## Passe 89 — franc-bord visuel : la coque ne prend plus l'eau à chaque gîte
 
 Retour du propriétaire sur les captures de course : « le bateau prend un peu

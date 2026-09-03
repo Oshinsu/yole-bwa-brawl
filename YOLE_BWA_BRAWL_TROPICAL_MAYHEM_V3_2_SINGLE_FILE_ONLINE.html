@@ -12461,7 +12461,13 @@ class OceanSystem {
       const mesh = new THREE.Mesh(createRingGeometry(THREE, level.size, level.inner, level.segments), this.material);
       mesh.frustumCulled = false;
       mesh.receiveShadow = true;
-      mesh.renderOrder = -10 + index;
+      // ⚠️ PASSE 90 : LA MER SE DESSINE APRÈS LES BATEAUX (ordre 10+, les
+      // yoles sont à 0, leur masque de cale à 5). Opaque, elle reste testée
+      // en profondeur comme avant ; mais dessinée après le masque de cale
+      // (profondeur seule, en forme de coque), elle ne peut plus apparaître
+      // À L'INTÉRIEUR d'une yole quand la houle passe au-dessus du plancher.
+      // Dessinée avant (−10), rien ne pouvait plus l'effacer là.
+      mesh.renderOrder = 10 + index;
       scene.add(mesh);
       this.rings.push({ mesh, ...level });
     }
@@ -17088,6 +17094,42 @@ function makeHullGeometry(THREE) {
   return geometry;
 }
 
+// Contour de la coque (mêmes stations que `makeHullGeometry`), réutilisé par
+// le bordé et le masque de cale.
+const HULL_STATIONS_Z = [-5.55, -4.7, -3.2, -1.5, 0, 1.7, 3.35, 4.72, 5.55];
+const HULL_STATIONS_WIDTH = [0.05, 0.48, 0.82, 1.0, 1.08, 1.0, 0.78, 0.42, 0.04];
+
+/**
+ * Bande verticale suivant le contour de la coque entre deux cotes (les deux
+ * bords), et, si `lid` est vrai, un couvercle plat à la cote haute.
+ * `inset` resserre le contour (1 = au bord). Faces des flancs orientées vers
+ * l'extérieur.
+ */
+function makeHullBandGeometry(THREE, yBottom, yTop, inset = 1, lid = false) {
+  const positions = [];
+  const indices = [];
+  const n = HULL_STATIONS_Z.length;
+  for (let index = 0; index < n; index++) {
+    const z = HULL_STATIONS_Z[index];
+    const w = HULL_STATIONS_WIDTH[index] * inset;
+    positions.push(-w, yBottom, z, -w, yTop, z, w, yBottom, z, w, yTop, z);
+  }
+  for (let index = 0; index < n - 1; index++) {
+    const a = index * 4;
+    const b = (index + 1) * 4;
+    // Flanc bâbord (−x) : normale vers −x.
+    indices.push(a, a + 1, b, b, a + 1, b + 1);
+    // Flanc tribord (+x) : normale vers +x.
+    indices.push(a + 2, b + 2, a + 3, a + 3, b + 2, b + 3);
+    if (lid) indices.push(a + 1, a + 3, b + 1, b + 1, a + 3, b + 3);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 // ─── VOILE ────────────────────────────────────────────────────────────────────
 //
 // C'est la plus grande surface de la yole à l'écran, et c'était un rectangle
@@ -19450,17 +19492,52 @@ varying vec3 vHullWorld;`)
     deck.position.y = 0.10;
     this.tiltRoot.add(deck);
 
+    // ⚠️ PASSE 90 : « IL Y A TOUJOURS TROP D'EAU DANS LE BATEAU ». Sondé en
+    // jeu : ce n'était pas l'eau embarquée (15-25 kg, opacité 0,06-0,09) mais
+    // la SURFACE DE LA MER qui se dessinait dans la coque — la racine suit la
+    // houle avec du retard (mesuré à 5 cm au-dessus de l'eau locale à t = 4,9 s)
+    // et la vague passe au-dessus du plancher. Deux pièces :
+    // 1. un BORDÉ visible qui ferme le flanc entre le bord du GLB (+0,04) et la
+    //    lisse (+0,095), en planches claires comme l'intérieur ;
+    const bandMaterial = this.plankMaterial.clone();
+    bandMaterial.side = THREE.DoubleSide;
+    this.hullBand = new THREE.Mesh(makeHullBandGeometry(THREE, 0.02, 0.12, 0.995, false), bandMaterial);
+    this.hullBand.scale.x = HULL_VISUAL_WIDTH_SCALE;
+    this.hullBand.castShadow = false;
+    this.tiltRoot.add(this.hullBand);
+    // 2. un MASQUE DE CALE : flancs et couvercle en forme de coque, jusqu'au
+    //    dessus des lisses, qui n'écrit que la profondeur (aucune couleur),
+    //    dessiné après la coque et l'équipage (ordre 0) et avant la mer
+    //    (ordre 10). Tout ce qui est dessiné ensuite et se trouve DANS la coque
+    //    échoue au test de profondeur : la mer, d'abord. Le contour est
+    //    resserré (0,97) pour ne pas mordre sur les fissures ni l'écume de
+    //    gîte, posées sur le flanc extérieur.
+    this.bilgeMask = new THREE.Mesh(
+      makeHullBandGeometry(THREE, 0.02, 0.235, 0.97, true),
+      new THREE.MeshBasicMaterial({ colorWrite: false })
+    );
+    this.bilgeMask.scale.x = HULL_VISUAL_WIDTH_SCALE;
+    this.bilgeMask.renderOrder = 5;
+    this.bilgeMask.castShadow = false;
+    this.bilgeMask.receiveShadow = false;
+    this.bilgeMask.frustumCulled = false;
+    this.tiltRoot.add(this.bilgeMask);
+
+    // Passe 90 : OPAQUE, dessinée à l'ordre 1 — avant le masque de cale (5).
+    // Transparente, elle passait après tous les opaques, donc après le masque,
+    // et disparaissait sous son couvercle. Son intensité est désormais une
+    // COULEUR qui va des planches à l'eau, plus une opacité.
+    this.internalWaterDry = new THREE.Color(0xe8cfa0);
+    this.internalWaterWet = new THREE.Color(0x1cc9e0);
     this.internalWaterMaterial = new THREE.MeshStandardMaterial({
       color: 0x1cc9e0,
       emissive: 0x075f78,
       emissiveIntensity: 0.35,
-      transparent: true,
-      opacity: 0.0,
-      roughness: 0.18,
-      depthWrite: false
+      roughness: 0.18
     });
     this.internalWater = new THREE.Mesh(new THREE.BoxGeometry(1.35 * HULL_VISUAL_WIDTH_SCALE, 0.035, 5.25), this.internalWaterMaterial);
     this.internalWater.position.y = 0.14;
+    this.internalWater.renderOrder = 1;
     this.tiltRoot.add(this.internalWater);
 
     // Les mâts d'une yole sont nettement raqués VERS L'AVANT : c'est une part
@@ -20697,8 +20774,14 @@ varying vec3 vHullWorld;`)
     }
 
     const water = clamp((state.waterMassKg ?? 0) / 180, 0, 1);
-    this.internalWaterMaterial.opacity = water * 0.68;
+    if (this.internalWaterMaterial.color?.lerpColors) {
+      this.internalWaterMaterial.color.lerpColors(this.internalWaterDry, this.internalWaterWet, clamp(0.25 + water * 0.75, 0, 1));
+    }
+    this.internalWaterMaterial.emissiveIntensity = 0.35 * water;
     this.internalWater.visible = water > 0.01;
+    // Coque qui sombre ou yole éliminée : le masque rendrait un trou en forme
+    // de coque dans la mer au-dessus de l'épave. On le lève.
+    if (this.bilgeMask) this.bilgeMask.visible = !state.eliminated && (state.sink ?? 0) < 0.05;
     this.internalWater.position.y = 0.105 + water * 0.12;
     const flood = state.flooding;
     if (flood) {
