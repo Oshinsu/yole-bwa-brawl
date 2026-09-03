@@ -1,5 +1,39 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 91 — une flotte de dix livrées
+
+Validation du 2 septembre 2026 (nuit) :
+
+- `npm run verify` : **OK** ; smoke navigateur et shaders générés sans erreur ;
+- **les quatre checksums sont inchangés** (`017e9fdc`, `05b2f763`, `2b887431`,
+  `fee31c05`) : livrées, bande de liston et matériel de pont sont du rendu pur ;
+- `test/liveries.test.mjs` (nouveau, dans `verify`) : dix livrées, dix couleurs
+  de coque distinctes, sept graines → sept flottes distinctes, tirage sans
+  remise, déterminisme vérifié, bornes (flotte plus grande que le catalogue,
+  compte nul) ;
+- mesure en jeu, deux graines : flotte `[0, 6, 4, 2]` = BWA FATAL / GRAN LARJ /
+  ZANDOLI / CARACOLI, et `[0, 7, 3, 9]` = BWA FATAL / MANIKOU / LANMÈ ROUGE /
+  TI SOLÈY ; coque, liston, bande et quadrant de voile relevés distincts sur les
+  quatre bateaux dans les deux cas ;
+- matériel de pont mesuré en repère de coque : dessous entre **0,137 et 0,153**
+  pour un plancher à 0,155 (l'écart résiduel est celui d'une boîte alignée sur
+  les axes autour d'un modèle tourné) ; dimensions 0,27 à 0,75 m ; emplacements
+  conformes à la table ;
+- cinq accessoires générés, **deux jetés** (nasse, cordage) après rendu isolé
+  dans Blender et remplacés (glacière, sac à voile).
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire sur la flotte ;
+- l'atlas de voile reste un 2×2 : dix livrées se partagent quatre marques, et
+  c'est la TEINTE de voile qui les sépare. Dix marques demanderaient un atlas
+  4×4, soit douze dessins — de l'image, pas de la 3D ;
+- le coût des accessoires (au plus trois petits maillages par yole, douze pour
+  la flotte) n'a pas été chiffré en images par seconde ;
+- les livrées ne sont pas offertes au garage : le joueur garde ses six peintures
+  et six listons, la flotte n'est qu'adverse.
+
+
 ## Passe 90 — la mer ne se dessine plus dans la coque
 
 Validation du 2 septembre 2026 (soir) :

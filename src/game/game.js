@@ -43,7 +43,8 @@ import {
   CONFIG, BALANCE, ZOOM_MIN, ZOOM_MAX, CREW_DOTS, TOUR_STAGES, TOUR_STAGE_POINTS,
   FIRST_RUN_TRAINING, advanceFirstRunTraining, createFirstRunTrainingState,
   vibrate, createBuoyVisual, resolveLoadout, STORM_RANGE, COUNTDOWN_SECONDS, COUNTDOWN_GO_SECONDS,
-  ARENA_DISTANCE, ARENA_SCHOOL_SLUG, resolveArena, arenaForSeed } from "./balance.js";
+  ARENA_DISTANCE, ARENA_SCHOOL_SLUG, resolveArena, arenaForSeed, fleetForSeed, YOLE_LIVERIES
+} from "./balance.js";
 
 
 // Assombrissement de la couleur de brouillard par rapport à la couleur
@@ -690,6 +691,24 @@ export class Game {
       rig: rigIndex
     });
     this.matchCustomization = customization;
+    // ─── LA FLOTTE ────────────────────────────────────────────────────────
+    // Quatre livrées distinctes tirées de la graine (`fleetForSeed`), donc
+    // identiques en relecture et stables d'une étape à l'autre d'un Tour. Ici
+    // et pas dans `initWorld` : une relecture restaure `this.seed` juste
+    // au-dessus, et la flotte doit suivre cette graine-là.
+    const fleet = fleetForSeed(this.seed, this.boats?.length ?? 0);
+    for (let index = 0; index < (this.boats?.length ?? 0); index++) {
+      const livery = YOLE_LIVERIES[fleet[index]] ?? YOLE_LIVERIES[0];
+      const boat = this.boats[index];
+      boat.visual?.applyLivery?.(livery);
+      // Le HUD, le fil des takedowns et le hub du Tour lisent ces trois
+      // champs à chaque image : la pastille de couleur doit désigner la yole
+      // qu'on voit sur l'eau, et son nom être celui de sa livrée.
+      boat.name = livery.name;
+      boat.color = livery.hull;
+      boat.accent = livery.accent;
+    }
+    this.matchFleet = fleet;
     this.boats?.[0]?.visual?.applyCustomization?.(customization);
     if (this.replay) this.replay.customization = customization;
     // Le niveau d'IA emprunte exactement la même route que le gréement : figé

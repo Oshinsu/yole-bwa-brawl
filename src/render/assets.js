@@ -38,6 +38,18 @@ export const YOLE_RIGS = Object.freeze({
   // mono-matériau, donc INSTANCIÉS par `world.js` — un appel de dessin par
   // famille. Ils gardent leur texture : contrairement aux rochers et aux
   // palmes, ils ne sont pas recolorés par arène.
+  // ── LE MATÉRIEL DE PONT — Meshy 7, 2 septembre 2026 ─────────────────────
+  // Ce qui traîne dans une yole et qui la distingue d'une autre d'aussi loin
+  // que sa peinture : coffre à voile, bidon, écope (les videurs ne s'arrêtent
+  // jamais), nasse et rouleau de cordage. Règle de la passe 82, mesurée :
+  // Meshy gagne sur les objets FABRIQUÉS à silhouette reconnaissable. 400 à
+  // 460 triangles chacun, 52 à 69 Ko textures comprises — les cinq réunis
+  // pèsent moins qu'une seule coque supplémentaire.
+  coffre_yole: "coffre_yole.glb",
+  bidon: "bidon.glb",
+  ecope: "ecope.glb",
+  glaciere: "glaciere.glb",
+  sac_voile: "sac_voile.glb",
   case_creole: "case_creole.glb",
   gommier: "gommier.glb",
   ponton: "ponton.glb",

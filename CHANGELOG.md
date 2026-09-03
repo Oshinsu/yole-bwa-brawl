@@ -13,6 +13,55 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 91 — une flotte de dix livrées, et du matériel sur le pont
+
+Le propriétaire : « il faudrait plusieurs designs de yole, une dizaine, avec de
+petites différences ? justifie ». La justification a changé la réponse.
+
+- **Pas dix coques, et c'est mesurable.** `test/hull-contract.test.mjs` verrouille
+  la coque livrée sur sept nombres (longueur 11,10 m ± 0,11, plat-bord +0,04 ±
+  0,01, profondeur ≤ 0,63, demi-largeur 1,08 ± 0,02, rapport de maillage 5,0-5,3,
+  origine centrée, ≤ 2 cm d'écart aux stations de flottabilité), et le test
+  prévient lui-même que l'ajusteur ne normalise que la boîte englobante : « une
+  carène peut dériver de 50 cm sans qu'aucun outil ne bronche ». S'y ajoute tout
+  ce qui a été mesuré des passes 85 à 90 et qui pend à cette coque unique. Dix
+  silhouettes voudraient dire dix campagnes de mesure et deux mégaoctets de plus
+  au précache.
+- **Et les vraies yoles donnent la même réponse.** Classe quasi monotype : sur
+  les quarante photos du Tour rassemblées à la passe 87, aucune coque ne diffère
+  de forme. Ce qui distingue une yole est sa LIVRÉE. Dix designs, dans ce sport,
+  veut dire dix livrées.
+- **`YOLE_LIVERIES` : dix yoles nommées**, chacune avec sa peinture de coque, sa
+  bande de liston, son liston, sa finition de bois, sa marque et sa teinte de
+  voile, sa tenue d'équipage et son matériel de pont. `fleetForSeed` en tire
+  quatre SANS REMISE à partir de la graine : même graine, même flotte — donc
+  identique en relecture et stable d'une étape à l'autre d'un Tour. Le bateau du
+  joueur garde l'index 0, que son garage recouvre juste après. 504 flottes
+  possibles.
+- **La bande de liston** (`sheerStripe`) réutilise la géométrie de bordé de la
+  passe 90, posée 1,3 % en dehors : c'est le trait de couleur qui, sur les
+  photos, distingue deux yoles autant que leur coque.
+- **Les bwa redeviennent du bois.** La teinte d'équipe ne les effleure plus
+  (0,62 vers le clair au lieu de 0,28) : à 0,28 la yole verte avait des perches
+  vertes, ce qu'aucune photo ne montre.
+- **Le matériel de pont, cinq objets Meshy 7** — coffre à voile, bidon, écope,
+  glacière, sac à voile — deux ou trois par livrée sur quatre emplacements. 400
+  à 500 triangles, 50 à 70 Ko chacun : les cinq réunis pèsent moins qu'une seule
+  coque de plus. Ils sont posés sur le plancher par une mesure du modèle, pas par
+  un réglage : mesure, mise à l'échelle sur la plus grande dimension, re-mesure,
+  translation pour que l'emprise soit centrée et le dessous à zéro.
+- **⚠️ LA RÈGLE MESHY, PRÉCISÉE PAR UN ÉCHEC.** Elle disait depuis la passe 82 :
+  « gagne sur les objets fabriqués à silhouette reconnaissable ». Une nasse en
+  lattis de bambou et un rouleau de cordage — fabriqués tous les deux — sont
+  ressortis en tas de triangles et en galette informe. Rendus isolément dans
+  Blender, jugés, jetés, et remplacés par une glacière et un sac à voile. Le
+  remailleur ferme mal les formes AJOURÉES et les formes ENROULÉES : la règle
+  utile est **volumes pleins et fermés**.
+- Contrat : `test/liveries.test.mjs` (dix livrées complètes, aucune couleur de
+  coque en double, bande de liston qui tranche, tirage sans remise, déterminisme,
+  matériel sur des emplacements connus et jamais deux au même endroit). Purement
+  visuel : les quatre checksums sont inchangés.
+
 ## Passe 90 — la mer ne se dessine plus dans la coque
 
 Le propriétaire, captures sous les yeux après la passe 89 : « il y a toujours

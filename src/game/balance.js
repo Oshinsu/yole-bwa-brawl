@@ -140,6 +140,69 @@ export const RIGS = [
 
 export const SAIL_LIVERIES = ["KOULÈV", "LANBI", "KOLIBRI", "VOLCAN"];
 
+// ─── LA FLOTTE : DIX LIVRÉES, UNE SEULE COQUE ────────────────────────────────
+//
+// ⚠️ POURQUOI PAS DIX COQUES. La yole ronde est une classe quasi monotype : la
+// Fédération fixe la coque, et sur les quarante photos du Tour rassemblées
+// pour la passe 87 (Wikimedia Commons) aucune ne diffère de FORME. Ce qui
+// distingue une yole d'une autre est sa LIVRÉE — peinture, bande de liston,
+// liston, voile, tenue. Sculpter dix coques serait moins authentique, pas plus.
+//
+// Et ce serait impossible à tenir : `test/hull-contract.test.mjs` verrouille la
+// coque livrée sur sept nombres (longueur 11,10 m ± 0,11, plat-bord +0,04 ± 0,01,
+// profondeur ≤ 0,63, demi-largeur 1,08 ± 0,02, rapport de maillage 5,0-5,3,
+// origine centrée, ≤ 2 cm d'écart aux stations de flottabilité), et tout ce qui a
+// été mesuré des passes 85 à 90 y pend : assise de l'équipage, planchers,
+// plat-bord, contour du masque de cale, franc-bord. Dix silhouettes voudraient
+// dire dix campagnes de mesure — et deux mégaoctets de plus au précache.
+//
+// ⚠️ AUCUN NOM DE MARQUE, comme pour `names` plus bas. Ce sont des noms communs
+// créoles ou français (un lézard, un arbre, un opossum, un poisson, le grand
+// large) ou des inventions. Si tu en ajoutes un, vérifie qu'il n'appartient à
+// personne.
+//
+// `wood` et `sailMark` indexent WOOD_FINISHES et l'atlas de voile 2×2 ; les
+// quatre marques suffisent parce que la TEINTE de voile change aussi.
+// `props` est le matériel de pont (`DECK_PROPS`/`DECK_SLOTS` dans
+// yole-visual.js) : deux ou trois objets par yole, à des emplacements
+// différents. C'est ce qui distingue deux coques de couleur voisine quand la
+// caméra passe au-dessus.
+export const YOLE_LIVERIES = Object.freeze([
+  // Index 0 : la yole d'origine. Réservée au joueur, jamais tirée pour un
+  // rival, et le garage la recouvre — une sauvegarde ancienne ne change donc
+  // pas d'apparence.
+  { key: "bwa-fatal", name: "BWA FATAL", hull: 0xff7524, stripe: 0x132430, accent: 0xfff2c9, wood: 0, sailMark: 0, sailTint: 0xffffff, jersey: 0xff7524, shorts: 0x0d2531, props: [["coffre_yole", "arriere"], ["ecope", "milieu"]] },
+  { key: "kolibri", name: "KOLIBRI", hull: 0x18bec8, stripe: 0xf4f4f0, accent: 0x0d2f38, wood: 1, sailMark: 1, sailTint: 0xeaffff, jersey: 0x1de1e8, shorts: 0x103042, props: [["bidon", "arriere"], ["sac_voile", "avant"]] },
+  { key: "caracoli", name: "CARACOLI", hull: 0x3d4f91, stripe: 0xffcf45, accent: 0xf0edff, wood: 3, sailMark: 2, sailTint: 0xfff4d8, jersey: 0x7658ff, shorts: 0x211c42, props: [["coffre_yole", "arriere"], ["glaciere", "avant"], ["ecope", "milieu"]] },
+  { key: "lanme-rouge", name: "LANMÈ ROUGE", hull: 0xa92f4c, stripe: 0x152530, accent: 0xffeef6, wood: 2, sailMark: 3, sailTint: 0xffe9ec, jersey: 0xef3f75, shorts: 0x331725, props: [["glaciere", "arriere"], ["bidon", "milieu"], ["ecope", "proue"]] },
+  { key: "zandoli", name: "ZANDOLI", hull: 0x2e9e63, stripe: 0xffd23f, accent: 0x0f2a1e, wood: 0, sailMark: 0, sailTint: 0xe8ffe4, jersey: 0x42c982, shorts: 0x142d28, props: [["sac_voile", "arriere"], ["ecope", "avant"]] },
+  { key: "flanbwayan", name: "FLANBWAYAN", hull: 0xd0331f, stripe: 0xf4f4f0, accent: 0x2b1410, wood: 2, sailMark: 1, sailTint: 0xffdcc9, jersey: 0xff6a3d, shorts: 0x2b1410, props: [["coffre_yole", "milieu"], ["bidon", "proue"]] },
+  { key: "gran-larj", name: "GRAN LARJ", hull: 0xe9e1cc, stripe: 0x1f6fa8, accent: 0x1f6fa8, wood: 1, sailMark: 2, sailTint: 0xdceeff, jersey: 0x2f8fd0, shorts: 0x12384f, props: [["sac_voile", "milieu"], ["glaciere", "proue"], ["ecope", "arriere"]] },
+  { key: "manikou", name: "MANIKOU", hull: 0x8a5a34, stripe: 0xe9e1cc, accent: 0x3a2216, wood: 3, sailMark: 3, sailTint: 0xf6ecd6, jersey: 0xc98646, shorts: 0x2f2016, props: [["glaciere", "milieu"], ["coffre_yole", "avant"]] },
+  { key: "balaou", name: "BALAOU", hull: 0x0f9a9e, stripe: 0xf1b632, accent: 0xfffbe6, wood: 1, sailMark: 0, sailTint: 0xe9fbf7, jersey: 0xffc531, shorts: 0x0d3336, props: [["bidon", "arriere"], ["ecope", "milieu"], ["sac_voile", "proue"]] },
+  { key: "ti-soley", name: "TI SOLÈY", hull: 0xf1b632, stripe: 0xd0331f, accent: 0x331f06, wood: 0, sailMark: 1, sailTint: 0xfff2cc, jersey: 0xffdc4f, shorts: 0x3a2a08, props: [["coffre_yole", "proue"], ["sac_voile", "milieu"]] }
+].map((entree) => Object.freeze(entree)));
+
+/**
+ * Les livrées d'une course, tirées de la graine SANS REMISE : quatre yoles
+ * différentes, toujours les mêmes pour une graine donnée — donc identiques en
+ * relecture, et stables d'une étape à l'autre d'un Tour, qui garde sa graine.
+ * Le bateau 0 garde l'index 0 ; les rivaux se partagent les neuf autres, soit
+ * 504 flottes possibles.
+ */
+export function fleetForSeed(seed, count = 4) {
+  const indices = [0];
+  const restantes = [];
+  for (let index = 1; index < YOLE_LIVERIES.length; index++) restantes.push(index);
+  let hash = Math.imul((seed >>> 0) ^ 0x4c19f7, 0x9e3779b1) >>> 0;
+  while (indices.length < count && restantes.length) {
+    hash = Math.imul(hash ^ (hash >>> 15), 0x85ebca6b) >>> 0;
+    indices.push(restantes.splice(hash % restantes.length, 1)[0]);
+  }
+  while (indices.length < count) indices.push(0);
+  return indices;
+}
+
 export const CONFIG = {
   fixed: 1 / 60,
   targetScore: 5,

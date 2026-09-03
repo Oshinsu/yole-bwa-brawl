@@ -726,6 +726,32 @@ export function makeHullGeometry(THREE) {
   return geometry;
 }
 
+// ─── LE MATÉRIEL DE PONT ──────────────────────────────────────────────────────
+//
+// Cinq objets bâtis (Meshy 7) posés sur les planchers, deux ou trois par
+// livrée. Ils sortent du générateur à une échelle arbitraire : `taille` est la
+// PLUS GRANDE dimension voulue en mètres, mesurée sur les photos de course
+// (un coffre à voile fait un demi-mètre, une écope trente centimètres).
+// `couche` pose l'objet à plat quand son modèle est debout.
+const DECK_PROPS = Object.freeze({
+  coffre_yole: { taille: 0.56, couche: 0 },
+  bidon: { taille: 0.34, couche: 0 },
+  ecope: { taille: 0.30, couche: 0 },
+  glaciere: { taille: 0.52, couche: 0 },
+  sac_voile: { taille: 0.62, couche: 0 }
+});
+
+// Où ils se posent, dans le repère de la coque. Le plancher est à 0,155 (dessus
+// de la planche), le mât monte en z ≈ 0,5 et le patron barre en z = −3,30 :
+// les quatre emplacements les évitent tous les deux.
+const DECK_SLOTS = Object.freeze({
+  arriere: { x: 0.24, z: -2.42, rotation: 0.32 },
+  milieu: { x: -0.28, z: -1.08, rotation: -0.55 },
+  avant: { x: 0.22, z: 2.34, rotation: 1.15 },
+  proue: { x: -0.20, z: 3.28, rotation: -0.24 }
+});
+const DECK_FLOOR_Y = 0.155;
+
 // Contour de la coque (mêmes stations que `makeHullGeometry`), réutilisé par
 // le bordé et le masque de cale.
 const HULL_STATIONS_Z = [-5.55, -4.7, -3.2, -1.5, 0, 1.7, 3.35, 4.72, 5.55];
@@ -3154,6 +3180,59 @@ varying vec3 vHullWorld;`)
     this.bilgeMask.receiveShadow = false;
     this.bilgeMask.frustumCulled = false;
     this.tiltRoot.add(this.bilgeMask);
+    // 3. la BANDE DE LISTON (passe 91) : le trait de couleur qui court sous la
+    //    lisse et qui, sur les photos, distingue une yole d'une autre autant que
+    //    la coque elle-même. Posée 1,3 % en dehors du bordé pour ne pas se
+    //    battre en profondeur avec lui, et sous le plat-bord, donc au-dessus du
+    //    bord du GLB : elle ne mord sur aucune ligne d'eau.
+    this.sheerMaterial = new THREE.MeshStandardMaterial({
+      color: 0x132430,
+      roughness: this.graphicStyle ? 0.9 : 0.62,
+      metalness: 0,
+      flatShading: this.graphicStyle
+    });
+    this.sheerStripe = new THREE.Mesh(makeHullBandGeometry(THREE, 0.035, 0.105, 1.008, false), this.sheerMaterial);
+    this.sheerStripe.scale.x = HULL_VISUAL_WIDTH_SCALE;
+    this.sheerStripe.castShadow = false;
+    this.tiltRoot.add(this.sheerStripe);
+
+    // Le matériel de pont : les cinq objets sont créés UNE FOIS, cachés, et la
+    // livrée n'a plus qu'à en montrer deux ou trois. Rien n'est alloué au
+    // départ d'une course, et un modèle absent laisse simplement son
+    // emplacement vide — jamais de trou dans le rendu.
+    this.deckProps = new Map();
+    for (const nom of Object.keys(DECK_PROPS)) {
+      const modele = assets?.instantiate?.(nom);
+      if (!modele) continue;
+      const gabarit = DECK_PROPS[nom];
+      // ⚠️ MESURER, METTRE À L'ÉCHELLE, PUIS RE-MESURER. Un modèle Meshy porte sa
+      // propre échelle et sa propre origine dans ses nœuds : `Box3.setFromObject`
+      // rend une boîte MONDE, pas une boîte locale. Calculer le recentrage sur la
+      // première boîte donnait des objets qui flottaient de 28 cm ou s'enfonçaient
+      // de 8 cm dans le plancher (mesuré en jeu, cinq objets, cinq écarts
+      // différents). On les met donc sous un support à l'identité, on mesure, on
+      // multiplie l'échelle existante, on re-mesure, et on translate pour que
+      // l'emprise soit centrée et le DESSOUS à zéro.
+      const support = new THREE.Group();
+      if (gabarit.couche) modele.rotation.x = gabarit.couche;
+      modele.traverse?.((noeud) => { if (noeud.isMesh) noeud.castShadow = false; });
+      support.add(modele);
+      support.updateMatrixWorld(true);
+      const boite = new THREE.Box3().setFromObject(modele);
+      const etendue = boite.getSize(new THREE.Vector3());
+      const plusGrand = Math.max(etendue.x, etendue.y, etendue.z);
+      if (plusGrand > 1e-4) modele.scale.multiplyScalar(gabarit.taille / plusGrand);
+      support.updateMatrixWorld(true);
+      const pose = new THREE.Box3().setFromObject(modele);
+      modele.position.sub(new THREE.Vector3(
+        (pose.min.x + pose.max.x) * 0.5,
+        pose.min.y,
+        (pose.min.z + pose.max.z) * 0.5
+      ));
+      support.visible = false;
+      this.tiltRoot.add(support);
+      this.deckProps.set(nom, support);
+    }
 
     // Passe 90 : OPAQUE, dessinée à l'ordre 1 — avant le masque de cale (5).
     // Transparente, elle passait après tous les opaques, donc après le masque,
@@ -3615,17 +3694,75 @@ varying vec3 vHullWorld;`)
     return normalized;
   }
 
+  /**
+   * Le matériel de pont d'une livrée : une liste de `[objet, emplacement]`.
+   * Tout ce qui n'y figure pas est caché — une livrée ne traîne jamais le
+   * coffre de la précédente.
+   */
+  setDeckProps(liste) {
+    if (!this.deckProps?.size) return;
+    for (const support of this.deckProps.values()) support.visible = false;
+    for (const [nom, emplacement] of liste ?? []) {
+      const support = this.deckProps.get(nom);
+      const place = DECK_SLOTS[emplacement];
+      if (!support || !place) continue;
+      support.position.set(place.x, DECK_FLOOR_Y, place.z);
+      support.rotation.y = place.rotation;
+      support.visible = true;
+    }
+  }
+
+  /** Maillot et short de tous les hommes du bord, dresseurs et spécialistes. */
+  applyCrewColors(jersey, shorts) {
+    for (const entry of this.crew ?? []) entry.visual?.setKitColors?.(jersey, shorts);
+    for (const entry of this.specialists ?? []) entry.visual?.setKitColors?.(jersey, shorts);
+  }
+
   setCrewKit(index) {
     const normalized = normalizeCustomization({ crewKit: index }).crewKit;
     const kit = CREW_KITS[normalized] ?? CREW_KITS[0];
     this.crewKitIndex = normalized;
-    for (const entry of this.crew ?? []) {
-      entry.visual?.setKitColors?.(kit.jersey, kit.shorts);
-    }
-    for (const entry of this.specialists ?? []) {
-      entry.visual?.setKitColors?.(kit.jersey, kit.shorts);
-    }
+    this.applyCrewColors(kit.jersey, kit.shorts);
     return normalized;
+  }
+
+  /**
+   * Applique une livrée de flotte (`YOLE_LIVERIES`) : peinture, bande de
+   * liston, liston, finition des bois, marque et teinte de voile, tenue.
+   *
+   * ⚠️ ELLE PASSE AVANT LE GARAGE, JAMAIS APRÈS. Le bateau du joueur reçoit la
+   * livrée d'origine puis `applyCustomization`, qui recouvre tout ce que le
+   * joueur a choisi. L'ordre inverse effacerait son garage à chaque course.
+   *
+   * La couleur d'identité suit la coque : le HUD, la marque de voile et les
+   * gerbes d'impact doivent désigner la yole qu'on voit sur l'eau.
+   */
+  applyLivery(livery) {
+    if (!livery) return null;
+    const wood = WOOD_FINISHES[livery.wood] ?? WOOD_FINISHES[0];
+    this.hullMaterial?.color?.setHex?.(livery.hull);
+    this.accentMaterial?.color?.setHex?.(livery.accent);
+    this.sheerMaterial?.color?.setHex?.(livery.stripe);
+    this.woodMaterial?.color?.setHex?.(wood.color);
+    if (this.woodMaterial) this.woodMaterial.roughness = wood.roughness;
+    if (this.bwaMaterial) {
+      // Le bwa reste du BOIS : la teinte d'équipe ne fait que l'effleurer (0,62
+      // vers le clair, contre 0,28 au garage). Vu sur la flotte : à 0,28 la yole
+      // verte avait des perches vertes, ce qu'aucune photo de course ne montre —
+      // les bwa sont vernis, tout au plus la pointe peinte.
+      this.bwaMaterial.color.setHex(livery.hull).lerp(this.bwaTintWhite, 0.62);
+      this.bwaMaterial.roughness = wood.roughness;
+    }
+    this.setSailLivery(livery.sailMark);
+    this.sailMaterial?.color?.setHex?.(livery.sailTint);
+    this.applyCrewColors(livery.jersey, livery.shorts);
+    this.color = livery.hull;
+    this.identityColor = livery.hull;
+    this.accent = livery.accent;
+    this.identityMark?.material?.color?.setHex?.(livery.hull);
+    this.setDeckProps(livery.props);
+    this.livery = livery;
+    return livery;
   }
 
   /**
@@ -3641,6 +3778,9 @@ varying vec3 vHullWorld;`)
 
     this.hullMaterial?.color?.setHex?.(hull.color);
     this.accentMaterial?.color?.setHex?.(accent.color);
+    // La bande de liston suit le liston choisi au garage : sans ça elle
+    // garderait celle de la livrée sous une coque repeinte.
+    this.sheerMaterial?.color?.setHex?.(accent.color);
     this.woodMaterial?.color?.setHex?.(wood.color);
     if (this.woodMaterial) this.woodMaterial.roughness = wood.roughness;
     // Les bwa gardent la peinture d'équipe par-dessus le choix de bois : la
@@ -3651,6 +3791,9 @@ varying vec3 vHullWorld;`)
     }
     this.setCrewKit(normalized.crewKit);
     this.setSailLivery(normalized.sailLivery);
+    // Le garage ne teinte pas la voile : ses quatre marques sont déjà des
+    // dessins pleins. On lève la teinte qu'une livrée aurait posée.
+    this.sailMaterial?.color?.setHex?.(this.sailAtlasTexture ? 0xffffff : accent.color);
     this.setRigProfile(normalized.rig);
     this.customization = normalized;
     return normalized;
