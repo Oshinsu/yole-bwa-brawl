@@ -1,6 +1,7 @@
 # Publication Google Play / TWA
 
-État du guide : **préparation technique**, mis à jour le 30 juillet 2026.
+État du guide : **préparation technique**, mis à jour le 30 juillet 2026,
+obstacles et règles Play revérifiés le 3 septembre 2026.
 
 Ce dépôt contient une PWA. La voie Android retenue est une Trusted Web Activity
 construite avec Bubblewrap, pas une WebView personnalisée.
@@ -50,6 +51,29 @@ Pour une TWA fiable, il faut soit contrôler le site Pages racine de cette
 origine, soit brancher un domaine personnalisé dont la racine peut servir
 `.well-known/assetlinks.json`.
 
+### ⚠️ MESURÉ LE 3 SEPTEMBRE 2026 — DEUX OBSTACLES CONCRETS
+
+1. **La racine de l'origine n'existe pas.** `https://oshinsu.github.io/` et
+   `https://oshinsu.github.io/.well-known/assetlinks.json` rendent tous les deux
+   **404** : aucun dépôt `oshinsu.github.io` n'est publié sur le compte. En
+   l'état, aucune association ne peut être vérifiée et la TWA retomberait dans un
+   Custom Tab avec sa barre d'adresse.
+2. **GitHub Pages n'expose pas `.well-known/` par défaut.** Jekyll exclut tout
+   dossier commençant par `.` : servir `assetlinks.json` depuis Pages exige un
+   fichier `.nojekyll` vide à la racine de la source de publication (ou une
+   directive `include` dans `_config.yml`). Ce dépôt n'en a pas — il n'en a pas
+   besoin aujourd'hui, mais le dépôt qui servira la RACINE devra en avoir un.
+
+Deux voies, au choix :
+
+| voie | coût | conséquence |
+|---|---|---|
+| dépôt `oshinsu.github.io` + `.nojekyll` + `.well-known/assetlinks.json` | gratuit | l'association vaut pour TOUTE l'origine, donc aussi pour les autres sites de projet du compte |
+| domaine personnalisé branché sur Pages | ~10-15 €/an | origine dédiée au jeu, fiche boutique plus propre, association limitée au jeu |
+
+Le reste du guide est inchangé : le domaine choisi remplace
+`REPLACE_WITH_FINAL_HTTPS_HOST` partout.
+
 ## Ordre opératoire
 
 1. Créer ou vérifier le compte Play Console.
@@ -68,6 +92,17 @@ Pour un compte personnel créé après le 13 novembre 2023, l'accès à la
 production exige actuellement au moins **12 testeurs inscrits sans interruption
 pendant 14 jours** au test fermé. Ce délai est une étape Play Console, pas un
 problème technique du jeu.
+
+Revérifié le 3 septembre 2026, avec deux précisions qui manquaient :
+
+- depuis 2026, Google contrôle aussi que ces testeurs ont **réellement utilisé**
+  l'application, et les douze doivent se recouvrir sur la MÊME fenêtre continue
+  de quatorze jours : si l'un se désinscrit au septième jour, le compteur repart
+  de zéro ;
+- un compte **organisation** (entreprise, numéro D-U-N-S requis) est **exempté**
+  de cette exigence, comme les comptes personnels ouverts avant le 13 novembre
+  2023. C'est la seule façon d'éviter les douze testeurs, et elle se décide à
+  l'ouverture du compte — pas après.
 
 ## Vérifications avant production
 
