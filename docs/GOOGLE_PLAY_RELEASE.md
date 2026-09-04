@@ -74,6 +74,53 @@ Deux voies, au choix :
 Le reste du guide est inchangé : le domaine choisi remplace
 `REPLACE_WITH_FINAL_HTTPS_HOST` partout.
 
+## Ouvrir le compte : personnel ou organisation
+
+Le choix se fait **à l'ouverture** et ne se rattrape pas ensuite.
+
+| | personnel | organisation |
+|---|---|---|
+| numéro D-U-N-S | non demandé | **obligatoire** |
+| test fermé 12 testeurs / 14 jours | **oui** | exempté |
+| nom affiché sur la fiche | le nom civil, public | le nom de la société |
+| frais d'inscription | 25 USD une fois | 25 USD une fois |
+
+### ⚠️ LE D-U-N-S NE SE DEMANDE PAS, IL SE RETROUVE
+
+En France, **Altares** (partenaire exclusif de Dun & Bradstreet) attribue
+automatiquement un D-U-N-S à la quasi-totalité des entreprises immatriculées au
+RCS, **à partir du SIREN, dès l'immatriculation**. Une société qui existe a donc
+déjà son numéro : le chercher prend dix minutes, le demander à neuf prend
+jusqu'à trente jours ouvrés (huit en payant l'option accélérée).
+
+Trois voies, toutes gratuites :
+
+1. l'outil **D-U-N-S Lookup** de Dun & Bradstreet ;
+2. **verif.com** (Altares), seul fournisseur autorisé pour la France, la
+   Belgique, le Luxembourg et les Pays-Bas ;
+3. le service client Altares, par téléphone, avec le nom et le SIRET.
+
+N'ouvrir une demande neuve qu'après avoir constaté que les trois échouent.
+
+### Ce qui est réellement long
+
+Ni la création du compte ni le paiement : c'est la **vérification d'identité**
+(pièce d'identité et adresse en personnel, documents de société en
+organisation), quelques jours, et surtout les formulaires de PUBLICATION —
+Data Safety, classification IARC, fiche boutique. Le kit boutique de ce dépôt
+couvre déjà le dernier point, et Data Safety est simple ici : le jeu ne collecte
+rien hors du stockage local du navigateur.
+
+### ⚠️ CE QUI EST DÉFINITIF, ET CE QUI NE L'EST PAS
+
+- le **nom de paquet** (`com.oshinsu.yolebwabrawl`) est figé à la **première
+  publication, test interne compris**. Il ne peut plus jamais changer : un autre
+  identifiant serait une autre application, sans les téléchargements ni les avis.
+  Le titre du jeu doit donc être arrêté AVANT le premier envoi ;
+- le **nom affiché** sur la fiche, lui, se change quand on veut ;
+- le **domaine** est figé de fait : il vit dans `assetlinks.json` et dans la
+  TWA ; en changer oblige à republier et à revalider l'association.
+
 ## Ordre opératoire
 
 1. Créer ou vérifier le compte Play Console.
