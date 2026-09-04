@@ -13,6 +13,36 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 93 — le bouton MENU n'est plus posé sur le radar
+
+Le propriétaire : « en haut à droite le bouton menu est sur la carte radar ».
+
+- **Mesuré avant de toucher quoi que ce soit.** Le bouton (52 × 52) tombait
+  **intégralement** dans la mini-carte — recouvrement 52 × 52 px — à 1280×720,
+  1600×900 **et** 1920×1080. Ce n'était pas un cas limite de mise en page : une
+  règle tardive de `style.css` collait la carte au bord droit (`right:14px`)
+  sans jamais déplacer le rail `.top-actions`, resté à `right:16px`.
+- **La carte passe sous le bouton**, par paliers plutôt qu'à une seule valeur :
+  148 px au-dessus de 900 px de large (le rail descend à 139), 112 px en
+  téléphone paysage (le rail y descend à 104 — les 148 px du bureau auraient
+  poussé une carte de 88 px dans le dock du bas), et les 96 px déjà réglés en
+  portrait. Le fil des KO (330 px) reste dégagé.
+- **Et le bouton débordait de l'écran, même coin.** Trouvé en mesurant : à
+  844×390, `.top-actions .icon-btn` passe à 48 px (règle tactile) dans un rail
+  large de 39 px avec 3 px de garde et `overflow:hidden` — le bouton sortait de
+  **6 px** hors du bord droit et se faisait rogner par son propre conteneur,
+  donc une partie de la cible tactile était perdue. Le rail se dimensionne
+  désormais sur son contenu (`min-width:max-content`, `overflow:visible`).
+- **Le contrôle manquait, il est ajouté.** Le seul test de collision du HUD
+  tournait en 640×360, une taille où la carte est ailleurs : rien ne pouvait
+  voir le défaut. `test/browser-smoke.py` vérifie maintenant, **à la taille de
+  bureau du contexte et en compact**, que le bouton ne recouvre pas la carte et
+  ne sort pas de l'écran. Il a d'ailleurs échoué au premier essai en lisant le
+  build mono-fichier non régénéré — la preuve qu'il mord.
+- Mesuré après, cinq formats (1280×720, 1920×1080, 1024×640, 844×390, 390×844) :
+  **aucune collision**, et le débord passe de −6 px à +11 px de garde. Purement
+  CSS : les checksums sont inchangés.
+
 ## Passe 92 — six formes de bancs de sargasses
 
 Le propriétaire : « on peut mieux faire les sargasses et avoir plusieurs types

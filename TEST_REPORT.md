@@ -1,5 +1,37 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 93 — le bouton MENU et le radar
+
+Validation du 2 septembre 2026 (nuit) :
+
+- `npm run verify` : **OK** ; checksums inchangés depuis la passe 92
+  (`017e9fdc`, `38b36ee7`, `85b03e9f`, `0127bfc6`) — le correctif est du CSS ;
+- mesure en jeu, avant → après, sur cinq formats :
+
+  | format | recouvrement bouton × carte | débord du bouton |
+  |---|---|---|
+  | 1280×720 | 52×52 px → **0** | 0 → 0 |
+  | 1600×900 | 52×52 px → **0** | 0 → 0 |
+  | 1920×1080 | 52×52 px → **0** | 0 → 0 |
+  | 1024×640 | 40×40 px → **0** | 0 → 0 |
+  | 844×390 | recouvrait → **0** | **−6 px → +11 px** |
+  | 390×844 | 0 → 0 | 0 → 0 |
+
+- `test/browser-smoke.py` gagne deux contrôles (bureau et compact) : le bouton
+  ne recouvre pas la carte, et ne sort pas de l'écran. Le contrôle de bureau
+  n'existait pas — l'unique test de collision du HUD tournait en 640×360, une
+  taille où la carte n'est pas au même endroit.
+
+### Ce qui n'est pas vérifié ici
+
+- le jugement du propriétaire ;
+- les six autres formats possibles (tablette portrait, ultra-large 21:9) ne sont
+  pas mesurés ; le contrôle automatique ne couvre que la taille du contexte de
+  smoke (1280×720) et 640×360 ;
+- la carte descend de 81 px en bureau : elle mord un peu plus bas dans l'image,
+  au-dessus du fil des KO qui n'a pas bougé.
+
+
 ## Passe 92 — six formes de bancs de sargasses
 
 Validation du 2 septembre 2026 (nuit) :

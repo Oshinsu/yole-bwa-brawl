@@ -7302,8 +7302,29 @@ body.reduce-flash .turbo-instrument.turbo-rejected .turbo-impact-art{
 #pauseBtn.menu-btn:after{font-size:5.4px}
 .top-actions{gap:0}
 /* Sans rail, la mini-carte et le fil de combat reprennent le bord droit. */
+/* ⚠️ LA CARTE PASSE SOUS LE BOUTON, ELLE NE PASSE PLUS DERRIÈRE LUI.
+   `right:14px` colle la mini-carte au bord droit — exactement là où le rail
+   `.top-actions` pose déjà le bouton MENU, qui n'a lui jamais bougé. Mesuré en
+   jeu à 1280×720, 1600×900 et 1920×1080 : le bouton (52×52) tombait
+   INTÉGRALEMENT dans la carte, recouvrement 52×52 px, à toutes les tailles de
+   bureau. Le rail descend jusqu'à 139 px ; la carte démarre donc en dessous, et
+   le fil des KO (330 px) reste dégagé. */
 .minimap{right:14px}
+@media(min-width:901px){.minimap{top:148px}}
+/* Paysage court : le rail descend à 104 px, la carte se cale juste dessous
+   plutôt qu'aux 148 px du bureau — sur 390 px de haut, 44 px de vide au-dessus
+   d'une carte de 88 px la pousseraient dans le dock du bas. */
+@media(max-width:900px) and (max-height:520px) and (orientation:landscape){
+  .minimap{top:112px}
+}
 @media(max-width:900px){.minimap{right:8px}}
+
+/* ⚠️ ET LE BOUTON DÉBORDAIT DE L'ÉCRAN, MÊME COIN. Mesuré à 844×390 :
+   `.top-actions .icon-btn` passe à 48 px (règle tactile) dans un rail large de
+   39 px, 3 px de garde et `overflow:hidden` — le bouton sortait de 6 px hors du
+   bord droit ET se faisait rogner par son propre conteneur, donc une partie de
+   la cible tactile était perdue. Le rail se dimensionne sur son contenu. */
+.top-actions{min-width:max-content;overflow:visible}
 @media(max-width:900px) and (pointer:coarse),
        (max-width:900px) and (any-pointer:coarse){
   .top-actions{width:auto}

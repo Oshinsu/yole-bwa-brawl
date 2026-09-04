@@ -338,6 +338,30 @@ def main() -> None:
             if telemetry["counters"].get("match_start", 0) != 1:
                 raise AssertionError(f"Telemetry did not record match start: {telemetry}")
 
+            # ⚠️ LE BOUTON MENU ETAIT POSE SUR LE RADAR, EN BUREAU, A TOUTES LES
+            # TAILLES. Signale par le proprietaire, puis mesure : le bouton (52x52)
+            # tombait INTEGRALEMENT dans la mini-carte a 1280, 1600 et 1920 --
+            # recouvrement 52x52 px. Une regle tardive collait la carte au bord
+            # droit sans jamais deplacer le rail. Rien ne le voyait : le seul
+            # controle de collision du HUD tournait en 640x360, ou la carte est
+            # ailleurs. Il en faut donc un ICI, a la taille de bureau du contexte.
+            desktop_hud = game_page.evaluate(
+                """(() => {
+                    const carte = document.getElementById('minimap').getBoundingClientRect();
+                    const bouton = document.getElementById('pauseBtn').getBoundingClientRect();
+                    const largeur = Math.max(0, Math.min(carte.right, bouton.right) - Math.max(carte.left, bouton.left));
+                    const hauteur = Math.max(0, Math.min(carte.bottom, bouton.bottom) - Math.max(carte.top, bouton.top));
+                    return {
+                        recouvrement: Math.round(largeur * hauteur),
+                        debordDroite: Math.round(Math.max(0, bouton.right - window.innerWidth)),
+                        carteHaut: Math.round(carte.top),
+                        boutonBas: Math.round(bouton.bottom)
+                    };
+                })()"""
+            )
+            if desktop_hud["recouvrement"] > 0 or desktop_hud["debordDroite"] > 0:
+                raise AssertionError(f"Desktop HUD: menu button over the radar or off screen: {desktop_hud}")
+
             # Compact landscape is the most constrained HUD layout: keep the map
             # clear of the feed and retain practical touch targets in the top rail.
             game_page.set_viewport_size({"width": 640, "height": 360})
@@ -356,10 +380,18 @@ def main() -> None:
                     const minTouchTarget = buttons.length
                         ? Math.min(...buttons.flatMap((rect) => [rect.width, rect.height]))
                         : 0;
+                    // Meme defaut, autre taille : le bouton passait sur la carte
+                    // ET debordait de 6 px hors de l'ecran en telephone paysage,
+                    // rogne par l'`overflow:hidden` de son propre rail.
+                    const menu = document.getElementById('pauseBtn').getBoundingClientRect();
+                    const chevauche = Math.max(0, Math.min(map.right, menu.right) - Math.max(map.left, menu.left))
+                        * Math.max(0, Math.min(map.bottom, menu.bottom) - Math.max(map.top, menu.top));
                     return {
                         minimapBottom: Math.round(map.bottom),
                         killfeedTop: Math.round(feed.top),
                         overlapsKillfeed: map.bottom > feed.top,
+                        overlapsMenu: Math.round(chevauche),
+                        menuOffScreen: Math.round(Math.max(0, menu.right - window.innerWidth)),
                         minTouchTarget: Math.round(minTouchTarget)
                     };
                 })()"""
@@ -369,7 +401,12 @@ def main() -> None:
             # style le sert derriere `(pointer:coarse)`. Mesurer 31 px ici et en
             # conclure que le contrat est rompu etait une erreur de lecture : ce
             # contexte-la n'a pas de doigt.
-            if responsive_state["overlapsKillfeed"] or responsive_state["minTouchTarget"] < 24:
+            if (
+                responsive_state["overlapsKillfeed"]
+                or responsive_state["overlapsMenu"] > 0
+                or responsive_state["menuOffScreen"] > 0
+                or responsive_state["minTouchTarget"] < 24
+            ):
                 raise AssertionError(f"Compact HUD collision or undersized control: {responsive_state}")
 
             # Le contrat 44 px se verifie donc dans un contexte TACTILE dedie.
