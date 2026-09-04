@@ -1,4 +1,4 @@
-const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-1b6f92e12ffa";
+const CACHE = "yole-bwa-brawl-tropical-mayhem-v3-9.1.0.0-11184bdb80d2";
 const CACHE_PREFIX = "yole-bwa-brawl-tropical-mayhem-";
 // Stable entre deux versions du shell : une mise à jour de code ne force pas
 // le retéléchargement des pistes déjà écoutées. Incrémenter si les MP3 changent.
@@ -30,7 +30,7 @@ const CORE = [
   "./src/render/crew-clips.js", "./src/render/ghost-visual.js",
   "./assets/models/yole_hull.glb", "./assets/models/yole_crew.glb", "./assets/models/yole_crew_locks.glb", "./assets/models/yole_crew_casquette.glb", "./assets/models/yole_crew_bakoua.glb", "./assets/models/flottille_catamaran.glb", "./assets/models/flottille_vedette.glb", "./assets/models/coffre_yole.glb", "./assets/models/bidon.glb", "./assets/models/ecope.glb", "./assets/models/glaciere.glb", "./assets/models/sac_voile.glb", "./assets/models/case_creole.glb", "./assets/models/gommier.glb", "./assets/models/ponton.glb", "./assets/models/barik.glb", "./assets/models/chadron.glb", "./assets/models/lanbi.glb", "./assets/models/pwason.glb", "./assets/models/bouee.glb",
   "./assets/audio/bedStorm.mp3", "./assets/audio/bedWater.mp3", "./assets/audio/buoy.mp3", "./assets/audio/bwaShift.mp3", "./assets/audio/cocoBoom.mp3", "./assets/audio/cocoFire.mp3", "./assets/audio/dash.mp3", "./assets/audio/harpoonFire.mp3", "./assets/audio/hullSlam.mp3", "./assets/audio/mineBlast.mp3", "./assets/audio/slamHeavy.mp3", "./assets/audio/splash.mp3", "./assets/audio/takedown.mp3", "./assets/audio/turbo.mp3", "./assets/audio/victory.mp3",
-  "./assets/textures/sail_djab.webp", "./assets/textures/sky_clouds.webp", "./assets/textures/spray_flipbook.webp", "./assets/textures/sargasse.webp", "./assets/textures/hull_paint.webp", "./assets/textures/wood_bwa.webp", "./assets/textures/crate_wood.webp", "./assets/textures/sail_atlas.webp", "./assets/textures/morne_rock.webp", "./assets/textures/backdrop_far.webp", "./assets/textures/backdrop_near.webp", "./assets/textures/ui_icons.webp", "./assets/textures/explosion_flipbook.webp",
+  "./assets/textures/sail_djab.ktx2", "./assets/textures/sky_clouds.ktx2", "./assets/textures/spray_flipbook.ktx2", "./assets/textures/sargasse.ktx2", "./assets/textures/hull_paint.ktx2", "./assets/textures/wood_bwa.ktx2", "./assets/textures/crate_wood.ktx2", "./assets/textures/sail_atlas.ktx2", "./assets/textures/morne_rock.ktx2", "./assets/textures/backdrop_far.ktx2", "./assets/textures/backdrop_near.ktx2", "./assets/textures/ui_icons.webp", "./assets/textures/explosion_flipbook.ktx2",
   "./src/game/balance.js", "./src/game/customization.js", "./src/game/tour-progress.js", "./src/game/tour-hub.js", "./src/game/replay-library.js", "./src/game/info-hub.js", "./src/game/growth.js", "./src/game/playtest-report.js", "./src/game/ghost.js", "./src/game/weapons.js", "./src/game/match.js", "./src/game/pickups.js", "./src/game/obstacles.js",
   "./src/game/hud.js", "./src/game/input.js", "./src/game/versus.js", "./src/game/camera.js", "./src/game/cinematic.js?v=director-v1", "./src/game/handling-feedback.js", "./src/game/utility-ai.js", "./src/game/boat.js", "./src/game/game.js",
   "./assets/textures/ui_joystick_base.webp", "./assets/textures/ui_joystick_knob.webp",
@@ -84,7 +84,7 @@ const CORE = [
   "./assets/textures/v5/hud/menu_end_backdrop.webp",
   // Les 18 prises individuelles V5 restent des sources d'audit. Le runtime
   // consomme uniquement cet atlas : une requête et un draw call.
-  "./assets/textures/v5/vfx/spell_vfx_atlas.webp",
+  "./assets/textures/v5/vfx/spell_vfx_atlas.ktx2",
   "./assets/textures/v5/asset-pack.json",
   // Pack V6 — seuls les badges sans yole restent utiles au duel local. Les six
   // faux rendus de yoles ne sont plus affichés ni payés à l'installation.
@@ -92,7 +92,7 @@ const CORE = [
   "./assets/textures/v6/menu/badge_player_two.webp",
   "./assets/textures/v6/asset-pack.json",
   // Pack V7 — le runtime consomme l'atlas 2×2, pas ses quatre sources.
-  "./assets/textures/v7/juice/juice_vfx_atlas.webp",
+  "./assets/textures/v7/juice/juice_vfx_atlas.ktx2",
   "./assets/textures/v7/asset-pack.json",
   // Pack V8 — instruments de course authentiques, détourés et pilotés par le
   // DOM. Les images n'embarquent aucune valeur ni aucun texte dynamique.
@@ -113,6 +113,21 @@ const CORE = [
   "./assets/textures/v9/asset-pack.json",
   "./vendor/three.module.min.js", "./vendor/three.core.min.js",
   "./vendor/addons/GLTFLoader.js", "./vendor/addons/BufferGeometryUtils.js", "./vendor/addons/SkeletonUtils.js",
+  // ⚠️ LES .WEBP DE CES QUATORZE TEXTURES NE SONT PLUS PRÉCHARGÉES, ET C'EST
+  // VOULU. Précacher les deux formats coûtait 2,27 Mo à tous les joueurs pour
+  // servir un repli que presque aucun n'utilisera : tout GPU WebGL2 expose au
+  // moins un format compressé (ETC2 est obligatoire en GLES 3.0, S3TC/BPTC sur
+  // bureau, ASTC/PVRTC sur iOS). Les .webp restent LIVRÉES et le cache
+  // d'exécution les garde dès le premier chargement s'il faut vraiment y
+  // retomber. Risque résiduel assumé : sur un appareil sans aucun format
+  // compressé, la toute première partie exige le réseau pour ses textures —
+  // et `loadTextures` tolère déjà une texture manquante, une par une.
+  // Chargement des textures compressées GPU (passe 94). Le transcodeur wasm
+  // pèse 514 Ko mais rend 56 Mo de VRAM ; il n'est demandé que si l'appareil
+  // sait décoder au moins un format compressé, et le repli .webp reste livré.
+  "./vendor/addons/KTX2Loader.js", "./vendor/addons/ColorSpaces.js", "./vendor/addons/WorkerPool.js",
+  "./vendor/addons/ktx-parse.module.js", "./vendor/addons/zstddec.module.js",
+  "./vendor/basis/basis_transcoder.js", "./vendor/basis/basis_transcoder.wasm",
 ];
 
 // Musique = média optionnel. Les huit pistes (environ 12 Mo) ne doivent ni

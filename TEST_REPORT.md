@@ -1,5 +1,47 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 94 — pipeline KTX2
+
+Validation du 4 septembre 2026 :
+
+- `npm run verify` : **OK** ; checksums inchangés depuis la passe 92
+  (`017e9fdc`, `38b36ee7`, `85b03e9f`, `0127bfc6`) — le rendu ne touche pas la
+  simulation ;
+- encodage des quatorze textures du moteur (`node tools/encode_ktx2.mjs`) :
+
+  | | disque | VRAM (RGBA8 + mips) |
+  |---|---|---|
+  | WebP | 2,27 Mo | **64,1 Mo** |
+  | KTX2 ETC1S | 1,84 Mo | **8,0 Mo** |
+
+  soit **56 Mo rendus au GPU** ;
+- précache : 10,66 → **10,89 Mo** (+0,23 Mo), 191 → 198 entrées, après retrait
+  des quatorze .webp devenues redondantes ;
+- chargement vérifié en navigateur réel : **14 textures sur 14 en compressé**,
+  mipmaps complets (10 à 12 niveaux), aucune erreur console ;
+- repli vérifié en retirant les .ktx2 : 14 textures sur 14 en WebP, jeu
+  identique, une seule ligne d'information en console ;
+- comparaison A/B à horloge figée, même graine, même caméra : écart moyen
+  **6,8/255** (compression ETC1S), écart au rendu retourné 48,6/255 — les UV
+  sont dans le bon sens ;
+- un bug trouvé et corrigé en cours de route : les marques de voile étaient
+  permutées deux à deux par l'inversion de `flipY` propre aux textures
+  compressées.
+
+### Ce qui n'est pas vérifié ici
+
+- **le gain réel sur un vrai téléphone** : tout ceci est mesuré en SwiftShader,
+  qui n'a ni la mémoire ni la thermique d'un Adreno ou d'un Mali. Le P0 de
+  `docs/NEXT_PRODUCTION_STEPS.md` reste entier, et c'est lui qui dira si les
+  56 Mo changent quelque chose ;
+- le coût CPU du transcodage au chargement n'a pas été chiffré appareil en main ;
+- les vingt-et-une images embarquées dans les GLB (environ 7 Mo de VRAM) ne sont
+  pas converties : elles demanderaient `gltf-transform` et une passe sur les
+  modèles ;
+- la qualité ETC1S est réglée à 192/255 au jugé sur `sky_clouds` ; aucun test
+  ne mesure la perte visuelle texture par texture.
+
+
 ## Passe 93 — le bouton MENU et le radar
 
 Validation du 2 septembre 2026 (nuit) :

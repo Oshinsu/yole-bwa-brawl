@@ -13,6 +13,56 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 94 — les textures du moteur en KTX2 : 56 Mo rendus au GPU
+
+Le propriétaire, après un état des lieux « SOTA septembre 2026 » : « vas-y, fais
+le pipeline KTX2 ». C'était le seul angle mort chiffrable de l'audit.
+
+- **Le problème, mesuré.** Une WebP est compressée sur le DISQUE et
+  décompressée à l'upload : elle vit en RGBA8 dans la mémoire du GPU.
+  `sail_atlas.webp` pèse 506 Ko sur disque et **12 Mo en VRAM**. Sur les
+  quatorze textures que charge le moteur : 2,27 Mo de fichiers, **64,1 Mo de
+  VRAM**.
+- **Le pipeline.** `tools/encode_ktx2.mjs` (outil de construction, `npm run
+  textures:ktx2`) encode chaque texture en KTX2 / Basis Universal ETC1S avec
+  ses mipmaps. Le jeu garde `three` pour SEULE dépendance d'exécution :
+  l'encodeur wasm et `sharp` s'installent à la demande et ne partent jamais chez
+  le joueur. Résultat : **64,1 → 8 Mo de VRAM, 56 Mo rendus au GPU**, et
+  2,27 → 1,84 Mo sur disque en prime.
+- **Le chargement.** `KTX2Loader` et ses quatre modules sont vendorés avec leurs
+  imports réécrits, comme `GLTFLoader` avant eux, plus le transcodeur Basis
+  (674 Ko en tout). `assets.js` tente le .ktx2 puis retombe sur la .webp,
+  **texture par texture** : une compressée qui manque n'emporte pas les autres,
+  et le jeu tourne sans un seul .ktx2.
+- **⚠️ LE RENDERER N'EXISTE PAS ENCORE QUAND LES TEXTURES SE CHARGENT.**
+  `detectSupport` veut un renderer pour savoir ce que le GPU décode ;
+  `loadTextures` tourne avant que `Game` ne construise le sien. Créer un second
+  contexte WebGL permanent aurait doublé la mémoire de base sur mobile. On lui
+  passe donc un leurre `{ extensions: { has, get } }` adossé à un contexte
+  WebGL2 jetable, relâché aussitôt — exactement la surface que le loader
+  consulte.
+- **⚠️ ET UN BUG VISIBLE, TROUVÉ PAR LA COMPARAISON A/B.** Une texture
+  compressée ne peut pas être retournée à l'upload : `KTX2Loader` pose
+  `flipY = false` là où le `TextureLoader` pose `true`. Invisible sur une
+  texture pleine — mais `setSailLivery` choisit son quadrant dans l'atlas 2×2
+  avec `index < 2 ? 0.5 : 0`, et **les quatre marques de voile se retrouvaient
+  permutées deux à deux**, le serpent rouge à la place du motif vert. Correction
+  à l'encodage : la source est retournée verticalement, le KTX2 en `flipY=false`
+  s'échantillonne alors comme la WebP en `flipY=true`, et pas une seule UV du
+  jeu ne bouge. Vérifié : écart moyen ramené à 6,8/255, et l'écart au rendu
+  RETOURNÉ est sept fois plus grand — les UV sont bien dans le bon sens.
+- **Le précache reste plat.** Porter les deux formats coûtait 2,49 Mo à tous les
+  joueurs. Les .webp des quatorze textures sortent donc du précache — elles
+  restent LIVRÉES, et le cache d'exécution les garde si un appareil doit
+  vraiment y retomber. Bilan : **10,66 → 10,89 Mo, soit 0,23 Mo** pour 56 Mo de
+  VRAM. Risque résiduel assumé : sur un appareil sans aucun format compressé, la
+  toute première partie demande le réseau pour ses textures.
+- `test/ktx2-pipeline.test.mjs` (dans `verify`) verrouille les deux moitiés :
+  en-tête KTX2 valide, Basis Universal, BasisLZ, mipmaps complets, dimensions
+  multiples de 4, présence des .webp de repli, précache exact, et aucun import
+  `three` nu dans les addons vendorés. Purement visuel : les quatre checksums
+  sont inchangés.
+
 ## Passe 93 — le bouton MENU n'est plus posé sur le radar
 
 Le propriétaire : « en haut à droite le bouton menu est sur la carte radar ».

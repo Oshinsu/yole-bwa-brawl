@@ -134,12 +134,73 @@ export class AssetLibrary {
     return this.textures.get(name) ?? null;
   }
 
+  /**
+   * Le chargeur KTX2, ou `null` si l'appareil ou le vendoring ne suit pas.
+   *
+   * ⚠️ IL LUI FAUT SAVOIR CE QUE LE GPU SAIT DÉCODER, ET IL N'Y A PAS ENCORE
+   * DE RENDERER. `loadTextures` tourne dans `main.js` avant que `Game` ne
+   * construise le WebGLRenderer, et `detectSupport` veut un renderer. Créer un
+   * second contexte WebGL permanent pour ça serait cher sur mobile — deux
+   * contextes, deux fois la mémoire de base. On lui passe donc un LEURRE : un
+   * objet qui expose `extensions.has/get`, adossé à un contexte WebGL2
+   * jetable qu'on relâche aussitôt. C'est exactement la surface que
+   * `KTX2Loader.detectSupport` consulte pour un rendu WebGL (three r185,
+   * KTX2Loader.js:230-256) : les sept extensions de texture compressée.
+   */
+  async loadKTX2Loader() {
+    if (this.ktx2Loader !== undefined) return this.ktx2Loader;
+    this.ktx2Loader = null;
+    try {
+      if (typeof document === "undefined") return null;
+      const url = new URL("../../vendor/addons/KTX2Loader.js", import.meta.url);
+      const module = await import(/* @vite-ignore */ url.href);
+      if (!module?.KTX2Loader) return null;
+      const sonde = document.createElement("canvas");
+      const gl = sonde.getContext("webgl2") || sonde.getContext("webgl");
+      if (!gl) return null;
+      const leurre = {
+        isWebGPURenderer: false,
+        extensions: {
+          has: (nom) => Boolean(gl.getExtension(nom)),
+          get: (nom) => gl.getExtension(nom)
+        }
+      };
+      const loader = new module.KTX2Loader();
+      loader.setTranscoderPath(new URL("../../vendor/basis/", import.meta.url).href);
+      loader.detectSupport(leurre);
+      // Le contexte jetable a fini son office : on le rend au navigateur
+      // plutôt que d'attendre le ramasse-miettes, qui garderait un contexte
+      // WebGL de plus vivant pendant toute la partie.
+      gl.getExtension("WEBGL_lose_context")?.loseContext?.();
+      this.ktx2Loader = loader;
+    } catch (erreur) {
+      console.info(`[assets] KTX2 indisponible, repli WebP (${erreur?.message || erreur})`);
+      this.ktx2Loader = null;
+    }
+    return this.ktx2Loader;
+  }
+
   // Les textures ne dépendent d'aucun addon : un échec de GLTFLoader ne doit pas
   // les emporter avec lui.
   async loadTextures(list = YOLE_TEXTURES, basePath = "./assets/textures/") {
     const THREE = this.THREE;
     if (!THREE?.TextureLoader) return this;
     const loader = new THREE.TextureLoader();
+    // ─── KTX2 D'ABORD, WEBP TOUJOURS EN REPLI ──────────────────────────────
+    //
+    // Une WebP est compressée sur le DISQUE et décompressée à l'upload : elle
+    // occupe la place d'un RGBA8 complet en mémoire GPU. `sail_atlas` pèse
+    // 506 Ko sur disque et 12 Mo en VRAM. Un KTX2/Basis reste compressé SUR le
+    // GPU, transcodé au chargement vers ASTC, BC7 ou ETC2 selon l'appareil.
+    // Mesuré sur les quatorze textures : 64,1 Mo de VRAM contre 8, soit 56 Mo
+    // rendus au GPU — ce qui décide de la chauffe sur un Android de milieu de
+    // gamme, le P0 ouvert de docs/NEXT_PRODUCTION_STEPS.md.
+    //
+    // ⚠️ LE REPLI N'EST PAS DÉCORATIF. Les .webp restent livrées et le jeu doit
+    // tourner sans un seul .ktx2 : vendoring absent, navigateur sans extension
+    // de texture compressée, monofichier autonome. Chaque texture retombe
+    // INDIVIDUELLEMENT, une compressée qui manque n'emporte pas les autres.
+    const ktx2 = await this.loadKTX2Loader();
     // ⚠️ EN PARALLÈLE, PAS EN SÉRIE. Le `await` était DANS la boucle : les 14
     // textures partaient l'une après l'autre, soit quatorze allers-retours
     // réseau enchaînés avant que le menu n'apparaisse. Sur un lien mobile à
@@ -150,15 +211,31 @@ export class AssetLibrary {
     // L'ordre de `loadedParts` change et c'est sans conséquence : il n'alimente
     // qu'un `console.info` de diagnostic.
     await Promise.allSettled(Object.entries(list).map(async ([name, spec]) => {
-      try {
-        const texture = await loader.loadAsync(`${basePath}${spec.file}`);
-        if (spec.color && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
-        texture.anisotropy = 4;
-        this.textures.set(name, texture);
-        this.loadedParts.push(`texture:${name}`);
-      } catch (error) {
-        console.info(`[assets] texture ${name} absente (${error?.message || error})`);
+      let texture = null;
+      let compressee = false;
+      if (ktx2) {
+        try {
+          texture = await ktx2.loadAsync(`${basePath}${spec.file.replace(/\.webp$/i, ".ktx2")}`);
+          compressee = true;
+        } catch {
+          texture = null;
+        }
       }
+      if (!texture) {
+        try {
+          texture = await loader.loadAsync(`${basePath}${spec.file}`);
+        } catch (error) {
+          console.info(`[assets] texture ${name} absente (${error?.message || error})`);
+          return;
+        }
+      }
+      if (spec.color && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 4;
+      // Une texture transcodée arrive avec ses mips et sans `flipY` : le
+      // conserver ferait retourner tous les atlas. `KTX2Loader` pose déjà les
+      // bons drapeaux, on ne les écrase pas.
+      this.textures.set(name, texture);
+      this.loadedParts.push(compressee ? `texture:${name}:ktx2` : `texture:${name}`);
     }));
     return this;
   }

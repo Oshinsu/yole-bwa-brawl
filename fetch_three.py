@@ -23,6 +23,19 @@ ADDONS = {
     "addons/GLTFLoader.js": f"{CDN}/examples/jsm/loaders/GLTFLoader.js",
     "addons/BufferGeometryUtils.js": f"{CDN}/examples/jsm/utils/BufferGeometryUtils.js",
     "addons/SkeletonUtils.js": f"{CDN}/examples/jsm/utils/SkeletonUtils.js",
+    # Textures compressées GPU (passe 94). KTX2Loader tire trois modules et
+    # un transcodeur wasm ; sans eux le jeu retombe simplement sur les .webp.
+    "addons/KTX2Loader.js": f"{CDN}/examples/jsm/loaders/KTX2Loader.js",
+    "addons/ColorSpaces.js": f"{CDN}/examples/jsm/math/ColorSpaces.js",
+    "addons/WorkerPool.js": f"{CDN}/examples/jsm/utils/WorkerPool.js",
+    "addons/ktx-parse.module.js": f"{CDN}/examples/jsm/libs/ktx-parse.module.js",
+    "addons/zstddec.module.js": f"{CDN}/examples/jsm/libs/zstddec.module.js",
+}
+
+# Binaires du transcodeur Basis : copiés tels quels, aucune réécriture.
+BINAIRES = {
+    "basis/basis_transcoder.js": f"{CDN}/examples/jsm/libs/basis/basis_transcoder.js",
+    "basis/basis_transcoder.wasm": f"{CDN}/examples/jsm/libs/basis/basis_transcoder.wasm",
 }
 
 ADDON_REWRITES = (
@@ -30,6 +43,10 @@ ADDON_REWRITES = (
     ('from "three"', 'from "../three.module.min.js"'),
     ("from '../utils/BufferGeometryUtils.js'", "from './BufferGeometryUtils.js'"),
     ("from '../utils/SkeletonUtils.js'", "from './SkeletonUtils.js'"),
+    ("from '../utils/WorkerPool.js'", "from './WorkerPool.js'"),
+    ("from '../libs/ktx-parse.module.js'", "from './ktx-parse.module.js'"),
+    ("from '../libs/zstddec.module.js'", "from './zstddec.module.js'"),
+    ("from '../math/ColorSpaces.js'", "from './ColorSpaces.js'"),
 )
 
 
