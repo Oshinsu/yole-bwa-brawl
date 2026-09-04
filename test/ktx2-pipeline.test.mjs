@@ -17,7 +17,7 @@
 //      images, soit 2,27 Mo imposés à tous pour un repli quasi jamais pris.
 
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { YOLE_TEXTURES } from "../src/render/assets.js";
 
@@ -120,6 +120,65 @@ for (const addon of ["KTX2Loader.js", "ColorSpaces.js", "WorkerPool.js"]) {
   }
 }
 
+// ─── LES TEXTURES EMBARQUÉES DANS LES GLB ────────────────────────────────────
+//
+// Même bénéfice, même piège. Vingt-et-une images dans dix-neuf modèles :
+// 6,0 Mo de VRAM contre 0,75 en KTX2. Trois choses à tenir :
+//
+//   a. chaque image est bien un KTX2 et l'extension est déclarée ET requise ;
+//   b. `GLTFLoader` reçoit le chargeur KTX2 — sans quoi les modèles perdent
+//      leurs textures EN SILENCE : vu à l'écran, tout l'équipage en aplat, sans
+//      vêtements ni visages, et pas une ligne d'erreur ;
+//   c. la réécriture des GLB n'a rien emporté d'autre. Au premier essai,
+//      `NodeIO` a jeté `KHR_materials_specular` et `KHR_materials_ior` des
+//      quatre rigs d'équipage — le matériau retombait de MeshPhysical à
+//      MeshStandard, et `makeCrewMaterial` le clone pour tout l'équipage.
+
+const modeles = readdirSync(chemin("assets/models")).filter((f) => f.endsWith(".glb")).sort();
+let imagesGlb = 0;
+let modelesTextures = 0;
+
+for (const fichier of modeles) {
+  const octets = readFileSync(chemin(`assets/models/${fichier}`));
+  const longueurJson = octets.readUInt32LE(12);
+  const gltf = JSON.parse(octets.subarray(20, 20 + longueurJson).toString("utf8"));
+  const images = gltf.images || [];
+  if (!images.length) continue;
+  modelesTextures++;
+
+  for (const image of images) {
+    assert.equal(image.mimeType, "image/ktx2",
+      `${fichier} : image en ${image.mimeType}, attendu image/ktx2 (lance \`npm run textures:glb\`)`);
+    imagesGlb++;
+  }
+  assert.ok((gltf.extensionsUsed || []).includes("KHR_texture_basisu"),
+    `${fichier} : KHR_texture_basisu absente de extensionsUsed`);
+  assert.ok((gltf.extensionsRequired || []).includes("KHR_texture_basisu"),
+    `${fichier} : KHR_texture_basisu doit être REQUISE, sinon un lecteur sans support croit lire du PNG`);
+}
+
+assert.ok(imagesGlb >= 21, `seulement ${imagesGlb} images de modèle en KTX2, attendu au moins 21`);
+
+// ── b. Le chargeur doit être branché sur GLTFLoader ─────────────────────────
+const sourceAssets = readFileSync(chemin("src/render/assets.js"), "utf8");
+assert.ok(/setKTX2Loader\s*\(/.test(sourceAssets),
+  "assets.js n'appelle plus setKTX2Loader : les modèles perdraient leurs textures en silence");
+
+// ── c. Rien d'autre n'a été emporté par la réécriture ──────────────────────
+for (const rig of ["yole_crew", "yole_crew_locks", "yole_crew_casquette", "yole_crew_bakoua"]) {
+  const octets = readFileSync(chemin(`assets/models/${rig}.glb`));
+  const gltf = JSON.parse(octets.subarray(20, 20 + octets.readUInt32LE(12)).toString("utf8"));
+  const utilisees = gltf.extensionsUsed || [];
+  for (const extension of ["KHR_materials_specular", "KHR_materials_ior"]) {
+    assert.ok(utilisees.includes(extension),
+      `${rig} : ${extension} a disparu — l'outil doit enregistrer ALL_EXTENSIONS avant de réécrire`);
+  }
+  assert.equal((gltf.skins?.[0]?.joints || []).length, 24, `${rig} : le squelette n'a plus 24 os`);
+  assert.equal((gltf.animations || []).length, 5, `${rig} : il ne reste pas cinq actions`);
+  assert.deepEqual(gltf.meshes[0].extras?.targetNames, ["poing"],
+    `${rig} : la clé de forme « poing » a disparu du maillage`);
+}
+
 const vramWebp = releves.reduce((somme, r) => somme + r.vramWebpMo, 0);
 const vramKtx2 = releves.reduce((somme, r) => somme + r.vramKtx2Mo, 0);
 
@@ -130,5 +189,7 @@ console.log(JSON.stringify({
   disqueKtx2Ko: releves.reduce((s, r) => s + r.ktx2Ko, 0),
   vramWebpMo: +vramWebp.toFixed(1),
   vramKtx2Mo: +vramKtx2.toFixed(1),
-  vramEconomiseeMo: +(vramWebp - vramKtx2).toFixed(1)
+  vramEconomiseeMo: +(vramWebp - vramKtx2).toFixed(1),
+  modelesTextures,
+  imagesGlb
 }, null, 2));

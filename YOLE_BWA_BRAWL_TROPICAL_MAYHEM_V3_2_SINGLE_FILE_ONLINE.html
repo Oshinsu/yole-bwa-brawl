@@ -21465,6 +21465,16 @@ class AssetLibrary {
     }
 
     const loader = new GLTFLoader();
+    // ⚠️ SANS CETTE LIGNE, LES MODÈLES PERDENT LEURS TEXTURES EN SILENCE.
+    // Depuis que les images des GLB sont encodées en KTX2
+    // (`tools/encode_glb_ktx2.mjs`), leur matériau déclare `KHR_texture_basisu`.
+    // `GLTFLoader` ne sait pas transcoder tout seul : il lui faut le même
+    // chargeur que les textures autonomes. Vu à l'écran avant correction :
+    // l'équipage entier en aplat, sans vêtements, sans visages, sans coiffes —
+    // et pas une ligne d'erreur. Le chargeur est partagé, pas dupliqué : un seul
+    // transcodeur wasm et un seul groupe de workers pour tout le jeu.
+    const ktx2 = await this.loadKTX2Loader();
+    if (ktx2 && typeof loader.setKTX2Loader === "function") loader.setKTX2Loader(ktx2);
     this.cloneSkeleton = await this.loadSkeletonUtils();
 
     // Les rigs sont indépendants et chargés en parallèle.

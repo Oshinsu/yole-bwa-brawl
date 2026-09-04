@@ -13,6 +13,40 @@
 > portaient une information réelle, celle d'une passe reprise dans la foulée d'une
 > autre. Aucune date n'a été réinventée, parce qu'aucune n'était mesurable.
 
+## Passe 95 — les textures des modèles aussi : 61 Mo de VRAM au total
+
+Suite directe de la passe 94, qui n'avait traité que les textures autonomes du
+moteur. Ici les vingt-et-une images embarquées dans dix-neuf GLB — équipage et
+ses trois variantes, matériel de pont, bourg, flottille, armes. Ce sont celles
+qui restent RÉSIDENTES pendant la course.
+
+- **6,0 → 0,75 Mo de VRAM**, soit 5,25 Mo rendus au GPU, et les modèles
+  maigrissent de 2,53 à 2,13 Mo sur disque. Cumulé avec la passe 94 :
+  **70,1 → 8,75 Mo de VRAM, 61,3 Mo rendus**, pour un précache qui passe de
+  10,66 à **10,49 Mo** — plus léger qu'avant d'avoir commencé.
+- `tools/encode_glb_ktx2.mjs` (`npm run textures:glb`) réencode chaque image en
+  place via glTF-Transform et déclare `KHR_texture_basisu`. Outil de
+  construction, comme son jumeau : aucune dépendance d'exécution ajoutée.
+- **⚠️ DEUX RÉGRESSIONS TROUVÉES PAR LA MESURE, PAS PAR LA RELECTURE.**
+  - *Les modèles ont perdu toutes leurs textures, en silence.* `GLTFLoader` ne
+    sait pas transcoder du Basis tout seul : il lui faut `setKTX2Loader`. Vu à
+    l'écran : l'équipage entier en aplat, sans vêtements, sans visages, sans
+    coiffes — et pas une ligne d'erreur en console. Le chargeur est désormais
+    partagé avec les textures autonomes, un seul transcodeur pour tout le jeu.
+  - *`NodeIO` jette en silence les extensions qu'il ne sait pas relire.* Au
+    premier essai, les quatre rigs d'équipage ont perdu
+    `KHR_materials_specular` et `KHR_materials_ior` : leur matériau retombait de
+    MeshPhysical à MeshStandard, et `makeCrewMaterial` le CLONE pour tout
+    l'équipage. Corrigé en enregistrant `ALL_EXTENSIONS` avant la réécriture —
+    on ne change plus que les images.
+- Vérifié après coup : aucune extension perdue sur les vingt GLB, squelette à
+  24 os, cinq actions et clé de forme « poing » intacts, `npm run test:crew`
+  vert avec des chiffres de silhouette identiques à la passe 91.
+- `test/ktx2-pipeline.test.mjs` couvre maintenant les deux moitiés : images de
+  modèle en KTX2, extension déclarée ET requise, `setKTX2Loader` présent dans
+  `assets.js`, et les quatre rigs d'équipage vérifiés os par os, action par
+  action — le seul garde-fou contre une prochaine réécriture distraite.
+
 ## Passe 94 — les textures du moteur en KTX2 : 56 Mo rendus au GPU
 
 Le propriétaire, après un état des lieux « SOTA septembre 2026 » : « vas-y, fais

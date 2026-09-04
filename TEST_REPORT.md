@@ -1,5 +1,35 @@
 # Rapport de validation — YOLE: BWA BRAWL Tropical Mayhem V3.2
 
+## Passe 95 — textures des modèles en KTX2
+
+Validation du 4 septembre 2026 :
+
+- `npm run verify` : **OK** ; checksums inchangés (`017e9fdc`, `38b36ee7`,
+  `85b03e9f`, `0127bfc6`) ;
+- 21 images dans 19 modèles converties : VRAM **6,0 → 0,75 Mo**, disque
+  2,53 → 2,13 Mo ;
+- cumul des passes 94 et 95 : VRAM **70,1 → 8,75 Mo (61,3 Mo rendus)**,
+  précache **10,66 → 10,49 Mo** — plus léger qu'au départ ;
+- intégrité des GLB vérifiée fichier par fichier contre la sauvegarde :
+  **aucune extension perdue** sur les vingt modèles ; les quatre rigs
+  d'équipage gardent 24 os, 5 actions, la clé « poing » et leurs deux
+  extensions de matériau ;
+- `npm run test:crew` vert, chiffres de silhouette identiques à la passe 91 ;
+- deux régressions attrapées en cours de route : textures de modèle perdues
+  faute de `setKTX2Loader`, et extensions de matériau jetées par `NodeIO`.
+
+### Ce qui n'est pas vérifié ici
+
+- **toujours pas de mesure sur un vrai téléphone** : les 61 Mo sont un calcul
+  juste, pas une observation. Le P0 de `docs/NEXT_PRODUCTION_STEPS.md` reste
+  entier ;
+- la comparaison A/B des modèles n'est pas concluante numériquement (12,5/255) :
+  la position amortie du bateau diffère d'une exécution à l'autre et domine
+  l'écart. Le jugement est visuel — équipage, coffre, voile et flottille
+  identiques — pas métrique ;
+- le coût CPU du transcodage au chargement n'est toujours pas chiffré.
+
+
 ## Passe 94 — pipeline KTX2
 
 Validation du 4 septembre 2026 :
